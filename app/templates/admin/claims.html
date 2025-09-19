@@ -1,0 +1,64 @@
+<!-- app/templates/admin/claims.html -->
+{% extends "base.html" %}
+
+{% block title %}Claims Management{% endblock %}
+
+{% block content %}
+<style>
+    h1 { text-align: center; margin-bottom: 2rem; }
+    table { width: 100%; border-collapse: collapse; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    th, td { padding: 1em; text-align: left; border-bottom: 1px solid #ddd; }
+    th { background-color: #f8f8f8; }
+    .status-open { color: #f39c12; font-weight: bold; }
+    .status-resolved { color: #27ae60; font-weight: bold; }
+    .status-denied { color: #c0392b; font-weight: bold; }
+    .status-awaiting_rewash { color: #3498db; font-weight: bold; }
+    .actions button { padding: 0.5em 1em; margin-right: 0.5em; border: none; border-radius: 4px; cursor: pointer; }
+    .btn-resolve { background-color: #2ecc71; color: white; }
+    .btn-deny { background-color: #e74c3c; color: white; }
+</style>
+
+<h1>Claims Management</h1>
+
+<table>
+    <thead>
+        <tr>
+            <th>Claim ID</th>
+            <th>Order ID</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Amount</th>
+            <th>Created At</th>
+            <th>Notes</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for claim in claims %}
+        <tr>
+            <td>{{ claim.id }}</td>
+            <td><a href="/track/{{ claim.order.tracking_token }}" target="_blank">{{ claim.order_id }}</a></td>
+            <td>{{ claim.claim_type }}</td>
+            <td><span class="status-{{ claim.status.lower() }}">{{ claim.status }}</span></td>
+            <td>{{ 'R%.2f'|format(claim.amount) if claim.amount else 'N/A' }}</td>
+            <td>{{ claim.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td style="max-width: 300px;">{{ claim.notes }}</td>
+            <td>
+                {% if claim.status == 'open' %}
+                <div class="actions">
+                    <button class="btn-resolve">Resolve</button>
+                    <button class="btn-deny">Deny</button>
+                </div>
+                {% else %}
+                -
+                {% endif %}
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="8" style="text-align: center;">No claims found.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

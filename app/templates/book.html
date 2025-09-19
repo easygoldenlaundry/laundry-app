@@ -1,0 +1,135 @@
+<!-- app/templates/book.html -->
+{% extends "base.html" %}
+
+{% block title %}Book a Pickup{% endblock %}
+
+{% block content %}
+<style>
+    body { background-color: #f4f7f9; }
+    .booking-container { max-width: 500px; margin: 2em auto; padding: 2em; background: #fff; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+    h1 { text-align: center; margin-bottom: 1.5em; }
+    .form-group { margin-bottom: 1.25em; }
+    label { display: block; font-weight: 500; margin-bottom: 0.5em; }
+    input[type="text"], input[type="tel"], textarea {
+        width: 100%; padding: 0.8em; box-sizing: border-box;
+        border: 1px solid #ccc; border-radius: 4px; font-size: 1em;
+    }
+    textarea { min-height: 80px; resize: vertical; }
+    
+    /* Delivery Options */
+    .delivery-options { display: flex; gap: 1em; margin-bottom: 1.25em; }
+    .delivery-options button {
+        flex-grow: 1; padding: 1em; font-size: 1em;
+        border: 2px solid #ccc; border-radius: 5px;
+        background-color: #f9f9f9; cursor: pointer;
+        transition: all 0.2s;
+    }
+    .delivery-options button.selected {
+        border-color: #007bff; background-color: #e6f2ff;
+        font-weight: bold;
+    }
+
+    /* Pricing Info */
+    .pricing-info {
+        background-color: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1.5em;
+        margin: 2em 0;
+        text-align: center;
+    }
+    .pricing-info h3 { margin-top: 0; }
+    .pricing-info .price { font-size: 1.8em; font-weight: bold; color: #007bff; margin: 0.5em 0; }
+    .pricing-info img { max-width: 100%; height: auto; margin-top: 1em; border-radius: 5px; }
+    .pricing-info p { color: #555; line-height: 1.6; }
+
+    #submit-btn {
+        display: block; width: 100%; padding: 1em; background-color: #007bff;
+        color: white; border: none; border-radius: 4px; font-size: 1.2em;
+        cursor: pointer; transition: background-color 0.2s;
+    }
+    #submit-btn:hover { background-color: #0056b3; }
+    #submit-btn:disabled { background-color: #aaa; cursor: not-allowed; }
+</style>
+
+<div class="booking-container">
+    <h1>Request a Pickup</h1>
+    <form id="booking-form" action="/book" method="post">
+        
+        <input type="hidden" name="external_id" id="external_id">
+        <input type="hidden" name="hub_id" value="1">
+        <input type="hidden" name="delivery_option" id="delivery_option" value="next_day" required>
+
+        <div class="form-group">
+            <label for="customer_name">Full Name</label>
+            <input type="text" id="customer_name" name="customer_name" placeholder="Your full name" required value="{{ customer.full_name if customer else '' }}">
+        </div>
+
+        <div class="form-group">
+            <label for="customer_phone">Phone Number</label>
+            <input type="tel" id="customer_phone" name="customer_phone" placeholder="+27 82 555 1234" required value="{{ customer.phone_number if customer else '' }}">
+        </div>
+
+        <div class="form-group">
+            <label for="customer_address">Pickup Address</label>
+            <textarea id="customer_address" name="customer_address" placeholder="Street address, Area, City" required>{{- customer.address if customer else '' -}}</textarea>
+        </div>
+
+        <div class="form-group">
+            <label>Delivery Speed</label>
+            <div class="delivery-options">
+                <button type="button" data-value="express">Express (3-5h)</button>
+                <button type="button" data-value="next_day" class="selected">Next Day (24h)</button>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="notes_for_driver">Notes for the Driver (Optional)</label>
+            <textarea id="notes_for_driver" name="notes_for_driver" placeholder="e.g., Ring the bell twice, gate code is #1234"></textarea>
+        </div>
+
+        <div class="pricing-info">
+            <h3>Our Simple Pricing</h3>
+            <p class="price">R{{ "%.2f"|format(price_per_load|float) }} / Load</p>
+            <!-- --- THIS IS THE FIX: Corrected image path --- -->
+            <img src="/static/images/laundry_loads_visual.png" alt="Visual guide for one and two loads of laundry in baskets.">
+            <p>1 load is roughly half of a large laundry basket (approx. 10kg).</p>
+            <p>The final number of loads will be confirmed by our driver upon pickup. Payment can be made via cash or EFT.</p>
+        </div>
+        
+        <button type="submit" id="submit-btn">Request Pickup</button>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('booking-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const externalIdField = document.getElementById('external_id');
+        const deliveryOptionInput = document.getElementById('delivery_option');
+        const deliveryButtons = document.querySelectorAll('.delivery-options button');
+
+        const generateExternalId = () => {
+            return "web-" + Date.now() + "-" + Math.floor(Math.random() * 100000);
+        };
+        
+        externalIdField.value = generateExternalId();
+
+        deliveryButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                deliveryButtons.forEach(btn => btn.classList.remove('selected'));
+                button.classList.add('selected');
+                deliveryOptionInput.value = button.dataset.value;
+            });
+        });
+
+        form.addEventListener('submit', (e) => {
+            if (!form.checkValidity()) {
+                return;
+            }
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,325 @@
+{% extends "base.html" %}
+
+{% block title %}Track Order #{{ order.id }}{% endblock %}
+
+{% block content %}
+<!-- Font Awesome for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+<style>
+    /* --- New Tracking UI --- */
+    .tracking-wrapper { max-width: 900px; margin: 2em auto; background: #fff; padding: 2.5em; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.07); }
+    .new-order-banner { background-color: #d4edda; color: #155724; padding: 1em; border-radius: 6px; text-align: center; margin-bottom: 2em; }
+    .status-header { text-align: center; margin-bottom: 3em; }
+    .status-header h1 { font-size: 2.2em; margin: 0; color: #3498db; }
+    .status-header p { font-size: 1.1em; color: #777; margin-top: 0.5em; }
+
+    /* --- NEW: Marker Styles for Unified Timeline --- */
+    .timeline-markers {
+        position: absolute;
+        top: -5px; /* Adjust vertical position of markers */
+        left: 0;
+        right: 0;
+        height: 100%;
+        z-index: 5;
+        pointer-events: none; /* Markers shouldn't block clicks */
+    }
+    .timeline-marker {
+        position: absolute;
+        transform: translateX(-50%);
+        text-align: center;
+        transition: left 0.8s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .marker-icon {
+        font-size: 2.2em;
+        color: #34495e;
+        position: relative;
+        display: inline-block;
+    }
+    .marker-count {
+        position: absolute;
+        top: -5px;
+        right: -10px;
+        background-color: #e74c3c;
+        color: white;
+        font-size: 0.6em;
+        font-weight: bold;
+        width: 18px;
+        height: 18px;
+        line-height: 18px;
+        border-radius: 50%;
+        border: 2px solid white;
+    }
+
+    /* Timeline Visualization */
+    .timeline-container { 
+        position: relative; 
+        padding: 0 20px; 
+        margin: 6em 0; /* Increased margin for markers */
+    }
+    .timeline-track { position: absolute; top: 17px; left: 0; right: 0; height: 6px; background-color: #e0e0e0; border-radius: 3px; z-index: 1; }
+    .timeline-progress {
+        position: absolute; top: 17px; left: 0; height: 6px;
+        background: linear-gradient(90deg, #3498db, #2980b9); border-radius: 3px;
+        z-index: 2; transition: width 0.8s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+    .timeline-steps { display: flex; justify-content: space-between; list-style-type: none; padding: 0; margin: 0; position: relative; z-index: 3; }
+    .step { display: flex; flex-direction: column; align-items: center; text-align: center; width: 80px; font-size: 0.85em; color: #aaa; }
+    .step-icon {
+        width: 40px; height: 40px; border-radius: 50%; background-color: #fff;
+        border: 4px solid #e0e0e0; margin-bottom: 0.75rem;
+        display: flex; justify-content: center; align-items: center;
+        font-size: 1.3em; transition: all 0.4s ease; color: #ccc;
+    }
+    .step-label { font-weight: 600; }
+    .step.completed .step-icon { border-color: #2ecc71; background-color: #2ecc71; color: #fff; }
+    .step.completed .step-label { color: #333; }
+    .step.active .step-icon {
+        border-color: #3498db; background-color: #fff; color: #3498db;
+        transform: scale(1.15); box-shadow: 0 0 0 8px rgba(52, 152, 219, 0.2);
+        animation: pulse 1.8s infinite;
+    }
+
+    /* Details Grid & Actions */
+    .details-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 2em; margin-top: 3em; }
+    .key-history, .gallery { border-top: 2px solid #eee; padding-top: 1.5em; }
+    .key-history h3, .gallery h3 { margin-top: 0; }
+    .key-history ul { list-style: none; padding: 0; }
+    .key-history li { padding: 0.8em 0; border-bottom: 1px solid #f0f0f0; }
+    .key-history li:last-child { border-bottom: none; }
+    .key-history .status { font-weight: bold; }
+    .key-history .timestamp { float: right; color: #888; font-size: 0.9em; }
+    .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
+    .gallery img { width: 100%; height: 100px; object-fit: cover; border-radius: 4px; }
+    .actions { text-align: center; margin-top: 2.5em; }
+    .action-btn { padding: 0.8em 1.5em; font-size: 1.1em; border: none; border-radius: 5px; cursor: pointer; }
+    .claim-btn { background-color: #dc3545; color: white; }
+    .deliver-btn { background-color: #28a745; color: white; font-size: 1.3em; padding: 1em 2em; }
+    .pin-display { background: #e9ecef; border: 1px dashed #adb5bd; padding: 1em; margin: 1em auto; border-radius: 8px; max-width: 300px; }
+    .pin-display p { margin: 0; font-size: 1.1em; }
+    .pin-display .pin-code { font-family: monospace; font-size: 2em; font-weight: bold; color: #0056b3; letter-spacing: 4px; }
+
+    /* Modal & Keyframes */
+    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
+    .modal-content { background-color: #fefefe; margin: 10% auto; padding: 2em; border: 1px solid #888; width: 80%; max-width: 500px; border-radius: 8px; }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.4); } 70% { box-shadow: 0 0 0 12px rgba(52, 152, 219, 0); } 100% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0); } }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes drive { from { transform: translateX(-51%) translateY(1px); } to { transform: translateX(-49%) translateY(-1px); } }
+</style>
+<!-- ^^^ THIS IS THE FIX: Added the missing closing style tag ^^^ -->
+
+<div class="tracking-wrapper" id="track-container" data-order-id="{{ order.id }}">
+    
+    {% if is_new %}
+    <div class="new-order-banner">
+        <strong>Booking successful!</strong> You can bookmark this page to track your order's progress.
+    </div>
+    {% endif %}
+
+    <div class="status-header">
+        <p>Current Status</p>
+        <h1 id="order-status">{{ display_label }}</h1>
+        {% if formatted_sla %}
+            <p>Estimated Completion: {{ formatted_sla }}</p>
+        {% endif %}
+    </div>
+
+    <!-- Main Animated Timeline -->
+    <div class="timeline-container">
+        <div class="timeline-track"></div>
+        <div class="timeline-progress" style="width: {{ overall_progress_percent }}%;"></div>
+
+        <!-- This div will contain the order/basket markers -->
+        <div class="timeline-markers">
+            {% for marker in markers %}
+            <div class="timeline-marker" style="left: {{ marker.position }}%;">
+                <div class="marker-icon">
+                    <i class="{{ marker.icon }}"></i>
+                    {% if marker.count > 1 %}
+                    <span class="marker-count">{{ marker.count }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <ul class="timeline-steps">
+            {% for step in timeline_steps %}
+                <li class="step {{ step.status_class }}">
+                    <div class="step-icon"><i class="{{ step.icon }}"></i></div>
+                    <div class="step-label">{{ step.label }}</div>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- PIN Displays -->
+    {% if order.status == 'AssignedToDriver' and order.pickup_pin %}
+    <div class="pin-display">
+        <p>Please provide this PIN to your driver for pickup:</p>
+        <p class="pin-code">{{ order.pickup_pin }}</p>
+        <p><small>(Alternatively, the driver can use the last 4 digits of your phone number.)</small></p>
+    </div>
+    {% endif %}
+
+    {% if order.status == 'OnRouteToCustomer' and order.delivery_pin %}
+    <div class="pin-display">
+        <p>Please provide this PIN to your driver for delivery:</p>
+        <p class="pin-code">{{ order.delivery_pin }}</p>
+        <p><small>(Alternatively, the driver can use the last 4 digits of your phone number.)</small></p>
+    </div>
+    {% endif %}
+
+    <!-- Cleaned up Details Grid -->
+    <div class="details-grid">
+        <div class="key-history">
+            <h3>Key History</h3>
+            <ul>
+                {% for event in key_events %}
+                <li>
+                    <span class="status">{{ event.to_status.replace('_', ' ') }}</span>
+                    <span class="timestamp">{{ event.timestamp.strftime('%Y-%m-%d %H:%M') }}</span>
+                </li>
+                {% else %}
+                <li>No events yet.</li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="gallery">
+            <h3>Item Images</h3>
+            {% if images %}
+            <div class="gallery-grid">
+                {% for image in images %}
+                    <img src="/{{ image.path }}" alt="Item image">
+                {% endfor %}
+            </div>
+            {% else %}
+            <p>Images will appear here after the imaging step.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="actions">
+        {% if order.status == 'ReadyForDelivery' %}
+            <button id="request-delivery-btn" class="action-btn deliver-btn">Schedule My Delivery Now</button>
+        {% endif %}
+        <button id="report-issue-btn" class="action-btn claim-btn">Report an Issue</button>
+    </div>
+</div>
+
+<!-- Claim Modal -->
+<div id="claim-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn">&times;</span>
+        <h2>Report an Issue with Order #{{ order.id }}</h2>
+        <form id="claim-form">
+            <div class="form-group">
+                <label for="claim_type">Issue Type:</label>
+                <select name="claim_type" id="claim_type" required style="width:100%; padding: 0.5em;">
+                    <option value="delay">Order is Delayed</option>
+                    <option value="missed_stain">Missed Stain / Damage</option>
+                    <option value="missing_item">Missing Item</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="description">Description:</label>
+                <textarea name="description" id="description" required style="width:100%; min-height: 80px;"></textarea>
+            </div>
+            <button type="submit" id="submit-claim-btn" style="width: 100%; padding: 0.8em; font-size: 1.1em;">Submit Claim</button>
+        </form>
+        <div id="claim-feedback" style="margin-top: 1em; text-align: center;"></div>
+    </div>
+</div>
+
+<script src="/static/vendor/socket.io.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const trackContainer = document.getElementById('track-container');
+    const orderId = trackContainer.dataset.orderId;
+
+    // --- Delivery Request Logic ---
+    const deliveryBtn = document.getElementById('request-delivery-btn');
+    if (deliveryBtn) {
+        deliveryBtn.addEventListener('click', async () => {
+            deliveryBtn.disabled = true;
+            deliveryBtn.textContent = 'Scheduling...';
+            try {
+                const response = await fetch(`/api/orders/${orderId}/request-delivery`, { method: 'POST' });
+                if (!response.ok) throw new Error('Could not schedule delivery.');
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+                deliveryBtn.disabled = false;
+                deliveryBtn.textContent = 'Schedule My Delivery Now';
+            }
+        });
+    }
+
+    // --- Modal Logic ---
+    const modal = document.getElementById('claim-modal');
+    const openBtn = document.getElementById('report-issue-btn');
+    const closeBtn = modal.querySelector('.close-btn');
+    const claimForm = document.getElementById('claim-form');
+    const feedbackDiv = document.getElementById('claim-feedback');
+    
+    openBtn.onclick = () => { modal.style.display = 'block'; };
+    closeBtn.onclick = () => { modal.style.display = 'none'; };
+    window.onclick = (event) => {
+        if (event.target == modal) {
+            modal.style.display = 'none';
+        }
+    };
+
+    claimForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        feedbackDiv.textContent = 'Submitting...';
+        const formData = new FormData(claimForm);
+        
+        try {
+            const response = await fetch(`/api/orders/${orderId}/claims`, {
+                method: 'POST',
+                body: formData,
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.detail || 'An error occurred.');
+            
+            let successMessage = `Claim #${result.id} submitted! Status: ${result.status}.`;
+            if (result.amount) successMessage += ` A credit of R${result.amount} has been applied.`;
+            if (result.status === 'awaiting_rewash') successMessage += ' Your order has been sent for re-processing.';
+
+            feedbackDiv.style.color = 'green';
+            feedbackDiv.textContent = successMessage;
+            
+            setTimeout(() => window.location.reload(), 3000);
+        } catch (error) {
+            feedbackDiv.style.color = 'red';
+            feedbackDiv.textContent = `Error: ${error.message}`;
+        }
+    });
+
+    // --- Real-Time Update Logic ---
+    const currentStatus = "{{ order.status }}";
+    const orderIdInt = parseInt(orderId);
+    if (["Delivered", "Closed", "Cancelled"].includes(currentStatus)) {
+        console.log("Order is in a terminal state. Real-time updates disabled.");
+        return;
+    }
+
+    const socket = io({ transports: ['websocket'] });
+
+    socket.on('connect', () => {
+        console.log('Socket connected for tracking.');
+        socket.emit('join', { room: `order:${orderId}` });
+    });
+
+    socket.on('order.updated', (updatedOrder) => {
+        if (updatedOrder.id === orderIdInt) {
+            console.log(`Update received for this order. Reloading page.`);
+            window.location.reload();
+        }
+    });
+
+    socket.on('disconnect', () => console.log('Socket disconnected.'));
+});
+</script>
+{% endblock %}

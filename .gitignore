@@ -1,0 +1,18 @@
+# Virtual Environment
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Databases
+brain.db
+*.sqlite3
+backups/
+
+# Environment files
+.env
+
+# Logs
+logs/

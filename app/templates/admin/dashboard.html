@@ -1,0 +1,183 @@
+<!-- app/templates/admin/dashboard.html -->
+{% extends "base.html" %}
+
+{% block title %}Dashboard Overview{% endblock %}
+
+{% block content %}
+<!-- Add Font Awesome for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<style>
+    body {
+        background-color: #f4f7f9;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    h1 {
+        text-align: center;
+        color: #2c3e50;
+        margin-bottom: 2rem;
+    }
+    #orders-container {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    .order-card {
+        background-color: #fff;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        border: 1px solid #e8e8e8;
+        transition: transform 0.2s ease;
+    }
+    .order-card:hover {
+        transform: translateY(-3px);
+    }
+    
+    .order-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 1rem;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+    }
+    .order-title {
+        flex-grow: 1;
+    }
+    .order-header h3 { margin: 0; font-size: 1.3em; color: #34495e; }
+    .order-header p { margin: 0; color: #555; font-size: 1em; }
+
+    .timers-container-inline {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        font-family: monospace;
+        font-size: 1.1em;
+        color: #555;
+        flex-shrink: 0;
+    }
+
+    .sla-details {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem; /* Space between deadline and the age/left timer */
+    }
+
+    .sla-deadline-time {
+        font-weight: bold;
+        background-color: #e9ecef;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 1em;
+        color: #495057;
+    }
+    
+    .sla-warning .sla-time-breakdown {
+        color: #f57c00;
+        font-weight: bold;
+    }
+
+    .sla-breached .sla-time-breakdown {
+        color: #d32f2f;
+        font-weight: bold;
+    }
+
+    /* Timeline Styles... */
+    .timeline-container { 
+        position: relative; 
+        padding: 0 10px; 
+        margin-top: 2.5em; /* More margin for markers */
+        margin-bottom: 1em;
+    }
+    .timeline-track { position: absolute; top: 18px; left: 0; right: 0; height: 4px; background-color: #e0e0e0; border-radius: 2px; z-index: 1; }
+    .timeline-progress { position: absolute; top: 18px; left: 0; height: 4px; background-color: #3498db; border-radius: 2px; z-index: 2; transition: width 0.5s ease-in-out; }
+    .timeline-steps { display: flex; justify-content: space-between; list-style-type: none; padding: 0; margin: 0; position: relative; z-index: 3; }
+    .step { display: flex; flex-direction: column; align-items: center; text-align: center; width: 85px; font-size: 0.8em; color: #aaa; }
+    .step-icon { width: 40px; height: 40px; border-radius: 50%; background-color: #fff; border: 3px solid #e0e0e0; margin-bottom: 0.5rem; display: flex; justify-content: center; align-items: center; font-size: 1.2em; transition: all 0.3s ease; color: #ccc; }
+    .step-label { font-weight: 600; }
+    .step.completed .step-icon { background-color: #2ecc71; border-color: #2ecc71; color: #fff; }
+    .step.completed .step-label { color: #333; }
+    .step.active .step-icon { border-color: #3498db; background-color: #fff; color: #3498db; transform: scale(1.1); box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.2); animation: pulse 1.5s infinite; }
+    .step.active .step-label { color: #3498db; }
+
+    /* --- NEW: Styles for timeline markers --- */
+    .timeline-markers {
+        position: absolute;
+        top: -16px; /* Adjust vertical position */
+        left: 0;
+        right: 0;
+        height: 100%;
+        z-index: 5;
+        pointer-events: none;
+    }
+
+    .timeline-marker {
+        position: absolute;
+        transform: translateX(-50%);
+        text-align: center;
+        transition: left 0.5s ease-in-out;
+    }
+
+    .marker-icon {
+        font-size: 1.8em;
+        color: #34495e;
+        position: relative;
+        display: inline-block;
+    }
+
+    .marker-count {
+        position: absolute;
+        top: -4px;
+        right: -8px;
+        background-color: #e74c3c;
+        color: white;
+        font-size: 0.6em;
+        font-weight: bold;
+        width: 16px;
+        height: 16px;
+        line-height: 16px;
+        border-radius: 50%;
+        border: 1px solid white;
+    }
+
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(52, 152, 219, 0); } 100% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0); } }
+
+    /* Connection Status & Nav... */
+    #connection-status { position: fixed; top: 10px; right: 10px; padding: 8px; border-radius: 5px; color: white; z-index: 1000; }
+    .status-connected { background-color: #28a745; }
+    .status-disconnected { background-color: #dc3545; }
+    .station-nav { display: flex; justify-content: center; gap: 0.5rem; margin-bottom: 2rem; flex-wrap: wrap; }
+    .station-nav a { display: block; padding: 0.6em 1.2em; background-color: #fff; color: #3498db; text-decoration: none; border-radius: 20px; border: 1px solid #ddd; font-weight: 500; transition: all 0.2s ease; }
+    .station-nav a:hover { background-color: #3498db; color: #fff; border-color: #3498db; }
+</style>
+
+<div id="connection-status">Connecting...</div>
+<h1>Live Order Overview</h1>
+
+<nav class="station-nav">
+    <!-- ADD THIS LINE for the Command Room -->
+    <a href="/admin/command-room">Command Room</a> 
+    <a href="/admin/users">User Management</a>
+    <a href="/admin/settings">Settings</a>
+    <a href="/admin/claims">Claims Management</a>
+    <a href="/hub_intake">Hub Intake</a>
+    <a href="/imaging">Imaging</a>
+    <a href="/pretreat">Pretreat</a>
+    <a href="/washing">Washing</a>
+    <a href="/drying">Drying</a>
+    <a href="/folding">Folding</a>
+    <a href="/qa_station">QA</a>
+</nav>
+
+<div id="orders-container">
+    <!-- JavaScript will render the live order timelines here -->
+</div>
+
+<script src="/static/vendor/socket.io.min.js"></script>
+<script src="/static/js/dashboard.js"></script>
+{% endblock %}

@@ -1,0 +1,99 @@
+<!-- app/templates/station_fold.html -->
+{% extends "base.html" %}
+
+{% block title %}Folding Station{% endblock %}
+
+{% block content %}
+<style>
+    .station-wrapper { display: flex; gap: 1.5em; }
+    #queue-sidebar { flex: 0 0 280px; border-right: 2px solid #eee; padding-right: 1.5em; }
+    .main-content { flex-grow: 1; }
+    .queue-item {
+        padding: 0.8em 1em; border: 1px solid #ccc; border-radius: 6px;
+        margin-bottom: 0.75em; cursor: pointer; transition: all 0.2s;
+    }
+    .queue-item:hover { background-color: #f0f0f0; }
+    .queue-item.active {
+        background-color: #e6f7ff; border-color: #3498db;
+        font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    #active-order-display {
+        border: 1px solid #ddd; border-radius: 8px; padding: 1.5em;
+        background-color: #f9f9f9; display: none; /* Hidden by default */
+    }
+    .cycle-control-panel {
+        text-align: center; margin-top: 1.5em;
+        border: 2px dashed #ccc; border-radius: 10px; padding: 2em;
+    }
+    #timer-display {
+        font-size: 4em; font-weight: bold; color: #34495e;
+        margin: 0.2em 0; font-family: monospace;
+    }
+    .control-buttons { display: flex; justify-content: center; gap: 1em; margin-top: 1em; }
+    .control-buttons button {
+        padding: 1em 2em; font-size: 1.2em; border-radius: 8px;
+        border: none; cursor: pointer; min-width: 150px;
+    }
+    #start-btn { background-color: #2ecc71; color: white; }
+    #finish-btn { background-color: #3498db; color: white; }
+    #start-btn:disabled, #finish-btn:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+    .key-hints { margin-top: 2em; padding: 1em; background: #f7f7f7; border-radius: 6px; }
+    .key-hints span { font-weight: bold; background: #ccc; padding: 2px 5px; border-radius: 3px; font-family: monospace; }
+    #claim-btn { margin-top: 1em; background-color: #e74c3c; color: white; border: none; padding: 0.8em; border-radius: 5px; }
+    
+    /* --- FIX: Styles for Machine Status --- */
+    #machine-status {
+        padding: 1em;
+        border-radius: 8px;
+        text-align: center;
+        font-size: 1.1em;
+        margin-bottom: 1.5em;
+        font-weight: 500;
+    }
+    .status-available { background-color: #e8f5e9; color: #2e7d32; }
+    .status-full { background-color: #fff3e0; color: #ef6c00; }
+    .status-error { background-color: #ffebee; color: #c62828; }
+</style>
+
+<body data-station-type="folding" data-station-title="Folding Station">
+<div class="station-wrapper">
+    <aside id="queue-sidebar">
+        <h3>Folding Queue</h3>
+        <div id="queue-list">
+            <!-- JS will populate this list -->
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <h1 id="station-title">Folding Station</h1>
+        
+        <!-- --- FIX: DIV for Machine Status --- -->
+        <div id="machine-status">Loading machine status...</div>
+
+        <div id="active-order-display">
+            <div id="active-order-info">
+                <!-- JS populates this -->
+            </div>
+            
+            <div class="cycle-control-panel">
+                <div id="timer-display">00:00</div>
+                <div class="control-buttons">
+                    <button id="start-btn">Start Cycle (S)</button>
+                    <button id="finish-btn" disabled>Finish Cycle (F)</button>
+                </div>
+            </div>
+             <button id="claim-btn">Report Issue / Claim</button>
+        </div>
+
+        <div class="key-hints">
+            <h3>Keyboard Shortcuts:</h3>
+            <p><span>S</span>: Start Cycle for the selected order.</p>
+            <p><span>F</span>: Finish the currently running cycle.</p>
+        </div>
+    </main>
+</div>
+
+<script src="/static/vendor/socket.io.min.js"></script>
+<script src="/static/js/station_generic.js"></script>
+</body>
+{% endblock %}

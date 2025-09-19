@@ -1,0 +1,55 @@
+<!-- app/templates/register.html -->
+{% extends "base.html" %}
+
+{% block title %}Staff & Driver Registration{% endblock %}
+
+{% block content %}
+<style>
+    .register-container { max-width: 450px; margin: 4em auto; padding: 2em; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); background: #fff; }
+    .form-group { margin-bottom: 1.25em; }
+    label { display: block; margin-bottom: 0.5em; font-weight: 500; }
+    input, select { width: 100%; padding: 0.8em; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+    button { width: 100%; padding: 1em; background-color: #007bff; color: white; border: none; border-radius: 4px; font-size: 1em; cursor: pointer; }
+    .error { padding: 1em; margin-bottom: 1em; border-radius: 4px; text-align: center; color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; }
+    .links { text-align: center; margin-top: 1.5em; }
+    .links a { color: #007bff; text-decoration: none; }
+</style>
+<div class="register-container">
+    <h1>Staff / Driver Registration</h1>
+    <p>Your account will require admin approval before you can log in.</p>
+
+    {% if error %}
+        <p class="error">{{ error }}</p>
+    {% endif %}
+
+    <form action="/register" method="post">
+        <div class="form-group">
+            <label for="display_name">Full Name:</label>
+            <input type="text" id="display_name" name="display_name" required>
+        </div>
+        <div class="form-group">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required>
+        </div>
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required>
+        </div>
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+         <div class="form-group">
+            <label for="role">Role:</label>
+            <select id="role" name="role" required>
+                <option value="driver">Driver</option>
+                <option value="staff">Hub Staff</option>
+            </select>
+        </div>
+        <button type="submit">Register</button>
+    </form>
+    <div class="links">
+        <p>Already registered? <a href="/login">Login here</a>.</p>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,47 @@
+<!-- app/templates/book_success.html -->
+{% extends "base.html" %}
+
+{% block title %}Booking Successful{% endblock %}
+
+{% block content %}
+<style>
+    .success-container { text-align: center; max-width: 600px; margin: 4em auto; padding: 2em; background: #fff; border: 1px solid #d4edda; border-radius: 8px; }
+    h1 { color: #155724; }
+    .tracking-info { margin: 2em 0; }
+    .tracking-link {
+        display: inline-block;
+        font-family: monospace;
+        font-size: 1.2em;
+        padding: 0.8em;
+        background-color: #e6f7ff;
+        border: 1px dashed #3498db;
+        border-radius: 4px;
+        word-break: break-all;
+    }
+    .btn-track {
+        display: inline-block;
+        margin-top: 2em;
+        padding: 1em 2em;
+        background-color: #007bff;
+        color: white;
+        text-decoration: none;
+        border-radius: 5px;
+        font-size: 1.2em;
+    }
+</style>
+
+<div class="success-container">
+    <h1>Thank you, {{ order.customer_name }}!</h1>
+    <p>Your pickup request has been received.</p>
+    
+    <div class="tracking-info">
+        <p>You can track your order with this link:</p>
+        <a href="/track/{{ order.tracking_token }}" class="tracking-link">
+            /track/{{ order.tracking_token }}
+        </a>
+    </div>
+
+    <a href="/track/{{ order.tracking_token }}" class="btn-track">Track Your Order</a>
+    <p style="margin-top: 2em; color: #555;">We'll be there to pick up your items soon!</p>
+</div>
+{% endblock %}

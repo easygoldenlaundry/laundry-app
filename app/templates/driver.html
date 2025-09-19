@@ -1,0 +1,64 @@
+<!-- app/templates/driver.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver App</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; background-color: #f0f2f5; }
+        .header { background-color: #333; color: white; padding: 1em; text-align: center; }
+        .container { padding: 1em; }
+        h2 { border-bottom: 2px solid #ccc; padding-bottom: 0.5em; }
+        .job-card { background-color: white; border: 1px solid #ddd; border-radius: 8px; padding: 1em; margin-bottom: 1em; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .job-card p { margin: 0.4em 0; }
+        .job-card .job-type {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #333;
+            margin-bottom: 0.8em;
+        }
+        .job-type.pickup { color: #007bff; }
+        .job-type.delivery { color: #28a745; }
+
+        .btn { display: block; width: 100%; padding: 1em; margin-top: 1em; font-size: 1.2em; border-radius: 5px; border: none; cursor: pointer; text-align: center; }
+        .btn-accept { background-color: #28a745; color: white; }
+        .btn-action { background-color: #007bff; color: white; }
+        .btn:disabled { background-color: #ccc; cursor: not-allowed; }
+        .offline-banner { background-color: #ffc107; color: #333; text-align: center; padding: 0.5em; position: fixed; width: 100%; top: 0; z-index: 1000; display: none; }
+        .delivery-proof, .pickup-proof, .hub-delivery-proof, .hub-pickup-proof { margin-top: 1em; }
+        .delivery-proof input, .pickup-proof input, .hub-delivery-proof input, .hub-pickup-proof input { margin-bottom: 0.5em; width: 100%; box-sizing: border-box; padding: 0.5em; }
+    </style>
+</head>
+<body data-user-id="{{ user.id }}">
+    <div id="offline-banner" class="offline-banner">Offline — Actions are queued.</div>
+    <div class="header"><h1>Driver Portal ({{ user.display_name }})</h1></div>
+
+    <div class="container">
+        <section id="available-jobs">
+            <h2>Available Pickups</h2>
+            <div id="available-jobs-list">
+                <!-- Job cards will be inserted here -->
+            </div>
+        </section>
+
+        <!-- NEW SECTION FOR DELIVERIES -->
+        <section id="available-deliveries">
+            <h2>Available Deliveries</h2>
+            <div id="available-deliveries-list">
+                <!-- Delivery job cards will be inserted here -->
+            </div>
+        </section>
+
+        <section id="my-jobs">
+            <h2>My Jobs</h2>
+            <div id="my-jobs-list">
+                <!-- Job cards for accepted jobs will be here -->
+            </div>
+        </section>
+    </div>
+
+    <script src="/static/vendor/socket.io.min.js"></script>
+    <script src="/static/js/driver.js"></script>
+</body>
+</html>

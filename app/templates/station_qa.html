@@ -1,0 +1,98 @@
+<!-- app/templates/station_qa.html -->
+{% extends "base.html" %}
+
+{% block title %}QA Station{% endblock %}
+
+{% block content %}
+<style>
+    .station-wrapper { display: flex; gap: 1.5em; }
+    #queue-sidebar { flex: 0 0 280px; border-right: 2px solid #eee; padding-right: 1.5em; }
+    .main-content { flex-grow: 1; }
+    .queue-item {
+        padding: 0.8em 1em; border: 1px solid #ccc; border-radius: 6px;
+        margin-bottom: 0.75em; cursor: pointer; transition: all 0.2s;
+    }
+    .queue-item:hover { background-color: #f0f0f0; }
+    .queue-item.active {
+        background-color: #fce4ec; border-color: #e91e63;
+        font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    #active-order-display {
+        border: 1px solid #ddd; border-radius: 8px; padding: 1.5em;
+        background-color: #f9f9f9; display: none; /* Hidden by default */
+    }
+    .qa-content { display: flex; gap: 2em; }
+    .qa-checklist-panel { flex: 1; }
+    .qa-checklist { list-style-type: none; padding: 0; margin: 1.5em 0; }
+    .qa-checklist li { font-size: 1.2em; margin-bottom: 0.8em; }
+    .qa-checklist input { width: 20px; height: 20px; margin-right: 10px; }
+    #notes { width: 100%; height: 80px; margin-top: 1em; padding: 0.5em; box-sizing: border-box; }
+    .action-buttons { display: flex; gap: 1em; margin-top: 1.5em; }
+    .action-buttons button {
+        flex-grow: 1;
+        padding: 1em; font-size: 1.2em; border-radius: 8px; border: none;
+        cursor: pointer; color: white;
+    }
+    #pass-btn { background-color: #27ae60; }
+    #fail-btn { background-color: #c0392b; }
+    #pass-btn:disabled, #fail-btn:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+    
+    /* --- STAINED IMAGES PANEL --- */
+    .stained-images-panel { flex: 0 0 300px; border-left: 1px solid #eee; padding-left: 2em; }
+    #stained-images-list { max-height: 500px; overflow-y: auto; display: flex; flex-direction: column; gap: 1em; }
+    .stained-item-card { border: 1px solid #ccc; border-radius: 5px; padding: 0.5em; background: #fff; }
+    .stained-item-card img { width: 100%; height: auto; border-radius: 3px; }
+    .stained-item-card select { width: 100%; margin-top: 0.5em; padding: 0.3em; }
+
+</style>
+
+<div class="station-wrapper">
+    <aside id="queue-sidebar">
+        <h3>QA Queue</h3>
+        <div id="queue-list">
+            <!-- JS will populate this list -->
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <h1>Quality Assurance Station</h1>
+        <p>Select an order to perform the final quality check.</p>
+        
+        <div id="active-order-display">
+            <div id="active-order-info">
+                <!-- JS populates this -->
+            </div>
+            
+            <div class="qa-content">
+                <div class="qa-checklist-panel">
+                    <h3>QA Checklist</h3>
+                    <ul class="qa-checklist">
+                        <li><label><input type="checkbox" id="check-clean"> Is it clean?</label></li>
+                        <li><label><input type="checkbox" id="check-smell"> Does it smell fresh?</label></li>
+                        <li><label><input type="checkbox" id="check-fold"> Is it folded correctly?</label></li>
+                        <li><label><input type="checkbox" id="check-tags"> Are all tags/labels present?</label></li>
+                    </ul>
+    
+                    <label for="notes">Notes (Required if failing):</label>
+                    <textarea id="notes" placeholder="e.g., stain still visible on blue dress."></textarea>
+                    
+                    <div class="action-buttons">
+                        <button id="fail-btn">Fail QA & Send to Wash</button>
+                        <button id="pass-btn">Pass QA & Ready for Delivery</button>
+                    </div>
+                </div>
+
+                <div class="stained-images-panel">
+                    <h3>Stain Check</h3>
+                    <div id="stained-images-list">
+                        <!-- JS populates this -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="/static/vendor/socket.io.min.js"></script>
+<script src="/static/js/station_qa.js"></script>
+{% endblock %}

@@ -1,0 +1,165 @@
+<!-- app/templates/station_imaging.html -->
+{% extends "base.html" %}
+
+{% block title %}Imaging Station{% endblock %}
+
+{% block content %}
+<style>
+    .station-wrapper {
+        display: flex;
+        gap: 1em;
+    }
+    #queue-sidebar {
+        flex: 0 0 250px;
+        border-right: 2px solid #eee;
+        padding-right: 1em;
+    }
+    .station-container { 
+        flex-grow: 1;
+        min-width: 0;
+    }
+    .queue-item {
+        padding: 0.8em;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        margin-bottom: 0.5em;
+        cursor: pointer;
+        transition: background-color 0.2s, border-color 0.2s;
+    }
+    .queue-item:hover {
+        background-color: #f0f0f0;
+    }
+    .queue-item.active {
+        background-color: #e6f7ff;
+        border-color: #3498db;
+        font-weight: bold;
+    }
+    h1 { text-align: center; }
+    .status-area { text-align: center; margin-bottom: 1em; }
+    #current-order-display { border: 1px solid #ccc; padding: 1em; border-radius: 8px; margin-bottom: 1.5em; background-color: #e6f7ff; }
+    #video-container {
+        width: 100%;
+        max-width: 800px;
+        margin: 0 auto;
+        position: relative;
+    }
+    #video-feed { width: 100%; display: block; border: 4px solid #3498db; border-radius: 8px; }
+    #capture-canvas { display: none; }
+    .controls { text-align: center; margin-top: 1em; }
+    .controls button { padding: 0.8em 1.5em; margin: 0.5em; }
+    #thumbnail-strip {
+        display: flex;
+        gap: 10px;
+        overflow-x: auto;
+        padding: 10px 0;
+        margin-top: 1em;
+        border-top: 1px solid #eee;
+        min-height: 140px;
+    }
+    .thumbnail-item {
+        flex-shrink: 0;
+        width: 120px;
+        height: 120px;
+        border: 2px solid #ccc;
+        position: relative;
+        cursor: pointer;
+        transition: border-color 0.2s;
+    }
+    .thumbnail-item img { width: 100%; height: 100%; object-fit: cover; }
+    .item-index {
+        position: absolute; top: 5px; left: 5px;
+        background: rgba(0,0,0,0.7); color: white; padding: 2px 6px;
+        border-radius: 4px; font-size: 0.8em;
+    }
+    .stain-flag {
+        position: absolute; bottom: 5px; right: 5px;
+        color: white; font-weight: bold; background-color: #e74c3c; padding: 2px 5px; border-radius: 4px;
+    }
+    .key-hints { 
+        margin-top: 2em; 
+        padding: 1em; 
+        background: #f7f7f7; 
+        border-radius: 6px; 
+        text-align: left;
+    }
+    .key-hints span {
+        font-weight: bold;
+        background: #ccc;
+        padding: 2px 5px;
+        border-radius: 3px;
+        font-family: monospace;
+    }
+    #completion-area {
+        margin-top: 2em;
+        padding: 1.5em;
+        border: 2px dashed #999;
+        border-radius: 8px;
+        text-align: center;
+    }
+    /* --- UPDATED --- */
+    .basket-counter { display: flex; align-items: center; justify-content: center; gap: 1em; margin-top: 1em; }
+    .basket-counter label { font-size: 1.2em; font-weight: 500; }
+    .basket-counter input {
+        width: 80px;
+        padding: 0.5em;
+        text-align: center;
+        font-size: 1.5em;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+    }
+</style>
+
+<div class="station-wrapper">
+    
+    <div id="queue-sidebar">
+        <h3>Imaging Queue</h3>
+        <div id="queue-list">
+            <!-- JS will populate this list -->
+        </div>
+    </div>
+
+    <div class="station-container">
+        <h1>Imaging Station (Hub 1)</h1>
+        <div id="connection-status" class="status-area">Connecting...</div>
+
+        <div id="current-order-display">
+            <h2>Awaiting Next Order...</h2>
+            <p id="order-info"></p>
+            <p id="bag-info"></p>
+            <p id="item-info">Ready to scan Item #1.</p>
+        </div>
+
+        <div id="video-container">
+            <video id="video-feed" autoplay playsinline></video>
+            <canvas id="capture-canvas"></canvas>
+        </div>
+
+        <div class="controls">
+            <button id="stain-btn" disabled>Flag Stain (S)</button>
+        </div>
+
+        <div id="thumbnail-strip"></div>
+
+        <div class="key-hints">
+            <h3>Keyboard Shortcuts:</h3>
+            <p><span>SPACE</span>: Capture Image & Advance</p>
+            <p><span>S</span>: Flag the NEXT item for Stain/Damage (press before capturing)</p>
+            <p><span>SHIFT + Q</span>: Complete Imaging and move to next stage</p>
+        </div>
+
+        <div id="completion-area" style="display: none;">
+            <h3>Ready to Complete</h3>
+            <div class="basket-counter">
+                <label for="basket-count">Number of Sorted Baskets:</label>
+                <input type="number" id="basket-count" value="1" min="1">
+            </div>
+            <p>When all items have been imaged, click below to finalize.</p>
+            <button id="finalize-btn" class="btn-action">Finalize & Send to Hub (Shift+Q)</button>
+        </div>
+    </div>
+
+</div>
+
+<script src="/static/vendor/socket.io.min.js"></script>
+<script src="/static/js/imaging.js"></script>
+{% endblock %} 

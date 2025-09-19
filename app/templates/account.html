@@ -1,0 +1,111 @@
+<!-- app/templates/account.html -->
+{% extends "base.html" %}
+
+{% block title %}My Account{% endblock %}
+
+{% block content %}
+<style>
+    .account-wrapper {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 2em;
+    }
+    .details-card, .orders-card {
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 1.5em;
+    }
+    .details-card h2, .orders-card h2 {
+        margin-top: 0;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 0.5em;
+    }
+    .form-group { margin-bottom: 1.25em; }
+    label { display: block; font-weight: 500; margin-bottom: 0.5em; }
+    input, textarea {
+        width: 100%; padding: 0.8em; box-sizing: border-box;
+        border: 1px solid #ccc; border-radius: 4px; font-size: 1em;
+    }
+    .btn-save {
+        width: 100%; padding: 1em; background-color: #007bff;
+        color: white; border: none; border-radius: 4px; font-size: 1em; cursor: pointer;
+    }
+    
+    .orders-list { list-style-type: none; padding: 0; }
+    .order-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1em;
+        border-bottom: 1px solid #eee;
+    }
+    .order-item:last-child { border-bottom: none; }
+    .order-status {
+        padding: 0.3em 0.8em;
+        border-radius: 15px;
+        font-size: 0.9em;
+        font-weight: 500;
+        color: #fff;
+    }
+    .status-created { background-color: #6c757d; }
+    .status-processing { background-color: #fd7e14; }
+    .status-readyfordelivery { background-color: #0d6efd; }
+    .status-delivered { background-color: #198754; }
+    .status-default { background-color: #adb5bd; }
+
+    .btn-track {
+        padding: 0.5em 1em;
+        text-decoration: none;
+        background-color: #e9ecef;
+        color: #333;
+        border-radius: 5px;
+        border: 1px solid #ced4da;
+    }
+</style>
+
+<h1>My Account</h1>
+
+<div class="account-wrapper">
+    <aside class="details-card">
+        <h2>My Details</h2>
+        <form action="/account/update" method="post">
+            <div class="form-group">
+                <label for="full_name">Full Name</label>
+                <input type="text" name="full_name" id="full_name" value="{{ customer.full_name }}" required>
+            </div>
+            <div class="form-group">
+                <label for="phone_number">Phone Number</label>
+                <input type="tel" name="phone_number" id="phone_number" value="{{ customer.phone_number }}" required>
+            </div>
+            <div class="form-group">
+                <label for="address">Default Address</label>
+                <textarea name="address" id="address" rows="4" required>{{ customer.address }}</textarea>
+            </div>
+            <button type="submit" class="btn-save">Save Changes</button>
+        </form>
+    </aside>
+
+    <main class="orders-card">
+        <h2>My Orders</h2>
+        {% if orders %}
+        <ul class="orders-list">
+            {% for order in orders %}
+            <li class="order-item">
+                <div>
+                    <strong>Order #{{ order.id }}</strong>
+                    <p style="margin: 0.3em 0; color: #555;">Placed on: {{ order.created_at.strftime('%d %b %Y, %H:%M') }}</p>
+                </div>
+                <div>
+                    <span class="order-status status-{{ order.status.lower() if order.status else 'default' }}">{{ order.status.replace('_', ' ') }}</span>
+                    <a href="/track/{{ order.tracking_token }}" class="btn-track">Track</a>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>You haven't placed any orders yet. <a href="/book">Book your first pickup!</a></p>
+        {% endif %}
+    </main>
+</div>
+{% endblock %}

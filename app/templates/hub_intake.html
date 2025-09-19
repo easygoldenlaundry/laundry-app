@@ -1,0 +1,64 @@
+<!-- app/templates/hub_intake.html -->
+{% extends "base.html" %}
+
+{% block title %}Hub Intake{% endblock %}
+
+{% block content %}
+<!-- Use the CDN link for the QR Scanner Library -->
+<script src="https://unpkg.com/@zxing/library@latest/umd/zxing.min.js"></script>
+
+<style>
+    h1 { text-align: center; }
+    .intake-container { max-width: 800px; margin: 2em auto; }
+    .video-container {
+        max-width: 400px;
+        margin: 1em auto;
+        border: 2px solid #ccc;
+        border-radius: 8px;
+        overflow: hidden;
+        display: none; /* Initially hidden */
+    }
+    video { width: 100%; display: block; }
+    .orders-list { display: flex; flex-direction: column; gap: 1em; }
+    .order-card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 1em;
+        background-color: #f9f9f9;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .order-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1em;
+    }
+    .form-group { display: flex; gap: 0.5em; }
+    input[type="text"] { flex-grow: 1; padding: 0.5em; }
+    .scan-feedback {
+        margin-top: 0.5em;
+        padding: 0.5em;
+        border-radius: 4px;
+        display: none; /* Hidden by default */
+    }
+    .scan-success { background-color: #d4edda; color: #155724; }
+    .scan-error { background-color: #f8d7da; color: #721c24; }
+</style>
+
+<div class="intake-container">
+    <h1>Hub Intake - Scan Bags</h1>
+    <p style="text-align: center;">Orders ready for intake will appear below.</p>
+
+    <div class="video-container" id="video-container">
+        <video id="scanner-video"></video>
+    </div>
+
+    <div class="orders-list" id="orders-list">
+        <!-- JS will populate this list -->
+    </div>
+</div>
+
+<!-- EDIT: Add the missing Socket.IO client library -->
+<script src="/static/vendor/socket.io.min.js"></script>
+<script src="/static/js/hub_intake.js"></script>
+{% endblock %}

@@ -1,0 +1,304 @@
+<!-- app/templates/admin/command_room.html -->
+{% extends "base.html" %}
+
+{% block title %}Admin Command Room{% endblock %}
+
+{% block content %}
+<style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f0f2f5; color: #333; }
+    .command-room-container {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        padding: 1.5rem;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    h1 { font-size: 2em; color: #2c3e50; text-align: center; margin-bottom: 1.5rem; }
+    
+    .kpi-row, .station-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+    }
+    .kpi-card, .station-panel, .section-card {
+        background-color: #fff;
+        padding: 1.25rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        border: 1px solid #e0e0e0;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    .kpi-card h4, .section-card h4 { margin: 0 0 0.5rem 0; color: #555; text-transform: uppercase; font-size: 0.8rem; }
+    .kpi-value { font-size: 2rem; font-weight: 700; }
+    .kpi-card .status-green { color: #2e7d32; }
+    .kpi-card .status-amber { color: #f57c00; }
+    .kpi-card .status-red { color: #d32f2f; }
+    .kpi-card .kpi-subtext { font-size: 0.8em; color: #777; margin-top: 0.5em;}
+    
+    .main-row {
+        display: grid;
+        grid-template-columns: 3fr 1fr;
+        gap: 1rem;
+    }
+    .orders-container, .alerts-container {
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        border: 1px solid #e0e0e0;
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+    }
+    .orders-container { max-height: 75vh; } /* Keep for the real-time table */
+
+    .table-wrapper { overflow-y: auto; flex-grow: 1; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { padding: 0.6rem 0.8rem; text-align: left; border-bottom: 1px solid #eee; white-space: nowrap; }
+    th { font-weight: 600; position: sticky; top: 0; background: #fff; cursor: pointer; user-select: none; }
+    th.asc::after { content: " ▲"; }
+    th.desc::after { content: " ▼"; }
+    
+    .sla-breached { background-color: #ffebee !important; animation: blink 1.5s infinite ease-in-out; }
+    .sla-approaching { background-color: #fff3e0 !important; }
+    @keyframes blink { 50% { background-color: #fff; } }
+
+    #alerts-list { overflow-y: auto; flex-grow: 1; }
+    .alert-item { padding: 0.75rem; border-bottom: 1px solid #eee; font-size: 0.85rem; }
+    .alert-item.warn { border-left: 4px solid #f57c00; }
+    .alert-item.breach { border-left: 4px solid #d32f2f; }
+
+    .station-panel h5 { margin: 0 0 0.5rem 0; color: #444; }
+    .station-value { font-size: 1.5rem; font-weight: 600; display: block; margin-bottom: 0.2em; }
+    .station-sub-metrics { font-size: 0.75em; color: #777; line-height: 1.4; }
+    .bottleneck { border-color: #d32f2f; box-shadow: 0 0 8px rgba(211, 47, 47, 0.2); }
+    .bottleneck h5, .bottleneck .station-value { color: #d32f2f; }
+
+
+    /* New styles for historical/aggregated tables */
+    .historical-data-section {
+        margin-top: 2rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+    .table-controls {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .table-controls button {
+        padding: 0.5em 1em;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background-color: #f0f0f0;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .table-controls button.selected {
+        background-color: #007bff;
+        color: white;
+        border-color: #007bff;
+    }
+    .filter-bar {
+        margin-bottom: 1em;
+    }
+    .filter-bar input {
+        width: 100%;
+        padding: 0.6em;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 0.9em;
+    }
+</style>
+
+<div class="command-room-container">
+    <h1>Admin Command Room</h1>
+
+    <!-- Row 1: Executive KPIs -->
+    <div id="kpi-row" class="kpi-row">
+        <div class="kpi-card" id="kpi-turnaround">
+            <h4>Turnaround ≤ 2.5h</h4>
+            <div class="kpi-value">...</div>
+            <div class="kpi-subtext"></div>
+        </div>
+        <div class="kpi-card" id="kpi-pickup">
+            <h4>Pickup ≤ 15m</h4>
+            <div class="kpi-value">...</div>
+            <div class="kpi-subtext"></div>
+        </div>
+        <div class="kpi-card" id="kpi-delivery">
+            <h4>Delivery ≤ 15m</h4>
+            <div class="kpi-value">...</div>
+            <div class="kpi-subtext"></div>
+        </div>
+        <div class="kpi-card" id="kpi-imaging">
+            <h4>Image Coverage</h4>
+            <div class="kpi-value">...</div>
+            <div class="kpi-subtext"></div>
+        </div>
+        <div class="kpi-card" id="kpi-active-orders">
+            <h4>In-Flight Orders</h4>
+            <div class="kpi-value">...</div>
+            <div class="kpi-subtext">Currently active</div>
+        </div>
+        <div class="kpi-card" id="kpi-claims">
+            <h4>Open Claims Today</h4>
+            <div class="kpi-value">...</div>
+            <div class="kpi-subtext"></div>
+        </div>
+    </div>
+
+    <!-- Row 2: Real-time Table & Alerts -->
+    <div class="main-row">
+        <div class="orders-container">
+            <h4>Real-time In-Flight Orders</h4>
+            <div class="table-wrapper">
+                <table id="orders-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Customer</th>
+                            <th>Status</th>
+                            <th>Turnaround</th>
+                            <th>SLA Countdown</th>
+                            <th>Driver</th>
+                            <th>Items</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orders-table-body">
+                        <tr><td colspan="8" style="text-align:center;">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="alerts-container">
+            <h4>Alerts</h4>
+            <div id="alerts-list"></div>
+        </div>
+    </div>
+
+    <!-- Row 3: Station Panels -->
+    <div id="station-row" class="station-row">
+        <div class="station-panel" id="station-imaging">
+            <h5>Imaging</h5>
+            <span class="station-value" data-metric="queue_length">...</span> Queue
+            <div class="station-sub-metrics">
+                Avg: <span data-metric="avg_time">...</span>m<br>
+                P95: <span data-metric="p95_time">...</span>m<br>
+                Thr: <span data-metric="throughput_h">...</span>/h
+            </div>
+        </div>
+        <div class="station-panel" id="station-pretreat">
+            <h5>Pretreat</h5>
+            <span class="station-value" data-metric="queue_length">...</span> Queue
+            <div class="station-sub-metrics">
+                Avg: <span data-metric="avg_time">...</span>m<br>
+                P95: <span data-metric="p95_time">...</span>m<br>
+                Thr: <span data-metric="throughput_h">...</span>/h
+            </div>
+        </div>
+        <div class="station-panel" id="station-washing">
+            <h5>Washing</h5>
+            <span class="station-value" data-metric="queue_length">...</span> Queue
+            <div class="station-sub-metrics">
+                Util: <span data-metric="utilization_pct">...</span>%<br>
+                Avg: <span data-metric="avg_time">...</span>m<br>
+                P95: <span data-metric="p95_time">...</span>m
+            </div>
+        </div>
+        <div class="station-panel" id="station-drying">
+            <h5>Drying</h5>
+            <span class="station-value" data-metric="queue_length">...</span> Queue
+            <div class="station-sub-metrics">
+                Util: <span data-metric="utilization_pct">...</span>%<br>
+                Avg: <span data-metric="avg_time">...</span>m<br>
+                P95: <span data-metric="p95_time">...</span>m
+            </div>
+        </div>
+        <div class="station-panel" id="station-folding">
+            <h5>Folding</h5>
+            <span class="station-value" data-metric="queue_length">...</span> Queue
+            <div class="station-sub-metrics">
+                Util: <span data-metric="utilization_pct">...</span>%<br>
+                Avg: <span data-metric="avg_time">...</span>m<br>
+                P95: <span data-metric="p95_time">...</span>m
+            </div>
+        </div>
+        <div class="station-panel" id="station-qa">
+            <h5>QA</h5>
+            <span class="station-value" data-metric="queue_length">...</span> Queue
+            <div class="station-sub-metrics">
+                Avg: <span data-metric="avg_time">...</span>m<br>
+                P95: <span data-metric="p95_time">...</span>m<br>
+                Thr: <span data-metric="throughput_h">...</span>/h
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 4: Drilldowns - NEW SECTIONS BELOW -->
+    <div class="historical-data-section">
+        <div class="section-card">
+            <h4>All Orders History</h4>
+            <div class="filter-bar">
+                <input type="text" id="all-orders-search" placeholder="Search by Order ID, Customer, Status...">
+            </div>
+            <div class="table-wrapper">
+                <table id="all-orders-table">
+                    <thead>
+                        <tr>
+                            <th data-sort-by="id">Order ID</th>
+                            <th data-sort-by="customer_name">Customer</th>
+                            <th data-sort-by="status">Status</th>
+                            <th data-sort-by="created_at">Created At</th>
+                            <th data-sort-by="delivered_at">Delivered At</th>
+                            <th data-sort-by="total_items">Items</th>
+                            <th data-sort-by="basket_count">Baskets</th>
+                            <th data-sort-by="stain_count">Stains</th>
+                            <th data-sort-by="qa_outcome">QA Outcome</th>
+                            <th data-sort-by="imaging_duration">Imaging (m)</th>
+                            <th data-sort-by="pretreat_duration">Pretreat (m)</th>
+                            <th data-sort-by="washing_duration">Washing (m)</th>
+                            <th data-sort-by="drying_duration">Drying (m)</th>
+                            <th data-sort-by="folding_duration">Folding (m)</th>
+                            <th data-sort-by="qa_duration">QA (m)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="all-orders-table-body">
+                        <tr><td colspan="15" style="text-align:center;">Loading historical orders...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="section-card">
+            <h4>Aggregated Statistics</h4>
+            <div class="table-controls">
+                <button data-timeframe="7days" class="selected">Last 7 Days</button>
+                <button data-timeframe="30days">Last 30 Days</button>
+                <button data-timeframe="1year">Last Year</button>
+                <button data-timeframe="alltime">All Time</button>
+            </div>
+            <div class="table-wrapper">
+                <table id="aggregated-stats-table">
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th>Value</th>
+                        </tr>
+                    </thead>
+                    <tbody id="aggregated-stats-table-body">
+                        <tr><td colspan="2" style="text-align:center;">Loading aggregated stats...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/vendor/socket.io.min.js"></script>
+<script src="/static/js/command_room.js"></script>
+{% endblock %}
