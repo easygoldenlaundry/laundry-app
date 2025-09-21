@@ -14,11 +14,25 @@
         max-width: 1400px;
         margin: 0 auto;
     }
-    h1 { font-size: 2em; color: #2c3e50; text-align: center; margin-bottom: 1.5rem; }
+    h1 { font-size: 2em; color: #2c3e50; text-align: center; margin-bottom: 0.5rem; }
+    /* --- THIS IS THE FIX: New styles for section headers --- */
+    h2.section-header {
+        font-size: 1.5em;
+        color: #34495e;
+        margin-bottom: 0.5rem;
+        margin-top: 1rem;
+        border-bottom: 2px solid #ddd;
+        padding-bottom: 0.5rem;
+    }
     
     .kpi-row, .station-row {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+    }
+    .retention-kpi-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
         gap: 1rem;
     }
     .kpi-card, .station-panel, .section-card {
@@ -117,7 +131,32 @@
 <div class="command-room-container">
     <h1>Admin Command Room</h1>
 
-    <!-- Row 1: Executive KPIs -->
+    <!-- --- THIS IS THE FIX: New Structure --- -->
+    <h2 class="section-header">Key Business Metrics</h2>
+    <div id="retention-kpi-row" class="retention-kpi-row">
+        <div class="kpi-card" id="kpi-retention-rate">
+            <h4>Retention Rate (90-Day)</h4>
+            <div class="kpi-value">...</div>
+            <div class="kpi-subtext">Active customers / Total customers</div>
+        </div>
+        <div class="kpi-card" id="kpi-avg-lifespan">
+            <h4>Avg. Customer Lifespan</h4>
+            <div class="kpi-value">...</div>
+            <div class="kpi-subtext">Time between first and last order</div>
+        </div>
+        <div class="kpi-card" id="kpi-order-frequency">
+            <h4>Order Frequency</h4>
+            <div class="kpi-value">...</div>
+            <div class="kpi-subtext">Average orders per customer</div>
+        </div>
+        <div class="kpi-card" id="kpi-ltv">
+            <h4>LTV</h4>
+            <div class="kpi-value">...</div>
+            <div class="kpi-subtext">Average revenue per customer</div>
+        </div>
+    </div>
+    
+    <h2 class="section-header">Delivering on Promises</h2>
     <div id="kpi-row" class="kpi-row">
         <div class="kpi-card" id="kpi-turnaround">
             <h4>Turnaround ≤ 2.5h</h4>
@@ -134,22 +173,24 @@
             <div class="kpi-value">...</div>
             <div class="kpi-subtext"></div>
         </div>
-        <div class="kpi-card" id="kpi-imaging">
-            <h4>Image Coverage</h4>
+        <div class="kpi-card" id="kpi-claims-resolution">
+            <h4>Claims ≤ 5m</h4>
+            <div class="kpi-value">...</div>
+            <div class="kpi-subtext">Human-resolved claims</div>
+        </div>
+        <div class="kpi-card" id="kpi-claim-rate">
+            <h4>Claim Rate</h4>
             <div class="kpi-value">...</div>
             <div class="kpi-subtext"></div>
         </div>
-        <div class="kpi-card" id="kpi-active-orders">
-            <h4>In-Flight Orders</h4>
+        <div class="kpi-card" id="kpi-auto-claims">
+            <h4>Auto Claims</h4>
             <div class="kpi-value">...</div>
-            <div class="kpi-subtext">Currently active</div>
-        </div>
-        <div class="kpi-card" id="kpi-claims">
-            <h4>Open Claims Today</h4>
-            <div class="kpi-value">...</div>
-            <div class="kpi-subtext"></div>
+            <div class="kpi-subtext">% of total resolved claims</div>
         </div>
     </div>
+    <!-- --- END OF FIX --- -->
+
 
     <!-- Row 2: Real-time Table & Alerts -->
     <div class="main-row">
@@ -258,13 +299,11 @@
                             <th data-sort-by="total_items">Items</th>
                             <th data-sort-by="basket_count">Baskets</th>
                             <th data-sort-by="stain_count">Stains</th>
+                            <th data-sort-by="confirmed_load_count">Loads</th>
+                            <th>Total Price</th>
                             <th data-sort-by="qa_outcome">QA Outcome</th>
                             <th data-sort-by="imaging_duration">Imaging (m)</th>
-                            <th data-sort-by="pretreat_duration">Pretreat (m)</th>
                             <th data-sort-by="washing_duration">Washing (m)</th>
-                            <th data-sort-by="drying_duration">Drying (m)</th>
-                            <th data-sort-by="folding_duration">Folding (m)</th>
-                            <th data-sort-by="qa_duration">QA (m)</th>
                         </tr>
                     </thead>
                     <tbody id="all-orders-table-body">

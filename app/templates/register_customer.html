@@ -23,9 +23,14 @@
     {% endif %}
 
     <form action="/register/customer" method="post">
+        <!-- --- THIS IS THE FIX: Pass pending booking data through a hidden field --- -->
+        {% if booking_data %}
+        <input type="hidden" name="pending_booking" value="{{ request.cookies.get('pending_booking') }}">
+        {% endif %}
+
         <div class="form-group">
             <label for="full_name">Full Name:</label>
-            <input type="text" id="full_name" name="full_name" required>
+            <input type="text" id="full_name" name="full_name" required value="{{ booking_data.customer_name if booking_data else '' }}">
         </div>
         <div class="form-group">
             <label for="email">Email Address:</label>
@@ -37,11 +42,11 @@
         </div>
         <div class="form-group">
             <label for="phone_number">Phone Number:</label>
-            <input type="tel" id="phone_number" name="phone_number" required>
+            <input type="tel" id="phone_number" name="phone_number" required value="{{ booking_data.customer_phone if booking_data else '' }}">
         </div>
         <div class="form-group">
             <label for="address">Default Address:</label>
-            <textarea id="address" name="address" required></textarea>
+            <textarea id="address" name="address" required>{{ booking_data.address if booking_data else '' }}</textarea>
         </div>
         <button type="submit">Create Account & Login</button>
     </form>

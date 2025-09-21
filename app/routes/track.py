@@ -6,7 +6,7 @@ from sqlmodel import Session, select
 from sqlalchemy.orm import selectinload
 
 from app.db import get_session
-from app.models import Order, Image, Event
+from app.models import Order, Image, Event, Setting
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -82,6 +82,11 @@ async def track_order_page(
 
     formatted_sla = order.sla_deadline.strftime('%A, %b %d at %H:%M') if order.sla_deadline else ""
     
+    # --- THIS IS THE FIX: Fetch price per load from settings ---
+    price_setting = session.get(Setting, "price_per_load")
+    price_per_load = float(price_setting.value) if price_setting else 0.0
+    # --- END OF FIX ---
+
     # --- REWRITTEN: New unified timeline logic ---
     timeline_step_ids = [step['id'] for step in TIMELINE_STEPS]
     total_steps = len(timeline_step_ids)
@@ -162,4 +167,5 @@ async def track_order_page(
         "timeline_steps": TIMELINE_STEPS,
         "markers": markers,
         "overall_progress_percent": overall_progress_percent,
+        "price_per_load": price_per_load, # Pass price to template
     })

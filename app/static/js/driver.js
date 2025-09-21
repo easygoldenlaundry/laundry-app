@@ -20,14 +20,16 @@ document.addEventListener('DOMContentLoaded', () => {
             switch (order.status) {
                 case 'AssignedToDriver':
                     jobTypeHtml = `<p class="job-type pickup">Customer Pickup</p>`;
+                    // --- THIS IS THE FIX: Add load count input field ---
                     actionsHtml = `
                         <div class="pickup-proof">
-                            <label>Customer PIN:</label>
+                            <label for="load-count-${order.id}">Number of Loads:</label>
+                            <input type="number" id="load-count-${order.id}" placeholder="e.g., 2" required min="1" />
+                            <label for="pin-${order.id}">Customer PIN:</label>
                             <input type="text" id="pin-${order.id}" placeholder="e.g., 1234" required />
-                            <label>Upload Pickup Proof (Optional):</label>
-                            <input type="file" id="photo-${order.id}" accept="image/*" />
                             <button class="btn btn-action" data-action="picked_up" data-order-id="${order.id}">Mark as Picked Up</button>
                         </div>`;
+                    // --- END OF FIX ---
                     break;
                 case 'PickedUp':
                      jobTypeHtml = `<p class="job-type pickup">En-route to Hub</p>`;
@@ -35,14 +37,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="hub-delivery-proof">
                             <label>Scan Hub Delivery QR Code:</label>
                             <input type="text" id="hub-qr-${order.id}" placeholder="Scan QR at hub entrance" required />
-                            <label>Upload Hub Delivery Proof (Optional):</label>
-                            <input type="file" id="hub-photo-${order.id}" accept="image/*" />
                             <button class="btn btn-action" data-action="delivered_to_hub" data-order-id="${order.id}">Deliver to Hub</button>
                         </div>`;
                     break;
-                // --- THIS IS THE FIX ---
-                // The job is now in the "My Jobs" list with the status 'OutForDelivery'.
-                // The next step is to pick it up from the hub.
                 case 'OutForDelivery':
                     jobTypeHtml = `<p class="job-type delivery">Hub Pickup</p>`;
                     actionsHtml = `
@@ -58,8 +55,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="delivery-proof">
                             <label>Customer Confirmation Code:</label>
                             <input type="text" id="pin-${order.id}" placeholder="Enter code from customer" required />
-                            <label>Upload Proof of Delivery (Optional):</label>
-                            <input type="file" id="photo-${order.id}" accept="image/*" />
                             <button class="btn btn-action" data-action="delivered" data-order-id="${order.id}">Mark as Delivered</button>
                         </div>`;
                     break;
@@ -110,43 +105,42 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             useFormData = true;
             if (action === 'picked_up') {
+                // --- THIS IS THE FIX: Get and validate load count before sending ---
+                const loadCountInput = document.getElementById(`load-count-${orderId}`);
                 const pinInput = document.getElementById(`pin-${orderId}`);
-                if (pinInput && pinInput.value) {
-                     formData.append('pin', pinInput.value);
-                } else {
+                
+                if (!loadCountInput || !loadCountInput.value || parseInt(loadCountInput.value) < 1) {
+                    alert('Number of loads is required and must be at least 1.');
+                    target.disabled = false; return;
+                }
+                if (!pinInput || !pinInput.value) {
                     alert('Customer PIN is required.');
                     target.disabled = false; return;
                 }
-                const photoInput = document.getElementById(`photo-${orderId}`);
-                if (photoInput && photoInput.files.length > 0) formData.append('proof_photo', photoInput.files[0]);
+                formData.append('load_count', loadCountInput.value);
+                formData.append('pin', pinInput.value);
+                // --- END OF FIX ---
             } else if (action === 'delivered_to_hub') {
                 const qrInput = document.getElementById(`hub-qr-${orderId}`);
-                if (qrInput && qrInput.value) {
-                    formData.append('hub_qr_code', qrInput.value);
-                } else {
+                if (!qrInput || !qrInput.value) {
                     alert('Hub Delivery QR Code is required.');
                     target.disabled = false; return;
                 }
-                const hubPhotoInput = document.getElementById(`hub-photo-${orderId}`);
-                if (hubPhotoInput && hubPhotoInput.files.length > 0) formData.append('proof_photo', hubPhotoInput.files[0]);
-            } else if (action === 'pickup_from_hub') { // Re-added this action
+                formData.append('hub_qr_code', qrInput.value);
+            } else if (action === 'pickup_from_hub') {
                 const qrInput = document.getElementById(`hub-qr-${orderId}`);
-                if (qrInput && qrInput.value) {
-                    formData.append('hub_qr_code', qrInput.value);
-                } else {
+                if (!qrInput || !qrInput.value) {
                     alert('Hub Pickup QR Code is required.');
                     target.disabled = false; return;
                 }
+                formData.append('hub_qr_code', qrInput.value);
             } else if (action === 'delivered') {
                 const pinInput = document.getElementById(`pin-${orderId}`);
-                if (pinInput && pinInput.value) {
-                    formData.append('pin', pinInput.value);
-                } else {
+                if (!pinInput || !pinInput.value) {
                     alert('Customer confirmation code is required.');
                     target.disabled = false; return;
                 }
-                const photoInput = document.getElementById(`photo-${orderId}`);
-                if (photoInput && photoInput.files.length > 0) formData.append('proof_photo', photoInput.files[0]);
+                formData.append('pin', pinInput.value);
             }
         }
 

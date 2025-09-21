@@ -62,11 +62,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const card = document.createElement('div');
         card.className = 'order-card';
         card.id = `order-${order.id}`;
+        
+        // --- THIS IS THE FIX: Display the expected bag code ---
+        const expectedBagCode = order.bags && order.bags.length > 0 ? order.bags[0].bag_code : 'N/A';
+
         card.innerHTML = `
             <div class="order-card-header">
                 <strong>Order #${order.id}</strong>
                 <span>${order.customer_name}</span>
             </div>
+            <p style="margin: 0.5em 0;">Expected Bag Code: <strong>${expectedBagCode}</strong></p>
             <form class="intake-form" data-order-id="${order.id}">
                 <div class="form-group">
                     <input type="text" name="bag_code" placeholder="Scan or type Bag QR Code" required>
@@ -96,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (response.ok) {
                 // The WebSocket will automatically trigger a list refresh now, removing the card.
-                feedbackDiv.textContent = `Success! Bag '${bagCode}' associated.`;
+                feedbackDiv.textContent = `Success! Bag '${bagCode}' verified.`;
                 feedbackDiv.className = 'scan-feedback scan-success';
                 feedbackDiv.style.display = 'block';
             } else {

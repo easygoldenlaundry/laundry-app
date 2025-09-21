@@ -1,17 +1,10 @@
 # app/db.py
-import os
 from sqlmodel import create_engine, SQLModel, Session
-from dotenv import load_dotenv
+from app.config import DB_PATH
 
-load_dotenv()
-
-# Get the database URL from environment variables
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise ValueError("No DATABASE_URL set for the application")
-
-# The connect_args is not needed for PostgreSQL
-engine = create_engine(DATABASE_URL)
+# The connect_args is needed for SQLite to allow multiple threads to access it,
+# which is what happens with FastAPI's dependencies.
+engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
 
 def get_engine():
     """Returns the global engine instance."""

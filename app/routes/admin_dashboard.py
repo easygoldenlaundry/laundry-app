@@ -28,26 +28,28 @@ async def get_command_room(request: Request):
 async def get_dashboard_kpis(session: Session = Depends(get_session)):
     """Fetches all executive-level KPIs for the cards in Row 1."""
     active_orders = dashboard_queries.get_active_inflight_orders(session)
+    
+    # --- THIS IS THE FIX: Call new query functions and update the response ---
     return {
+        "retention": dashboard_queries.get_retention_kpis(session),
         "turnaround": dashboard_queries.get_turnaround_kpi(session),
         "pickup": dashboard_queries.get_pickup_kpi(session),
         "delivery": dashboard_queries.get_delivery_kpi(session),
-        "imaging": dashboard_queries.get_image_coverage_kpi(session),
+        "claim_rate": dashboard_queries.get_claim_rate_kpi(session),
+        "claims_resolution": dashboard_queries.get_claims_resolution_kpi(session),
         "claims": dashboard_queries.get_claims_summary(session),
         "active_orders_count": len(active_orders)
     }
+    # --- END OF FIX ---
 
 @router.get("/api/dashboard/orders")
 async def get_dashboard_orders_table(session: Session = Depends(get_session)):
     """Fetches the detailed data for the real-time orders table."""
-    # This now only fetches active orders for the real-time table, as before.
-    # The new /all-orders endpoint will provide historical data.
     return dashboard_queries.get_active_inflight_orders(session)
 
 @router.get("/api/dashboard/station-metrics")
 async def get_all_station_metrics(session: Session = Depends(get_session)):
     """Fetches metrics for all key stations."""
-    # NOTE: "qa_station" is typically `qa` in the station type.
     stations = ["imaging", "pretreat", "washing", "drying", "folding", "qa"]
     metrics = {s_type: dashboard_queries.get_station_metrics(session, s_type) for s_type in stations}
     return metrics
@@ -61,16 +63,14 @@ async def get_all_orders_data(
 ):
     """Fetches all orders for the detailed historical table."""
     orders = session.exec(dashboard_queries.get_all_orders(session)).all()
-    # Serialize orders to dictionary for easy JSON response
-    # Manually serialize nested objects to avoid Pydantic issues with complex relationships
+    
     serialized_orders = []
     for order in orders:
         order_dict = order.dict()
         order_dict['customer_name'] = order.customer.full_name if order.customer else 'N/A'
         order_dict['events'] = [e.dict() for e in order.events]
         order_dict['baskets'] = [b.dict() for b in order.baskets]
-        # Adding stain count and qa outcome here, as queries can't easily return these as part of Order model
-        # The frontend will calculate durations based on events
+        order_dict['images'] = [i.dict() for i in order.images]
         serialized_orders.append(order_dict)
     return serialized_orders
 

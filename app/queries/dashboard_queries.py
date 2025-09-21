@@ -11,7 +11,7 @@ from typing import Dict, Any, List, Optional
 import math
 import json # For parsing Event.meta
 
-from app.models import Order, Event, Claim, Image, Machine, Station, User, Driver, Basket
+from app.models import Order, Event, Claim, Image, Machine, Station, User, Driver, Basket, Setting, Customer
 
 
 def _get_percentile(data: List[float], percentile: float) -> float:
@@ -144,23 +144,27 @@ def get_delivery_kpi(session: Session, window_hours: int = 24) -> Dict[str, Any]
         "avg_delivery_time": round(sum(delivery_times) / total_deliveries, 1)
     }
 
-def get_image_coverage_kpi(session: Session, window_hours: int = 24) -> Dict[str, Any]:
-    """Calculates the percentage of items that were successfully imaged."""
+def get_claim_rate_kpi(session: Session, window_hours: int = 24) -> Dict[str, Any]:
+    """Calculates the percentage of orders that have a claim filed against them."""
     start_time = datetime.now(timezone.utc) - timedelta(hours=window_hours)
     
-    result = session.exec(
-        select(func.sum(Order.total_items), func.sum(Order.imaged_items_count))
-        .where(Order.imaging_completed_at >= start_time, Order.imaging_completed_at <= datetime.now(timezone.utc))
-    ).one_or_none()
+    total_orders_in_window = session.exec(
+        select(func.count(Order.id))
+        .where(Order.created_at >= start_time)
+    ).one()
 
-    total_items, imaged_items = result or (0, 0)
-    total_items = total_items or 0
-    imaged_items = imaged_items or 0
+    if total_orders_in_window == 0:
+        return {"claim_rate_percent": 0.0, "orders_with_claims": 0, "total_orders": 0}
+
+    orders_with_claims = session.exec(
+        select(func.count(func.distinct(Claim.order_id)))
+        .where(Claim.created_at >= start_time)
+    ).one()
 
     return {
-        "total_items": total_items,
-        "imaged_items": imaged_items,
-        "coverage_percent": (imaged_items / total_items) * 100 if total_items > 0 else 100
+        "claim_rate_percent": (orders_with_claims / total_orders_in_window) * 100 if total_orders_in_window > 0 else 0,
+        "orders_with_claims": orders_with_claims,
+        "total_orders": total_orders_in_window
     }
 
 
@@ -196,74 +200,84 @@ def get_station_metrics(session: Session, station_type: str, window_hours: int =
     """Computes detailed metrics for a specific station."""
     station = session.exec(select(Station).where(Station.type == station_type)).one_or_none()
     
-    metrics = { "queue_length": 0, "utilization_pct": 0.0, "bottleneck": False, "avg_time": 0.0, "median_time": 0.0, "p95_time": 0.0, "throughput_h": 0 }
+    metrics = { "queue_length": 0, "utilization_pct": 0.0, "bottleneck": False, "avg_time": 0.0, "median_time": 0.0, "p95_time": 0.0, "throughput_h": 0.0 }
     if not station: return metrics
 
     end_time = datetime.now(timezone.utc)
     start_time = end_time - timedelta(hours=window_hours)
     
-    # Queue Length
     if station_type == "qa":
         metrics["queue_length"] = session.exec(select(func.count(Order.id)).where(Order.status == "QA")).one()
     else:
         metrics["queue_length"] = session.exec(select(func.count(Basket.id)).where(Basket.status == station_type.capitalize())).one()
 
-    # Machine Utilization
     if station_type in ["washing", "drying", "folding"]:
         machines = session.exec(select(Machine).where(Machine.station_id == station.id)).all()
         total_machines = len(machines)
         running_machines = sum(1 for m in machines if m.state == 'running')
         metrics["utilization_pct"] = (running_machines / total_machines) * 100 if total_machines > 0 else 0
     
-    # Processing Times and Throughput
-    processing_durations, throughput_count = [], 0
-    relevant_events = session.exec(select(Event).where(Event.timestamp >= start_time).order_by(Event.timestamp)).all()
+    processing_durations = []
+    relevant_events = session.exec(select(Event).where(Event.timestamp >= start_time).order_by(Event.timestamp.asc())).all()
 
     if station_type == "imaging":
-        for order in session.exec(select(Order).where(Order.imaging_completed_at >= start_time)).all():
-            if order.imaging_started_at:
-                processing_durations.append((order.imaging_completed_at - order.imaging_started_at).total_seconds() / 60)
-                throughput_count += 1
+        completed_orders = session.exec(select(Order).where(Order.imaging_completed_at >= start_time, Order.imaging_started_at != None)).all()
+        for order in completed_orders:
+            processing_durations.append((order.imaging_completed_at - order.imaging_started_at).total_seconds() / 60)
+    
     elif station_type == "qa":
-        for order in session.exec(select(Order).where(Order.qa_started_at >= start_time).options(selectinload(Order.events))).all():
-            qa_start_event = next((e for e in order.events if e.to_status == "QA"), None)
-            qa_end_event = next((e for e in order.events if (e.to_status == "ReadyForDelivery" or ("Processing" in e.to_status and "qa_failed_by" in str(e.meta))) and e.timestamp > (qa_start_event.timestamp if qa_start_event else datetime.min.replace(tzinfo=timezone.utc))), None)
-            if qa_start_event and qa_end_event:
-                processing_durations.append((qa_end_event.timestamp - qa_start_event.timestamp).total_seconds() / 60)
-                throughput_count += 1
+        completed_orders = session.exec(select(Order).where(Order.qa_started_at >= start_time).options(selectinload(Order.events))).all()
+        for order in completed_orders:
+            qa_start_ts = order.qa_started_at
+            qa_end_event = next((e for e in order.events if e.from_status == "QA" and e.timestamp >= qa_start_ts), None)
+            if qa_end_event:
+                processing_durations.append((qa_end_event.timestamp - qa_start_ts).total_seconds() / 60)
+
     elif station_type in ["pretreat", "washing", "drying", "folding"]:
-        finished_baskets = {}
+        starts = {}
+        for event in relevant_events:
+            if event.to_status and f"Started-{station_type}" in event.to_status:
+                try:
+                    basket_id = json.loads(event.meta or '{}').get('basket_id')
+                    if basket_id:
+                        starts[basket_id] = event.timestamp
+                except (json.JSONDecodeError, AttributeError):
+                    continue
+        
         for event in relevant_events:
             if event.to_status and f"Finished-{station_type}" in event.to_status:
                 try:
                     basket_id = json.loads(event.meta or '{}').get('basket_id')
-                    if basket_id: finished_baskets[f"{event.order_id}_{basket_id}"] = event
-                except: pass
-        
-        for key, finish_event in finished_baskets.items():
-            basket_id = key.split('_')[-1]
-            start_event_str = f"Basket-{basket_id}-Started-{station_type}"
-            start_event = next((e for e in relevant_events if e.to_status == start_event_str and e.timestamp < finish_event.timestamp), None)
-            if start_event:
-                processing_durations.append((finish_event.timestamp - start_event.timestamp).total_seconds() / 60)
-                throughput_count += 1
+                    if basket_id and basket_id in starts and event.timestamp > starts[basket_id]:
+                        duration = (event.timestamp - starts[basket_id]).total_seconds() / 60
+                        processing_durations.append(duration)
+                        del starts[basket_id]
+                except (json.JSONDecodeError, AttributeError):
+                    continue
 
     if processing_durations:
         metrics["avg_time"] = round(sum(processing_durations) / len(processing_durations), 1)
         metrics["median_time"] = round(median(processing_durations), 1)
         metrics["p95_time"] = round(_get_percentile(processing_durations, 0.95), 1)
-    metrics["throughput_h"] = round(throughput_count / window_hours, 1) if window_hours > 0 else throughput_count
-
+    
+    metrics["throughput_h"] = round(len(processing_durations) / window_hours, 1) if window_hours > 0 else len(processing_durations)
     effective_capacity = station.capacity or 5
     metrics["bottleneck"] = metrics["queue_length"] > (effective_capacity * 2) or metrics["utilization_pct"] > 85
     
     return metrics
 
+
 def get_all_orders(session: Session) -> select:
-    """Returns a select statement for all orders with basic relations and events for UI display."""
+    """Returns a select statement for all orders with basic relations for UI display."""
     return (
         select(Order)
-        .options(selectinload(Order.customer), selectinload(Order.baskets), selectinload(Order.claims), selectinload(Order.events))
+        .options(
+            selectinload(Order.customer), 
+            selectinload(Order.baskets), 
+            selectinload(Order.claims), 
+            selectinload(Order.events),
+            selectinload(Order.images)
+        )
         .order_by(Order.created_at.desc())
     )
 
@@ -275,6 +289,14 @@ def get_aggregated_stats(session: Session, timeframe_days: int) -> Dict[str, Any
     completed_orders = session.exec(select(Order).where(Order.delivered_at >= start_time).options(selectinload(Order.events))).all()
     created_orders = session.exec(select(Order).where(Order.created_at >= start_time)).all()
 
+    price_setting = session.get(Setting, "price_per_load")
+    price_per_load = float(price_setting.value) if price_setting else 0.0
+    total_revenue = sum(
+        (o.confirmed_load_count * price_per_load)
+        for o in completed_orders
+        if o.confirmed_load_count is not None
+    )
+    
     total_orders_completed, total_orders_created = len(completed_orders), len(created_orders)
     
     turnaround_times_minutes, pickup_times_minutes = [], []
@@ -301,33 +323,41 @@ def get_aggregated_stats(session: Session, timeframe_days: int) -> Dict[str, Any
     all_events = session.exec(select(Event).where(Event.timestamp >= start_time)).all()
     pretreat_d, washing_d, drying_d, folding_d = [], [], [], []
 
-    finished_baskets = {}
+    starts = {}
     for event in all_events:
-        if event.to_status and "Finished" in event.to_status:
+        if event.to_status and "Started" in event.to_status:
             try:
                 basket_id = json.loads(event.meta or '{}').get('basket_id')
-                if basket_id: finished_baskets[f"{event.order_id}_{basket_id}_{event.to_status}"] = event
-            except: pass
-    
-    for key, finish_event in finished_baskets.items():
-        _, basket_id, finish_status = key.split('_', 2)
-        station_type = finish_status.split('-')[-1]
-        start_event_str = f"Basket-{basket_id}-Started-{station_type}"
-        start_event = next((e for e in all_events if e.to_status == start_event_str and e.timestamp < finish_event.timestamp and json.loads(e.meta or '{}').get('basket_id') == int(basket_id)), None)
-        if start_event:
-            duration = (finish_event.timestamp - start_event.timestamp).total_seconds() / 60
-            if station_type == 'Pretreat': pretreat_d.append(duration)
-            elif station_type == 'washing': washing_d.append(duration)
-            elif station_type == 'drying': drying_d.append(duration)
-            elif station_type == 'folding': folding_d.append(duration)
+                station_type = event.to_status.split('-')[-1]
+                if basket_id:
+                    starts[f"{basket_id}_{station_type}"] = event.timestamp
+            except (json.JSONDecodeError, AttributeError):
+                continue
 
-    def safe_avg(data): return round(sum(data) / len(data), 1) if data else 0
+    for event in all_events:
+         if event.to_status and "Finished" in event.to_status:
+            try:
+                basket_id = json.loads(event.meta or '{}').get('basket_id')
+                station_type = event.to_status.split('-')[-1]
+                start_key = f"{basket_id}_{station_type}"
+                if basket_id and start_key in starts:
+                    duration = (event.timestamp - starts[start_key]).total_seconds() / 60
+                    if station_type == 'pretreat': pretreat_d.append(duration)
+                    elif station_type == 'washing': washing_d.append(duration)
+                    elif station_type == 'drying': drying_d.append(duration)
+                    elif station_type == 'folding': folding_d.append(duration)
+                    del starts[start_key]
+            except (json.JSONDecodeError, AttributeError):
+                continue
+    
+    def safe_avg(data): return round(sum(data) / len(data), 2) if data else 0.0
     total_items = sum(o.total_items for o in completed_orders)
     
     return {
         "timeframe": f"{timeframe_days} days",
         "total_orders_created": total_orders_created,
         "total_orders_completed": total_orders_completed,
+        "total_revenue": total_revenue,
         "avg_turnaround_minutes": safe_avg(turnaround_times_minutes),
         "avg_pickup_minutes": safe_avg(pickup_times_minutes),
         "avg_items_per_order": round(total_items / total_orders_completed, 1) if total_orders_completed else 0,
@@ -342,4 +372,132 @@ def get_aggregated_stats(session: Session, timeframe_days: int) -> Dict[str, Any
         "percent_with_stains": (total_stains_flagged / total_orders_created) * 100 if total_orders_created > 0 else 0,
         "percent_qa_passed": (qa_passed_count / (qa_passed_count + qa_failed_count)) * 100 if (qa_passed_count + qa_failed_count) > 0 else 0,
         "percent_qa_failed": (qa_failed_count / (qa_passed_count + qa_failed_count)) * 100 if (qa_passed_count + qa_failed_count) > 0 else 0,
+    }
+
+
+def get_retention_kpis(session: Session) -> Dict[str, Any]:
+    """
+    Calculates key customer retention metrics:
+    1. Retention Rate (%): Customers active in the last 90 days.
+    2. Average Lifespan: Avg. time between a customer's first and last order.
+    3. Order Frequency: Avg. number of orders per customer.
+    4. LTV: Average revenue generated per customer.
+    """
+    all_customers = session.exec(
+        select(Customer).options(selectinload(Customer.orders))
+    ).all()
+
+    total_customers = len(all_customers)
+    if total_customers == 0:
+        return {
+            "retention_percentage": 0, "avg_lifespan_days": 0,
+            "avg_lifespan_months": 0, "avg_lifespan_rem_days": 0,
+            "avg_orders_per_customer": 0, "ltv": 0
+        }
+
+    price_setting = session.get(Setting, "price_per_load")
+    price_per_load = float(price_setting.value) if price_setting else 0.0
+
+    retention_threshold = datetime.now(timezone.utc) - timedelta(days=90)
+    retained_customer_count = 0
+    total_lifespan_days = 0
+    total_order_count = 0
+    total_revenue_all_time = 0
+
+    for customer in all_customers:
+        if not customer.orders:
+            continue
+        
+        # --- THIS IS THE FIX: Ensure all datetimes are timezone-aware before comparison ---
+        order_dates = []
+        for o in customer.orders:
+            created_at_aware = o.created_at
+            if created_at_aware.tzinfo is None:
+                created_at_aware = created_at_aware.replace(tzinfo=timezone.utc)
+            order_dates.append(created_at_aware)
+        
+        if not order_dates:
+            continue
+        # --- END OF FIX ---
+        
+        first_order_date = min(order_dates)
+        last_order_date = max(order_dates)
+
+        if last_order_date > retention_threshold:
+            retained_customer_count += 1
+        
+        lifespan = (last_order_date - first_order_date).days
+        total_lifespan_days += lifespan
+        total_order_count += len(customer.orders)
+        
+        customer_revenue = sum(
+            (o.confirmed_load_count * price_per_load)
+            for o in customer.orders
+            if o.confirmed_load_count is not None
+        )
+        total_revenue_all_time += customer_revenue
+
+    avg_lifespan_days = total_lifespan_days / total_customers
+    avg_lifespan_months = math.floor(avg_lifespan_days / 30.44)
+    avg_lifespan_rem_days = math.floor(avg_lifespan_days % 30.44)
+
+    return {
+        "retention_percentage": (retained_customer_count / total_customers) * 100,
+        "avg_lifespan_days": round(avg_lifespan_days),
+        "avg_lifespan_months": avg_lifespan_months,
+        "avg_lifespan_rem_days": avg_lifespan_rem_days,
+        "avg_orders_per_customer": total_order_count / total_customers,
+        "ltv": total_revenue_all_time / total_customers if total_customers > 0 else 0
+    }
+
+
+def get_claims_resolution_kpi(session: Session, window_hours: int = 72) -> Dict[str, Any]:
+    """
+    Calculates KPIs for claim handling efficiency.
+    - % of claims handled by a human within 5 minutes.
+    - % of total claims that are auto-resolved.
+    """
+    start_time = datetime.now(timezone.utc) - timedelta(hours=window_hours)
+    
+    resolved_claims = session.exec(
+        select(Claim).where(
+            Claim.resolved_at >= start_time,
+            Claim.status.in_(["resolved", "denied"])
+        )
+    ).all()
+
+    if not resolved_claims:
+        return {"on_time_percentage": 100, "auto_claim_percentage": 0}
+
+    human_resolved_on_time = 0
+    human_resolved_total = 0
+    auto_resolved_total = 0
+
+    for claim in resolved_claims:
+        if claim.notes and "[Auto-resolved" in claim.notes:
+            auto_resolved_total += 1
+        else:
+            human_resolved_total += 1
+
+            # --- THIS IS THE FIX: Ensure all datetimes are timezone-aware before subtraction ---
+            resolved_at_aware = claim.resolved_at
+            
+            if resolved_at_aware and resolved_at_aware.tzinfo is None:
+                resolved_at_aware = resolved_at_aware.replace(tzinfo=timezone.utc)
+            
+            created_at_aware = claim.created_at
+            if created_at_aware and created_at_aware.tzinfo is None:
+                created_at_aware = created_at_aware.replace(tzinfo=timezone.utc)
+            
+            if resolved_at_aware and created_at_aware:
+                resolve_time_seconds = (resolved_at_aware - created_at_aware).total_seconds()
+                if resolve_time_seconds <= 300: # 5 minutes
+                    human_resolved_on_time += 1
+            # --- END OF FIX ---
+    
+    total_resolved = human_resolved_total + auto_resolved_total
+
+    return {
+        "on_time_percentage": (human_resolved_on_time / human_resolved_total) * 100 if human_resolved_total > 0 else 100,
+        "auto_claim_percentage": (auto_resolved_total / total_resolved) * 100 if total_resolved > 0 else 0,
     }

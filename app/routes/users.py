@@ -1,4 +1,11 @@
 # app/routes/users.py
+import re
+import secrets
+import uuid
+import json
+from typing import Optional
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -7,8 +14,10 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import selectinload
 
 from app.db import get_session
-from app.models import User, Customer, Order
+from app.models import User, Customer, Order, Bag, Setting, Event
 from app.auth import get_password_hash, create_access_token, get_current_user
+from app.security import signer
+from app.sockets import broadcast_order_update
 from starlette.responses import Response
 
 router = APIRouter()
@@ -52,23 +61,29 @@ async def handle_staff_registration(
     session.add(new_user)
     session.commit()
     
+    # --- THIS IS THE FIX: Pass username to the template to pre-fill the login form ---
     return templates.TemplateResponse("login.html", {
-        "request": request, "success": "Registration successful! Please wait for an admin to approve your account."
+        "request": request, 
+        "success": "Registration successful! Please wait for an admin to approve your account.",
+        "prefill_username": username
     })
 
 
 @router.post("/register/customer", include_in_schema=False)
 async def handle_customer_registration(
     request: Request,
-    response: Response,
     full_name: str = Form(...),
     email: str = Form(...),
     password: str = Form(...),
     phone_number: str = Form(...),
     address: str = Form(...),
+    pending_booking: Optional[str] = Form(None),
     session: Session = Depends(get_session)
 ):
-    """Endpoint for customers to register. They are active immediately and logged in."""
+    """
+    Endpoint for customers to register. They are active immediately and logged in.
+    If a pending booking exists, it creates the order after registration.
+    """
     existing_user = session.exec(select(User).where(User.email == email)).first()
     if existing_user:
         return templates.TemplateResponse("register_customer.html", {
@@ -77,20 +92,18 @@ async def handle_customer_registration(
 
     hashed_password = get_password_hash(password)
     
-    # Create the authentication user
     new_user = User(
-        username=email, # Use email as username for customers
+        username=email,
         email=email,
         hashed_password=hashed_password,
         display_name=full_name,
         role="customer",
-        is_active=True # Customers are active by default
+        is_active=True
     )
     session.add(new_user)
     session.commit()
     session.refresh(new_user)
 
-    # Create the linked customer profile
     new_customer_profile = Customer(
         user_id=new_user.id,
         full_name=full_name,
@@ -99,11 +112,63 @@ async def handle_customer_registration(
     )
     session.add(new_customer_profile)
     session.commit()
+    session.refresh(new_customer_profile)
     
-    # Log the user in immediately
+    redirect_url = "/account" # Default redirect after registration
+
+    if pending_booking:
+        try:
+            unsigned_data = signer.unsign(pending_booking).decode('utf-8')
+            booking_data = json.loads(unsigned_data)
+
+            settings = {s.key: s.value for s in session.exec(select(Setting)).all()}
+            now = datetime.now(timezone.utc)
+            sla_deadline = None
+            if booking_data["delivery_option"] == "express":
+                hours = int(settings.get("express_delivery_hours", 5))
+                sla_deadline = now + timedelta(hours=hours)
+            elif booking_data["delivery_option"] == "next_day":
+                hours = int(settings.get("next_day_delivery_hours", 24))
+                sla_deadline = now + timedelta(hours=hours)
+
+            new_order = Order(
+                external_id=booking_data["external_id"],
+                tracking_token=f"trk_{secrets.token_urlsafe(12)}",
+                customer_name=booking_data["customer_name"],
+                customer_phone=re.sub(r"[^0-9+]", "", booking_data["customer_phone"]),
+                customer_address=booking_data["customer_address"],
+                hub_id=booking_data["hub_id"],
+                status="Created",
+                sla_deadline=sla_deadline,
+                pickup_pin=str(secrets.randbelow(10000)).zfill(4),
+                delivery_pin=str(secrets.randbelow(10000)).zfill(4),
+                notes_for_driver=booking_data["notes_for_driver"],
+                customer_id=new_customer_profile.id
+            )
+            session.add(new_order)
+            session.commit()
+            session.refresh(new_order)
+
+            bag_code = f"BAG-{secrets.token_hex(4).upper()}"
+            default_bag = Bag(order_id=new_order.id, bag_code=bag_code)
+            session.add(default_bag)
+
+            initial_event = Event(order_id=new_order.id, to_status="Created", meta=f"Created via web booking after registration.")
+            session.add(initial_event)
+            session.commit()
+            session.refresh(new_order)
+            
+            # Since an order was created, redirect to its tracking page
+            redirect_url = f"/track/{new_order.tracking_token}?new=true"
+
+        except Exception as e:
+            # If cookie is bad, log it and proceed with normal login
+            print(f"Error processing pending booking after registration: {e}")
+    
     access_token = create_access_token(data={"sub": new_user.username})
-    response = RedirectResponse(url="/book", status_code=303)
+    response = RedirectResponse(url=redirect_url, status_code=303)
     response.set_cookie(key="access_token", value=f"Bearer {access_token}", httponly=True)
+    response.delete_cookie("pending_booking") # Clear the cookie
     return response
 
 
@@ -114,7 +179,20 @@ async def get_registration_page(request: Request):
 
 @router.get("/register/customer", response_class=HTMLResponse, include_in_schema=False)
 async def get_customer_registration_page(request: Request):
-    return templates.TemplateResponse("register_customer.html", {"request": request})
+    # --- THIS IS THE FIX: Check for pending booking data in cookie ---
+    booking_data = None
+    pending_booking_cookie = request.cookies.get("pending_booking")
+    if pending_booking_cookie:
+        try:
+            unsigned_data = signer.unsign(pending_booking_cookie).decode('utf-8')
+            booking_data = json.loads(unsigned_data)
+        except Exception:
+            booking_data = None # Ignore if invalid
+            
+    return templates.TemplateResponse("register_customer.html", {
+        "request": request,
+        "booking_data": booking_data
+    })
 
 # --- NEW: Routes for customer account management ---
 def get_current_customer_user(current_user: User = Depends(get_current_user)) -> User:

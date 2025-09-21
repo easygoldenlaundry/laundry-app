@@ -31,6 +31,9 @@ class Order(SQLModel, table=True):
     created_at: datetime = Field(default_factory=now_utc)
     updated_at: datetime = Field(default_factory=now_utc)
     customer_id: Optional[int] = Field(default=None, foreign_key="customer.id")
+    # --- THIS IS THE FIX: Add a field to store the confirmed load count ---
+    confirmed_load_count: Optional[int] = Field(default=None)
+
 
     # --- Fields for KPI Tracking ---
     picked_up_at: Optional[datetime] = Field(default=None)
@@ -45,11 +48,12 @@ class Order(SQLModel, table=True):
     closed_at: Optional[datetime] = Field(default=None)
     imaged_items_count: int = Field(default=0)
     
-    # --- [FIX] Add relationships for events and claims ---
     events: List["Event"] = Relationship(back_populates="order")
     claims: List["Claim"] = Relationship(back_populates="order")
     baskets: List["Basket"] = Relationship(back_populates="order")
     customer: Optional["Customer"] = Relationship(back_populates="orders")
+    bags: List["Bag"] = Relationship(back_populates="order")
+    images: List["Image"] = Relationship(back_populates="order")
 
 class Basket(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -69,6 +73,7 @@ class Bag(SQLModel, table=True):
     weight_kg: float = Field(default=0)
     sealed: bool = Field(default=False)
     scanned_at: Optional[datetime] = None
+    order: Optional["Order"] = Relationship(back_populates="bags")
 
 class Item(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -138,7 +143,6 @@ class Event(SQLModel, table=True):
     timestamp: datetime = Field(default_factory=now_utc)
     meta: Optional[str] = Field(default=None, sa_column=Column(TEXT))
     
-    # --- [FIX] Add back-relationship to Order ---
     order: Optional["Order"] = Relationship(back_populates="events")
 
 class Image(SQLModel, table=True):
@@ -153,6 +157,7 @@ class Image(SQLModel, table=True):
     qa_status: Optional[str] = Field(default='pending') 
     qa_notes: Optional[str] = Field(default=None, sa_column=Column(TEXT))
     timestamp: datetime = Field(default_factory=now_utc)
+    order: Optional["Order"] = Relationship(back_populates="images")
 
 class Claim(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)

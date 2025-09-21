@@ -1,6 +1,7 @@
 # app/seed_db.py
 import os
 import uuid
+import secrets
 from datetime import datetime, timedelta, timezone
 from sqlmodel import Session, select
 from app.auth import get_password_hash
@@ -30,7 +31,7 @@ def seed_database():
                 Setting(key="wash_cycle_time_seconds", value="1800"),
                 Setting(key="dry_cycle_time_seconds", value="2400"),
                 Setting(key="fold_cycle_time_seconds", value="300"),
-                Setting(key="hub_intake_qr_code", value="HUB1-INTAKE-SECRET"),
+                # --- THIS IS THE FIX: Removed the obsolete hub intake QR setting ---
                 Setting(key="driver_hub_delivery_qr", value="DRIVER-DELIVERS-TO-HUB"),
                 Setting(key="driver_hub_pickup_qr", value="DRIVER-PICKS-UP-FROM-HUB"),
                 Setting(key="washing_machine_count", value="1"),
@@ -156,8 +157,10 @@ def seed_database():
                 session.add(order)
                 session.commit()
                 session.refresh(order)
-
-                default_bag = Bag(order_id=order.id, bag_code=f"BAG-ORDER{order.id}")
+                
+                # --- THIS IS THE FIX: Generate a random, unique bag code for seed data ---
+                bag_code = f"BAG-{secrets.token_hex(4).upper()}"
+                default_bag = Bag(order_id=order.id, bag_code=bag_code)
                 session.add(default_bag)
                 session.commit()
 

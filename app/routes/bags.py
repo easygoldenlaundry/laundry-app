@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from app.db import get_session
 from app.models import Order, Bag
+# --- THIS IS THE FIX: Added the missing import ---
 from app.services.state_machine import apply_transition
 
 router = APIRouter()
@@ -21,50 +22,33 @@ def scan_bag(
     session: Session = Depends(get_session)
 ):
     """
-    Associates a scanned bag with an order and moves the order directly to the 'Imaging' state.
-    This endpoint is idempotent.
+    Verifies a scanned bag against the order's pre-assigned bag and moves the order to 'Imaging'.
     """
     order = session.get(Order, scan_request.order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # Idempotency Check 1: If order is already past the 'Imaging' stage, do nothing.
-    if order.status not in ["PickedUp", "DeliveredToHub", "AtHub", "Imaging"]:
+    # Idempotency Check: If order is already past the intake stage, do nothing.
+    if order.status not in ["PickedUp", "DeliveredToHub", "AtHub"]:
         existing_bag = session.exec(select(Bag).where(Bag.order_id == order.id)).first()
-        if existing_bag:
-            return existing_bag
-        raise HTTPException(status_code=200, detail="Order is already in processing.")
+        if existing_bag and existing_bag.bag_code == scan_request.bag_code:
+            return existing_bag # Return success if it's already done correctly.
+        raise HTTPException(status_code=400, detail="Order is already in processing and cannot be scanned again.")
 
-    # Check if the bag_code is already in use by another order
-    existing_bag_other_order = session.exec(
-        select(Bag).where(Bag.bag_code == scan_request.bag_code, Bag.order_id != scan_request.order_id)
-    ).first()
-
-    if existing_bag_other_order:
-        raise HTTPException(status_code=409, detail=f"Bag code '{scan_request.bag_code}' is already assigned to another order.")
-
-    # Check if this bag already exists for this order
-    bag = session.exec(
-        select(Bag).where(Bag.bag_code == scan_request.bag_code, Bag.order_id == scan_request.order_id)
-    ).first()
-
-    if not bag:
-        bag = Bag(
-            bag_code=scan_request.bag_code,
-            order_id=scan_request.order_id,
-            scanned_at=datetime.now(timezone.utc),
-            sealed=True
-        )
-        session.add(bag)
-        session.commit()
-        session.refresh(bag)
-
-    # --- State Transition ---
-    # FIX: The goal of intake is to send the order to the FIRST station. We now transition
-    # directly to 'Imaging' instead of the generic 'AtHub'.
-    intake_statuses = {"PickedUp", "DeliveredToHub", "AtHub"}
+    # --- THIS IS THE FIX: Verify the scanned code against the pre-assigned one ---
+    expected_bag = session.exec(select(Bag).where(Bag.order_id == scan_request.order_id)).first()
+    if not expected_bag:
+        raise HTTPException(status_code=404, detail=f"No bag has been pre-assigned for Order #{order.id}.")
     
-    if order.status in intake_statuses:
-        apply_transition(session, order, "Imaging", user_id=scan_request.user_id, meta={"bag_code": bag.bag_code})
+    if expected_bag.bag_code != scan_request.bag_code:
+        raise HTTPException(status_code=400, detail=f"Incorrect bag. Scanned '{scan_request.bag_code}', but expected '{expected_bag.bag_code}'.")
     
-    return bag
+    # If we reach here, the code is correct. Update the bag's status.
+    expected_bag.scanned_at = datetime.now(timezone.utc)
+    expected_bag.sealed = True 
+    session.add(expected_bag)
+
+    # Transition the order state to the first station.
+    apply_transition(session, order, "Imaging", user_id=scan_request.user_id, meta={"bag_code": expected_bag.bag_code})
+    
+    return expected_bag

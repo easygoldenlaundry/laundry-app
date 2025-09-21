@@ -7,11 +7,28 @@ from sqlalchemy.orm import selectinload
 from datetime import datetime
 
 from app.db import get_session
-from app.models import Order, Basket
+from app.models import Order, Basket, Bag
 
 router = APIRouter(prefix="/api/queues", tags=["Queues"])
 
 # --- Pydantic models for clear API responses ---
+
+# --- THIS IS THE FIX: Create explicit response models to ensure bag data is included ---
+class BagForQueue(BaseModel):
+    bag_code: str
+
+    class Config:
+        orm_mode = True
+
+class OrderForQueue(BaseModel):
+    id: int
+    customer_name: str
+    bags: List[BagForQueue] = []
+
+    class Config:
+        orm_mode = True
+# --- END OF FIX ---
+
 class OrderForBasket(BaseModel):
     id: int
     customer_name: str
@@ -25,8 +42,6 @@ class BasketPublic(BaseModel):
     basket_index: int
     status: str
     order: OrderForBasket
-    # --- THIS IS THE FIX ---
-    # Add the soaking timestamp to the API response model.
     soaking_started_at: Optional[datetime] = None
 
     class Config:
@@ -42,19 +57,13 @@ class QASummaryItem(BaseModel):
 
 # A single map to define all station queue types.
 STATION_TYPE_MAP = {
-    # Order-based queues (pre-splitting)
     "deliveredtohub": ("Order", "DeliveredToHub"),
     "imaging": ("Order", "Imaging"),
-    # Basket-based queues (post-splitting)
     "pretreat": ("Basket", "Pretreat"),
     "washing": ("Basket", "Washing"),
     "drying": ("Basket", "Drying"),
     "folding": ("Basket", "Folding"),
 }
-
-# --- THIS IS THE FIX ---
-# Specific routes are moved BEFORE the generic route to ensure they are matched correctly.
-# --- QA-specific queue endpoints ---
 
 @router.get("/qa/ready", response_model=List[Order])
 def get_qa_ready_queue(hub_id: int = 1, session: Session = Depends(get_session)):
@@ -96,9 +105,8 @@ def get_qa_summary(hub_id: int = 1, session: Session = Depends(get_session)):
             
     return summary_list
 
-# --- Generic Station Queue Endpoint ---
-
-@router.get("/{hub_id}/{station_type}", response_model=Union[List[Order], List[BasketPublic]])
+# --- THIS IS THE FIX: Update the response_model for the generic route ---
+@router.get("/{hub_id}/{station_type}", response_model=Union[List[OrderForQueue], List[BasketPublic]])
 def get_station_queue(
     hub_id: int,
     station_type: str,
@@ -106,7 +114,7 @@ def get_station_queue(
 ):
     """
     Returns the work queue for a given station.
-    - For 'deliveredtohub' and 'imaging', it returns whole Orders.
+    - For 'deliveredtohub' and 'imaging', it returns whole Orders with bag info.
     - For 'pretreat', 'washing', etc., it returns individual Baskets.
     """
     lookup = STATION_TYPE_MAP.get(station_type.lower())
@@ -119,6 +127,7 @@ def get_station_queue(
         statement = (
             select(Order)
             .where(Order.hub_id == hub_id, Order.status == target_status)
+            .options(selectinload(Order.bags))
             .order_by(Order.created_at.asc())
         )
         results = session.exec(statement).all()
@@ -133,7 +142,6 @@ def get_station_queue(
             .order_by(Basket.created_at.asc())
         )
         results = session.exec(statement).all()
-        # The from_orm method will now correctly populate the soaking_started_at field
         return [BasketPublic.from_orm(b) for b in results]
     
     raise HTTPException(status_code=500, detail="Internal server error in queue logic.")

@@ -6,15 +6,22 @@ document.addEventListener('DOMContentLoaded', () => {
     let allOrdersData = []; // For historical table, fetched once or on demand
     let currentAggregatedTimeframe = '7days';
     let countdownInterval;
+    let pricePerLoad = 0.0;
 
     // --- DOM SELECTORS ---
     const selectors = {
+        // --- THIS IS THE FIX: New selectors for new layout ---
+        kpiRetentionRate: document.getElementById('kpi-retention-rate'),
+        kpiAvgLifespan: document.getElementById('kpi-avg-lifespan'),
+        kpiOrderFrequency: document.getElementById('kpi-order-frequency'),
+        kpiLtv: document.getElementById('kpi-ltv'),
+        kpiClaimRate: document.getElementById('kpi-claim-rate'),
+        kpiClaimsResolution: document.getElementById('kpi-claims-resolution'),
+        kpiAutoClaims: document.getElementById('kpi-auto-claims'),
+        // --- END OF FIX ---
         kpiTurnaround: document.getElementById('kpi-turnaround'),
         kpiPickup: document.getElementById('kpi-pickup'),
         kpiDelivery: document.getElementById('kpi-delivery'),
-        kpiImaging: document.getElementById('kpi-imaging'),
-        kpiActiveOrders: document.getElementById('kpi-active-orders'),
-        kpiClaims: document.getElementById('kpi-claims'),
         ordersTableBody: document.getElementById('orders-table-body'),
         alertsList: document.getElementById('alerts-list'),
         stations: {
@@ -23,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
             washing: document.getElementById('station-washing'),
             drying: document.getElementById('station-drying'),
             folding: document.getElementById('station-folding'),
-            qa: document.getElementById('station-qa'), // Adjusted to 'qa'
+            qa: document.getElementById('station-qa'),
         },
         allOrdersTableBody: document.getElementById('all-orders-table-body'),
         allOrdersSearch: document.getElementById('all-orders-search'),
@@ -41,15 +48,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return includeSeconds ? `${hours}:${minutes}:${seconds}` : `${hours}:${minutes}`;
     };
     
-    const formatMinutes = (minutes) => {
-        if (isNaN(minutes) || minutes < 0) return 'N/A';
-        return `${minutes.toFixed(1)}m`;
-    }
-
     const formatDateTime = (isoString) => {
         if (!isoString) return '';
-        const date = new Date(isoString);
-        return date.toLocaleString(); // Uses user's locale
+        return new Date(isoString).toLocaleString();
     };
 
     const getStatusColorClass = (value, thresholds) => {
@@ -60,63 +61,81 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- RENDERING FUNCTIONS ---
     function renderKpis(data) {
-        // Turnaround
+        // --- THIS IS THE FIX: Populate all new and reorganized cards ---
+        // Business Metrics
+        const retentionValue = selectors.kpiRetentionRate.querySelector('.kpi-value');
+        retentionValue.textContent = `${data.retention.retention_percentage.toFixed(1)}%`;
+        retentionValue.className = `kpi-value ${getStatusColorClass(data.retention.retention_percentage, { green: 80, amber: 60 })}`;
+
+        const lifespanValue = selectors.kpiAvgLifespan.querySelector('.kpi-value');
+        lifespanValue.textContent = `${data.retention.avg_lifespan_months}m, ${data.retention.avg_lifespan_rem_days}d`;
+
+        const frequencyValue = selectors.kpiOrderFrequency.querySelector('.kpi-value');
+        frequencyValue.textContent = `${data.retention.avg_orders_per_customer.toFixed(2)}`;
+        
+        const ltvValue = selectors.kpiLtv.querySelector('.kpi-value');
+        ltvValue.textContent = `R ${data.retention.ltv.toFixed(2)}`;
+
+        // Delivering on Promises
         const turnaroundValue = selectors.kpiTurnaround.querySelector('.kpi-value');
         const turnaroundSubtext = selectors.kpiTurnaround.querySelector('.kpi-subtext');
         turnaroundValue.textContent = `${data.turnaround.percentage_on_time.toFixed(1)}%`;
         turnaroundValue.className = `kpi-value ${getStatusColorClass(data.turnaround.percentage_on_time, { green: 90, amber: 75 })}`;
-        turnaroundSubtext.innerHTML = `(${data.turnaround.total_completed} orders)<br>P50: ${data.turnaround.p50_minutes}m, P90: ${data.turnaround.p90_minutes}m`;
+        turnaroundSubtext.innerHTML = `(${data.turnaround.total_completed} orders) P50: ${data.turnaround.p50_minutes}m`;
         
-        // Pickup
         const pickupValue = selectors.kpiPickup.querySelector('.kpi-value');
         const pickupSubtext = selectors.kpiPickup.querySelector('.kpi-subtext');
         pickupValue.textContent = `${data.pickup.percentage_on_time.toFixed(1)}%`;
         pickupValue.className = `kpi-value ${getStatusColorClass(data.pickup.percentage_on_time, { green: 92, amber: 80 })}`;
-        pickupSubtext.innerHTML = `(${data.pickup.total_pickups} pickups)<br>Median: ${data.pickup.median_pickup_time}m`;
+        pickupSubtext.innerHTML = `(${data.pickup.total_pickups} pickups) Median: ${data.pickup.median_pickup_time}m`;
 
-        // Delivery
         const deliveryValue = selectors.kpiDelivery.querySelector('.kpi-value');
         const deliverySubtext = selectors.kpiDelivery.querySelector('.kpi-subtext');
         deliveryValue.textContent = `${data.delivery.percentage_on_time.toFixed(1)}%`;
         deliveryValue.className = `kpi-value ${getStatusColorClass(data.delivery.percentage_on_time, { green: 92, amber: 80 })}`;
-        deliverySubtext.innerHTML = `(${data.delivery.total_deliveries} deliveries)<br>Avg: ${data.delivery.avg_delivery_time}m`;
+        deliverySubtext.innerHTML = `(${data.delivery.total_deliveries} deliveries) Avg: ${data.delivery.avg_delivery_time}m`;
+        
+        const claimsResolutionValue = selectors.kpiClaimsResolution.querySelector('.kpi-value');
+        claimsResolutionValue.textContent = `${data.claims_resolution.on_time_percentage.toFixed(1)}%`;
+        claimsResolutionValue.className = `kpi-value ${getStatusColorClass(data.claims_resolution.on_time_percentage, { green: 95, amber: 85 })}`;
 
-        // Imaging
-        const imagingValue = selectors.kpiImaging.querySelector('.kpi-value');
-        const imagingSubtext = selectors.kpiImaging.querySelector('.kpi-subtext');
-        imagingValue.textContent = `${data.imaging.coverage_percent.toFixed(1)}%`;
-        imagingValue.className = `kpi-value ${getStatusColorClass(data.imaging.coverage_percent, { green: 98, amber: 95 })}`;
-        imagingSubtext.innerHTML = `${data.imaging.imaged_items}/${data.imaging.total_items} items imaged`;
-
-        // Active Orders & Claims
-        selectors.kpiActiveOrders.querySelector('.kpi-value').textContent = data.active_orders_count;
-        selectors.kpiClaims.querySelector('.kpi-value').textContent = data.claims.open_count; 
-        selectors.kpiClaims.querySelector('.kpi-subtext').innerHTML = `Total claims today: ${data.claims.count_today}`;
+        const claimRateValue = selectors.kpiClaimRate.querySelector('.kpi-value');
+        const claimRateSubtext = selectors.kpiClaimRate.querySelector('.kpi-subtext');
+        claimRateValue.textContent = `${data.claim_rate.claim_rate_percent.toFixed(1)}%`;
+        claimRateValue.className = `kpi-value ${getStatusColorClass(100 - data.claim_rate.claim_rate_percent, { green: 98, amber: 95 })}`; // Lower is better
+        claimRateSubtext.innerHTML = `${data.claim_rate.orders_with_claims} claims / ${data.claim_rate.total_orders} orders`;
+        
+        const autoClaimsValue = selectors.kpiAutoClaims.querySelector('.kpi-value');
+        autoClaimsValue.textContent = `${data.claims_resolution.auto_claim_percentage.toFixed(1)}%`;
+        autoClaimsValue.className = `kpi-value ${getStatusColorClass(100 - data.claims_resolution.auto_claim_percentage, { green: 90, amber: 70 })}`; // Lower is better
+        // --- END OF FIX ---
     }
 
     function renderStations(data) {
         for (const [key, stationEl] of Object.entries(selectors.stations)) {
             const metrics = data[key];
-            if (metrics) {
+            if (metrics && stationEl) {
                 stationEl.querySelector('[data-metric="queue_length"]').textContent = metrics.queue_length;
-                if (metrics.utilization_pct !== undefined) {
+                if (stationEl.querySelector('[data-metric="utilization_pct"]')) {
                     stationEl.querySelector('[data-metric="utilization_pct"]').textContent = metrics.utilization_pct.toFixed(1);
                 }
                 stationEl.querySelector('[data-metric="avg_time"]').textContent = metrics.avg_time.toFixed(1);
                 stationEl.querySelector('[data-metric="p95_time"]').textContent = metrics.p95_time.toFixed(1);
-                stationEl.querySelector('[data-metric="throughput_h"]').textContent = metrics.throughput_h.toFixed(1);
+                if (stationEl.querySelector('[data-metric="throughput_h"]')) {
+                   stationEl.querySelector('[data-metric="throughput_h"]').textContent = metrics.throughput_h.toFixed(1);
+                }
 
                 if (metrics.bottleneck) {
                     stationEl.classList.add('bottleneck');
                 } else {
                     stationEl.classList.remove('bottleneck');
                 }
-            } else {
-                stationEl.querySelector('[data-metric="queue_length"]').textContent = 'N/A';
-                if (stationEl.querySelector('[data-metric="utilization_pct"]')) stationEl.querySelector('[data-metric="utilization_pct"]').textContent = 'N/A';
-                stationEl.querySelector('[data-metric="avg_time"]').textContent = 'N/A';
-                stationEl.querySelector('[data-metric="p95_time"]').textContent = 'N/A';
-                if (stationEl.querySelector('[data-metric="throughput_h"]')) stationEl.querySelector('[data-metric="throughput_h"]').textContent = 'N/A';
+            } else if (stationEl) {
+                stationEl.querySelector('[data-metric="queue_length"]').textContent = '...';
+                if (stationEl.querySelector('[data-metric="utilization_pct"]')) stationEl.querySelector('[data-metric="utilization_pct"]').textContent = '...';
+                stationEl.querySelector('[data-metric="avg_time"]').textContent = '...';
+                stationEl.querySelector('[data-metric="p95_time"]').textContent = '...';
+                if (stationEl.querySelector('[data-metric="throughput_h"]')) stationEl.querySelector('[data-metric="throughput_h"]').textContent = '...';
                 stationEl.classList.remove('bottleneck');
             }
         }
@@ -142,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!row) {
             row = document.createElement('tr');
             row.id = `order-row-${order.id}`;
-            selectors.ordersTableBody.prepend(row); // Prepend new orders
+            selectors.ordersTableBody.prepend(row);
         }
         row.innerHTML = renderOrderRow(order);
         ordersMap.set(order.id, order);
@@ -170,14 +189,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const order = ordersMap.get(orderId);
             if (!order) return;
 
-            // Update turnaround timer
             if (order.picked_up_at) {
                 const turnaroundEl = row.querySelector('.turnaround-timer');
                 const turnaroundSeconds = (new Date() - new Date(order.picked_up_at)) / 1000;
                 if(turnaroundEl) turnaroundEl.textContent = formatTime(turnaroundSeconds);
             }
 
-            // Update SLA countdown
             const slaEl = row.querySelector('.sla-countdown');
             if (slaEl && order.sla_deadline) {
                 const diffSeconds = (new Date(order.sla_deadline) - new Date()) / 1000;
@@ -187,39 +204,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- [NEW] Historical Orders Table ---
-    const calculateOrderStageDuration = (order, startEventName, endEventName) => {
+    function calculateOrderStageDuration(order, startEventName) {
         if (!order.events || order.events.length === 0) return 'N/A';
 
-        let startTimestamp = null;
-        let endTimestamp = null;
-        
-        // Handle direct timestamp fields for order-level stages
         if (startEventName === 'Imaging' && order.imaging_started_at && order.processing_started_at) {
-            startTimestamp = new Date(order.imaging_started_at);
-            endTimestamp = new Date(order.processing_started_at);
-        } else if (startEventName === 'QA' && order.qa_started_at) {
-             startTimestamp = new Date(order.qa_started_at);
-             // Find end: ReadyForDelivery or Processing (if QA failed)
-             const readyEvent = order.events.find(e => e.to_status === 'ReadyForDelivery' && new Date(e.timestamp) > startTimestamp);
-             const failEvent = order.events.find(e => e.to_status.includes('Processing') && e.meta && e.meta.includes('qa_failed_by') && new Date(e.timestamp) > startTimestamp);
-             endTimestamp = (readyEvent || failEvent) ? new Date((readyEvent || failEvent).timestamp) : null;
-        } else {
-            // Generic event-based parsing for basket-level stages
-            const starts = order.events.filter(e => e.to_status.includes(`Started-${startEventName.toLowerCase()}`));
-            const ends = order.events.filter(e => e.to_status.includes(`Finished-${startEventName.toLowerCase()}`)); // Assuming a clear finished event
-
-            if (starts.length === 0 || ends.length === 0) return 'N/A';
-
-            // For simplicity, take the time between the earliest start and latest end for *any* basket in that stage
-            // A more precise approach would match individual basket start/end pairs, then average or sum.
-            startTimestamp = new Date(starts.sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp))[0].timestamp);
-            endTimestamp = new Date(ends.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp))[0].timestamp);
-        }
-
-        if (startTimestamp && endTimestamp) {
-            const durationMinutes = (endTimestamp - startTimestamp) / (1000 * 60);
-            return durationMinutes.toFixed(1);
+            return ((new Date(order.processing_started_at) - new Date(order.imaging_started_at)) / (1000 * 60)).toFixed(1);
+        } 
+        
+        if (startEventName === 'washing') {
+            const starts = order.events.filter(e => e.to_status && e.to_status.includes('Started-washing'));
+            const ends = order.events.filter(e => e.to_status && e.to_status.includes('Finished-washing'));
+            if (starts.length > 0 && ends.length > 0) {
+                const start = new Date(starts[0].timestamp);
+                const end = new Date(ends[ends.length - 1].timestamp);
+                return ((end - start) / (1000 * 60)).toFixed(1);
+            }
         }
         return 'N/A';
     };
@@ -235,9 +234,8 @@ document.addEventListener('DOMContentLoaded', () => {
                    (order.status && order.status.toLowerCase().includes(searchLower));
         });
 
-        // Pre-calculate derived values for sorting
         filteredOrders.forEach(order => {
-            order.stain_count = order.events.filter(e => e.to_status.includes('Stain Flagged')).length;
+            order.stain_count = order.images.filter(img => img.is_stain).length;
             order.qa_outcome = 'Pending';
             const qaPass = order.events.find(e => e.to_status === 'ReadyForDelivery' && e.from_status === 'QA');
             const qaFail = order.events.find(e => e.to_status === 'Processing' && e.from_status === 'QA' && e.meta && e.meta.includes('qa_failed_by'));
@@ -245,24 +243,18 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (qaFail) order.qa_outcome = 'Failed';
 
             order.imaging_duration = calculateOrderStageDuration(order, 'Imaging');
-            order.pretreat_duration = calculateOrderStageDuration(order, 'Pretreat');
             order.washing_duration = calculateOrderStageDuration(order, 'washing');
-            order.drying_duration = calculateOrderStageDuration(order, 'drying');
-            order.folding_duration = calculateOrderStageDuration(order, 'folding');
-            order.qa_duration = calculateOrderStageDuration(order, 'QA');
         });
-
 
         filteredOrders.sort((a, b) => {
             let valA = a[sortBy];
             let valB = b[sortBy];
 
-            // Handle numeric sorting for durations and counts
-            if (['id', 'total_items', 'basket_count', 'stain_count', 'imaging_duration', 'pretreat_duration', 'washing_duration', 'drying_duration', 'folding_duration', 'qa_duration'].includes(sortBy)) {
+            if (['id', 'total_items', 'basket_count', 'stain_count', 'imaging_duration', 'washing_duration', 'confirmed_load_count'].includes(sortBy)) {
                 valA = parseFloat(valA) || 0;
                 valB = parseFloat(valB) || 0;
             } else if (sortBy === 'created_at' || sortBy === 'delivered_at') {
-                valA = valA ? new Date(valA) : new Date(0); // Treat null dates as very old
+                valA = valA ? new Date(valA) : new Date(0); 
                 valB = valB ? new Date(valB) : new Date(0);
             }
 
@@ -278,6 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         filteredOrders.forEach(order => {
             const row = document.createElement('tr');
+            const total = order.confirmed_load_count ? `R${(order.confirmed_load_count * pricePerLoad).toFixed(2)}` : 'N/A';
             row.innerHTML = `
                 <td><a href="/track/${order.tracking_token}" target="_blank">${order.id}</a></td>
                 <td>${order.customer_name}</td>
@@ -287,13 +280,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${order.total_items}</td>
                 <td>${order.basket_count}</td>
                 <td>${order.stain_count}</td>
+                <td>${order.confirmed_load_count}</td>
+                <td>${total}</td>
                 <td>${order.qa_outcome}</td>
                 <td>${order.imaging_duration}</td>
-                <td>${order.pretreat_duration}</td>
                 <td>${order.washing_duration}</td>
-                <td>${order.drying_duration}</td>
-                <td>${order.folding_duration}</td>
-                <td>${order.qa_duration}</td>
             `;
             selectors.allOrdersTableBody.appendChild(row);
         });
@@ -323,7 +314,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderAllOrdersTable(allOrdersData, currentSort.by, currentSort.dir, selectors.allOrdersSearch.value);
     });
 
-    // --- [NEW] Aggregated Statistics Table ---
     function renderAggregatedStatsTable(data) {
         selectors.aggregatedStatsTableBody.innerHTML = '';
         if (!data || Object.keys(data).length === 0) {
@@ -335,15 +325,16 @@ document.addEventListener('DOMContentLoaded', () => {
             { metric: `Timeframe`, value: data.timeframe },
             { metric: `Total Orders Created`, value: data.total_orders_created },
             { metric: `Total Orders Completed`, value: data.total_orders_completed },
-            { metric: `Avg Turnaround Time`, value: `${data.avg_turnaround_minutes.toFixed(1)} min` },
-            { metric: `Avg Pickup Time`, value: `${data.avg_pickup_minutes.toFixed(1)} min` },
+            { metric: `Total Revenue`, value: `R ${data.total_revenue.toFixed(2)}` },
+            { metric: `Avg Turnaround Time`, value: `${data.avg_turnaround_minutes.toFixed(2)} min` },
+            { metric: `Avg Pickup Time`, value: `${data.avg_pickup_minutes.toFixed(2)} min` },
             { metric: `Avg Items per Order`, value: data.avg_items_per_order.toFixed(1) },
-            { metric: `Avg Imaging Time`, value: `${data.avg_imaging_time.toFixed(1)} min` },
-            { metric: `Avg Pretreat Time`, value: `${data.avg_pretreat_time.toFixed(1)} min` },
-            { metric: `Avg Washing Time`, value: `${data.avg_washing_time.toFixed(1)} min` },
-            { metric: `Avg Drying Time`, value: `${data.avg_drying_time.toFixed(1)} min` },
-            { metric: `Avg Folding Time`, value: `${data.avg_folding_time.toFixed(1)} min` },
-            { metric: `Avg QA Time`, value: `${data.avg_qa_time.toFixed(1)} min` },
+            { metric: `Avg Imaging Time`, value: `${data.avg_imaging_time.toFixed(2)} min` },
+            { metric: `Avg Pretreat Time`, value: `${data.avg_pretreat_time.toFixed(2)} min` },
+            { metric: `Avg Washing Time`, value: `${data.avg_washing_time.toFixed(2)} min` },
+            { metric: `Avg Drying Time`, value: `${data.avg_drying_time.toFixed(2)} min` },
+            { metric: `Avg Folding Time`, value: `${data.avg_folding_time.toFixed(2)} min` },
+            { metric: `Avg QA Time`, value: `${data.avg_qa_time.toFixed(2)} min` },
             { metric: `Total Claims`, value: data.total_claims },
             { metric: `Total Compensation`, value: `R ${data.total_compensation.toFixed(2)}` },
             { metric: `% Orders with Stains`, value: `${data.percent_with_stains.toFixed(1)}%` },
@@ -368,6 +359,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- API & SOCKETS ---
+    async function fetchSettings() {
+        try {
+            const response = await fetch('/api/admin/settings');
+            const settings = await response.json();
+            pricePerLoad = parseFloat(settings.price_per_load) || 0.0;
+        } catch (error) {
+            console.error("Failed to fetch settings:", error);
+        }
+    }
+
     async function fetchKpisAndActiveOrders() {
         try {
             const [kpis, orders, stations] = await Promise.all([
@@ -377,7 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ]);
             
             renderKpis(kpis);
-            selectors.ordersTableBody.innerHTML = ''; // Clear existing before re-rendering active
+            selectors.ordersTableBody.innerHTML = ''; 
             orders.forEach(updateOrInsertOrderRow);
             renderStations(stations);
             
@@ -416,23 +417,23 @@ document.addEventListener('DOMContentLoaded', () => {
         socket.emit('join', { room: `hub:${HUB_ID}` });
     });
     socket.on('order.updated', (order) => {
-        // Update active orders table (real-time)
         updateOrInsertOrderRow(order);
-        // Re-fetch historical and aggregated data to reflect changes
-        // This can be optimized later if needed to only refresh relevant parts
         fetchAllOrders();
         fetchAggregatedStats();
-        fetchKpisAndActiveOrders(); // Also refresh KPIs
+        fetchKpisAndActiveOrders(); 
     });
 
     // --- INITIALIZATION ---
-    fetchKpisAndActiveOrders(); // Fetch KPIs and active orders initially
-    fetchAllOrders(); // Fetch all orders initially
-    fetchAggregatedStats(); // Fetch aggregated stats initially
+    async function initializeDashboard() {
+        await fetchSettings();
+        fetchKpisAndActiveOrders();
+        fetchAllOrders();
+        fetchAggregatedStats();
+        
+        setInterval(fetchKpisAndActiveOrders, 15000);
+        setInterval(fetchAllOrders, 60000);
+        setInterval(fetchAggregatedStats, 60000);
+    }
     
-    // Set periodic refresh for KPIs and active orders (as socket updates might not cover all KPI changes)
-    setInterval(fetchKpisAndActiveOrders, 15000); // More frequent for KPIs
-    // Periodic refresh for historical data - less frequent
-    setInterval(fetchAllOrders, 60000); 
-    setInterval(fetchAggregatedStats, 60000);
+    initializeDashboard();
 });
