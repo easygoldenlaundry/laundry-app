@@ -62,8 +62,10 @@ fastapi_app.mount("/data", StaticFiles(directory="data"), name="data")
 
 fastapi_app.include_router(health.router)
 fastapi_app.include_router(auth_pages.router)
-fastapi_app.include_router(users.router)
-fastapi_app.include_router(book.router)
+fastapi_app.include_router(users.router) # Web routes
+fastapi_app.include_router(users.api_router) # <<< NEW: Mobile API routes for users
+fastapi_app.include_router(book.router) # Web routes
+fastapi_app.include_router(book.api_router) # <<< NEW: Mobile API routes for booking
 fastapi_app.include_router(track.router)
 fastapi_app.include_router(claims.router)
 fastapi_app.include_router(driver.router)

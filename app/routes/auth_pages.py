@@ -15,11 +15,6 @@ from app.auth import create_access_token, verify_password, ACCESS_TOKEN_EXPIRE_M
 router = APIRouter(tags=["Authentication"])
 templates = Jinja2Templates(directory="app/templates")
 
-def wants_json(request: Request) -> bool:
-    """Check if the client's Accept header prefers a JSON response."""
-    accept_header = request.headers.get("accept", "")
-    return "application/json" in accept_header
-
 @router.get("/login", response_class=HTMLResponse, include_in_schema=False)
 async def login_page(request: Request):
     """Serves the main login page."""
@@ -33,65 +28,50 @@ async def login_for_access_token(
     session: Session = Depends(get_session)
 ):
     """
-    Handles form submission from the login page for both web and mobile clients.
-    - Returns a redirect for web browsers.
-    - Returns a JSON object with token and user data for mobile apps.
+    Handles form submission from login page/API.
+    - For mobile, it returns a JSON object with token and user data.
+    - For web, the browser receives JSON but the login form submission flow
+      will set a cookie and redirect via client-side logic if needed,
+      or we can adapt it to handle the JSON response. A redirect is cleaner.
+      Let's keep the content negotiation here as it's a hybrid endpoint.
     """
-    is_json_request = wants_json(request)
+    is_json_request = "application/json" in request.headers.get("accept", "")
 
-    user = session.exec(
-        select(User).where((User.username == form_data.username) | (User.email == form_data.username))
-    ).first()
+    user = session.exec(select(User).where((User.username == form_data.username) | (User.email == form_data.username))).first()
 
     if not user or not verify_password(form_data.password, user.hashed_password):
         if is_json_request:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username or password.")
-        return templates.TemplateResponse("login.html", {
-            "request": request, "error": "Incorrect username or password."
-        }, status_code=401)
+        return templates.TemplateResponse("login.html", {"request": request, "error": "Incorrect username or password."}, status_code=401)
     
     if not user.is_active:
         if is_json_request:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your account is inactive. Please contact an administrator.")
-        return templates.TemplateResponse("login.html", {
-            "request": request, "error": "Your account is inactive. Please contact an administrator."
-        }, status_code=403)
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your account is inactive.")
+        return templates.TemplateResponse("login.html", {"request": request, "error": "Your account is inactive. Please contact an administrator."}, status_code=403)
 
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
+    access_token = create_access_token(data={"sub": user.username})
     
     if is_json_request:
         customer = session.exec(select(Customer).where(Customer.user_id == user.id)).first()
-        user_data = {
-            "id": user.id,
-            "name": user.display_name,
-            "email": user.email,
-            "phone": customer.phone_number if customer else None,
-            "whatsapp": customer.whatsapp_number if customer else None,
-            "address": customer.address if customer else None,
-            "role": user.role
-        }
         return JSONResponse(content={
             "access_token": access_token,
             "token_type": "bearer",
-            "user": user_data
+            "user": {
+                "id": user.id, "name": user.display_name, "email": user.email,
+                "phone": customer.phone_number if customer else None,
+                "whatsapp": customer.whatsapp_number if customer else None,
+                "address": customer.address if customer else None,
+                "role": user.role
+            }
         })
 
-    # Default role-based redirects for web
-    default_redirects = {
-        "admin": "/admin/dashboard", "driver": "/driver",
-        "staff": "/hub_intake", "customer": "/account"
-    }
-    redirect_url = default_redirects.get(user.role, "/login")
-    if next_url and next_url.startswith("/"):
-        redirect_url = next_url
+    # Web-based redirect flow
+    default_redirects = {"admin": "/admin/dashboard", "driver": "/driver", "staff": "/hub_intake", "customer": "/account"}
+    redirect_url = next_url if next_url and next_url.startswith("/") else default_redirects.get(user.role, "/login")
     
     response = RedirectResponse(url=redirect_url, status_code=status.HTTP_303_SEE_OTHER)
     response.set_cookie(key="access_token", value=f"Bearer {access_token}", httponly=True, samesite="lax")
     return response
-
 
 @router.get("/logout")
 async def logout(request: Request):
