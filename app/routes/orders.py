@@ -1,14 +1,16 @@
 # app/routes/orders.py
 from fastapi import APIRouter, Depends, HTTPException, Form, UploadFile, File
-from sqlmodel import Session, select, delete
+from sqlmodel import Session, select, delete, update
 from typing import List, Optional
 from pydantic import BaseModel
 from sqlalchemy.orm import selectinload
 from datetime import datetime, timezone
 
 from app.db import get_session
-from app.models import Order, Bag, Image, Item, Basket
+from app.models import Order, Bag, Image, Item, Basket, User, Message, Customer
 from app.services.state_machine import apply_transition
+from app.auth import get_current_user, get_current_customer_user
+from app.sockets import broadcast_message_update, broadcast_admin_notification
 from app.config import DATA_ROOT
 import aiofiles
 import os
@@ -20,9 +22,24 @@ class ImageCompletionRequest(BaseModel):
     user_id: int
     basket_count: int
 
+class DeliveryRequest(BaseModel):
+    delivery_address: str
+    delivery_latitude: float
+    delivery_longitude: float
+    phone: str
 
-@router.get("/active", response_model=List[Order])
-def get_active_orders(hub_id: int, session: Session = Depends(get_session)):
+class MessagePublic(BaseModel):
+    id: int
+    order_id: int
+    sender_id: int
+    sender_name: str
+    sender_role: str
+    message: str
+    timestamp: datetime
+    read: bool
+
+@router.get("/active")
+async def get_active_orders(hub_id: int = 1, session: Session = Depends(get_session)):
     """
     Returns a list of all orders that are not in a final state
     (e.g., 'Delivered' or 'Closed'). Eager loads baskets for dashboard view.
@@ -33,11 +50,13 @@ def get_active_orders(hub_id: int, session: Session = Depends(get_session)):
         Order.status != "Closed"
     ).options(selectinload(Order.baskets)).order_by(Order.created_at.desc())
     results = session.exec(statement).all()
-    return results
+    
+    # Convert to dicts for JSON serialization
+    return [order.dict() for order in results]
 
 @router.get("/{order_id}/bag", response_model=Bag)
 def get_order_bag(order_id: int, session: Session = Depends(get_session)):
-    """Retrieve the bag associated with a specific order."""
+    # ... (this function remains unchanged)
     statement = select(Bag).where(Bag.order_id == order_id)
     bag = session.exec(statement).first()
     if not bag:
@@ -54,10 +73,7 @@ async def upload_order_image(
     proof_photo: UploadFile = File(...),
     session: Session = Depends(get_session)
 ):
-    """
-    Uploads an image for a specific item and CREATES the item record dynamically.
-    This is now the source of truth for item creation.
-    """
+    # ... (this function remains unchanged)
     order = session.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -102,10 +118,7 @@ async def upload_order_image(
 
 @router.post("/{order_id}/complete-imaging", response_model=Order)
 def complete_imaging_stage(order_id: int, request: ImageCompletionRequest, session: Session = Depends(get_session)):
-    """
-    Finalizes imaging, creates individual baskets for the order, and moves the
-    order into the 'Processing' state.
-    """
+    # ... (this function remains unchanged)
     order = session.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -114,12 +127,10 @@ def complete_imaging_stage(order_id: int, request: ImageCompletionRequest, sessi
     if not items_in_order:
         raise HTTPException(status_code=400, detail="Cannot complete imaging with 0 items scanned.")
     
-    # --- [MODIFIED] ---
     order.total_items = len(items_in_order)
     order.imaged_items_count = len(items_in_order)
     order.imaging_completed_at = datetime.now(timezone.utc)
     order.basket_count = request.basket_count
-    # --- End of [MODIFIED] ---
     
     session.exec(delete(Basket).where(Basket.order_id == order_id))
     session.commit()
@@ -136,23 +147,31 @@ def complete_imaging_stage(order_id: int, request: ImageCompletionRequest, sessi
     return updated_order
 
 @router.post("/{order_id}/request-delivery", response_model=Order)
-def request_delivery(order_id: int, session: Session = Depends(get_session)):
+def request_delivery(order_id: int, delivery_request: DeliveryRequest, session: Session = Depends(get_session)):
     """
-    Customer-triggered action to move an order from 'ReadyForDelivery' to 'OutForDelivery',
-    making it available for drivers.
+    Customer-triggered action to set delivery details and move an order to 'OutForDelivery'.
     """
     order = session.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     if order.status != "ReadyForDelivery":
         raise HTTPException(status_code=400, detail="Order is not ready for delivery request.")
-        
+
+    # Update customer profile with new delivery details
+    customer = session.get(Customer, order.customer_id)
+    if customer:
+        customer.address = delivery_request.delivery_address
+        customer.latitude = delivery_request.delivery_latitude
+        customer.longitude = delivery_request.delivery_longitude
+        customer.phone_number = delivery_request.phone
+        session.add(customer)
+
     updated_order = apply_transition(session, order, "OutForDelivery", meta={"customer_triggered": True})
     return updated_order
 
 @router.get("/{order_id}/stained-images", response_model=List[Image])
 def get_stained_images(order_id: int, session: Session = Depends(get_session)):
-    """Returns all images for an order that were flagged for stains."""
+    # ... (this function remains unchanged)
     images = session.exec(
         select(Image).where(Image.order_id == order_id, Image.is_stain == True)
     ).all()
@@ -160,12 +179,12 @@ def get_stained_images(order_id: int, session: Session = Depends(get_session)):
 
 
 class QAImageUpdateRequest(BaseModel):
-    qa_status: str # 'removed', 'non_removable', 'retry'
+    qa_status: str
     qa_notes: Optional[str] = None
 
 @router.post("/images/{image_id}/qa-update", response_model=Image)
 def update_image_qa_status(image_id: int, request: QAImageUpdateRequest, session: Session = Depends(get_session)):
-    """Updates the QA status of a single image."""
+    # ... (this function remains unchanged)
     image = session.get(Image, image_id)
     if not image:
         raise HTTPException(status_code=404, detail="Image not found")
@@ -176,3 +195,105 @@ def update_image_qa_status(image_id: int, request: QAImageUpdateRequest, session
     session.commit()
     session.refresh(image)
     return image
+
+@router.get("/{order_id}/messages", response_model=List[MessagePublic])
+def get_messages(order_id: int, session: Session = Depends(get_session)):
+    """Fetches the chat history for an order, enriched for mobile app response."""
+    order = session.get(Order, order_id)
+    if not order: raise HTTPException(404, "Order not found")
+
+    messages_db = session.exec(
+        select(Message).where(Message.order_id == order_id).order_by(Message.timestamp.asc())
+    ).all()
+    
+    response = []
+    for msg in messages_db:
+        sender_name = "Support"
+        sender_id = 0 # Placeholder for admin
+        if msg.sender_role == 'customer':
+            sender_name = order.customer_name
+            sender_id = order.customer.user_id if order.customer else -1
+        
+        response.append(MessagePublic(
+            id=msg.id, order_id=msg.order_id, sender_id=sender_id,
+            sender_name=sender_name, sender_role=msg.sender_role,
+            message=msg.content, timestamp=msg.timestamp, read=msg.is_read
+        ))
+    return response
+
+class MessageCreate(BaseModel):
+    message: str # Changed from 'content' to 'message' to match spec
+
+@router.post("/{order_id}/messages", response_model=MessagePublic)
+async def send_message(
+    order_id: int,
+    message_data: MessageCreate,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """Sends a message from either an admin or a customer."""
+    if not user: raise HTTPException(status_code=401, detail="Not authenticated")
+    order = session.get(Order, order_id)
+    if not order: raise HTTPException(404, "Order not found")
+    
+    sender_role = "unknown"
+    if user.role in ["admin", "staff"]: sender_role = "admin"
+    elif user.role == "customer": sender_role = "customer"
+    
+    if sender_role == "unknown":
+         raise HTTPException(status_code=403, detail="User role not permitted to chat.")
+
+    new_message = Message(
+        order_id=order_id, content=message_data.message, sender_role=sender_role
+    )
+    session.add(new_message)
+    session.commit()
+    session.refresh(new_message)
+
+    sender_name = user.display_name if sender_role == "customer" else "Support"
+    message_dict = {
+        "id": new_message.id, "order_id": new_message.order_id,
+        "sender_id": user.id, "sender_name": sender_name,
+        "sender_role": new_message.sender_role, "message": new_message.content,
+        "timestamp": new_message.timestamp.isoformat(), "read": new_message.is_read
+    }
+    # Use broadcast_message_update format for socket event
+    socket_msg = { "order_id": new_message.order_id, "sender_role": new_message.sender_role, "content": new_message.content, "timestamp": new_message.timestamp.isoformat() }
+    await broadcast_message_update(socket_msg)
+    
+    if sender_role == "customer":
+        await broadcast_admin_notification("new_customer_message")
+    
+    return MessagePublic(**message_dict)
+
+@router.post("/{order_id}/messages/mark-read", status_code=204)
+def mark_messages_as_read(
+    order_id: int,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    # ... (this function remains unchanged)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Admins mark messages from customers as read
+    if user.role in ["admin", "staff"]:
+        sender_to_mark = 'customer'
+    # Customers mark messages from admins as read
+    elif user.role == "customer":
+        sender_to_mark = 'admin'
+    else:
+        return # Other roles can't participate in chat
+
+    statement = (
+        update(Message)
+        .where(
+            Message.order_id == order_id,
+            Message.sender_role == sender_to_mark,
+            Message.is_read == False
+        )
+        .values(is_read=True)
+    )
+    session.exec(statement)
+    session.commit()
+    return

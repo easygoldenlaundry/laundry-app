@@ -28,14 +28,12 @@
     {% endif %}
 
     <form action="/api/auth/token" method="post">
-        <!-- --- THIS IS THE FIX: Add a hidden input to store the 'next' URL --- -->
         {% if request.query_params.next %}
         <input type="hidden" name="next_url" value="{{ request.query_params.next }}">
         {% endif %}
 
         <div class="form-group">
             <label for="username">Username or Email:</label>
-            <!-- --- THIS IS THE FIX: Pre-fill username after staff/driver registration --- -->
             <input type="text" id="username" name="username" required value="{{ prefill_username if prefill_username else '' }}">
         </div>
         <div class="form-group">

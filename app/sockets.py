@@ -7,7 +7,7 @@ from sqlmodel import SQLModel
 # Create the Socket.IO asynchronous server
 socketio_server = socketio.AsyncServer(
     async_mode="asgi",
-    cors_allowed_origins=[]
+    cors_allowed_origins="*",
 )
 
 def model_to_dict(model_instance: SQLModel) -> dict:
@@ -24,30 +24,24 @@ async def broadcast_order_update(order):
     status = order.status
     order_id = order.id
 
-    # --- FIX: More robust logic for notifying previous stations to refresh their queues ---
-    # This map defines which station to notify when an order ENTERS a new status.
-    # For example, when an order's status becomes "Drying", we notify the "washing" station.
     PREVIOUS_STATION_MAP = {
-        "Imaging": "DeliveredToHub", # For the intake screen
+        "Imaging": "DeliveredToHub", 
         "Washing": "Pretreat",
         "Drying": "washing",
         "Folding": "drying",
         "QA": "folding",
     }
 
-    # Define the base rooms for this update
     rooms = [
         f"hub:{hub_id}",
         f"order:{order_id}",
-        f"station:{hub_id}:{status}" # Notify the station for the order's NEW status
+        f"station:{hub_id}:{status}" 
     ]
     
-    # Check the map to see if we also need to notify the PREVIOUS station
     previous_station_type = PREVIOUS_STATION_MAP.get(status)
     if previous_station_type:
         rooms.append(f"station:{hub_id}:{previous_station_type}")
 
-    # If the order has an assigned driver, also send it to their private room.
     if order.assigned_driver_id:
         rooms.append(f"driver:{order.assigned_driver_id}")
 
@@ -57,6 +51,21 @@ async def broadcast_order_update(order):
     
     logging.debug(f"Broadcasted update for order {order_id} to rooms: {list(unique_rooms)}")
 
+async def broadcast_message_update(message_data: dict):
+    """Emits a 'message.new' event to a specific order's room."""
+    order_id = message_data.get("order_id")
+    if not order_id:
+        return
+
+    room = f"order:{order_id}"
+    await socketio_server.emit('message.new', message_data, room=room)
+    logging.info(f"Broadcasted new message for order {order_id} to room {room}")
+
+async def broadcast_admin_notification(event: str, data: dict = None):
+    """Emits an event to the general admin room (hub:1)."""
+    room = "hub:1"
+    await socketio_server.emit(event, data, room=room)
+    logging.info(f"Broadcasted admin notification '{event}' to room {room}")
 
 async def broadcast_machine_update(machine):
     """
@@ -70,8 +79,6 @@ async def broadcast_machine_update(machine):
         logging.warning(f"Machine {machine.id} does not have station data. Cannot broadcast update.")
         return 
 
-    # --- FIX: Broadcast to the specific station's room ---
-    # This allows the station UI to listen for updates to its own machines.
     rooms = [
         f"hub:{hub_id}",
         f"machine:{machine.id}",
@@ -99,3 +106,10 @@ async def on_join(sid, data):
     if room:
         socketio_server.enter_room(sid, room)
         logging.info(f"Client {sid} joined room: {room}")
+
+@socketio_server.on('leave')
+async def on_leave(sid, data):
+    room = data.get('room')
+    if room:
+        socketio_server.leave_room(sid, room)
+        logging.info(f"Client {sid} left room: {room}")

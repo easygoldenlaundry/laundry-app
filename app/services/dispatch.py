@@ -13,7 +13,6 @@ def dispatch_delivery_for_order(session: Session, order: Order, user_id: int):
         # We only dispatch from the QA station.
         return
 
-    # --- THIS IS THE FIX ---
     # When an order passes QA, it no longer belongs to the original pickup driver.
     # Clearing this ID makes it available to ANY driver once the customer requests delivery.
     order.assigned_driver_id = None

@@ -251,13 +251,20 @@ document.addEventListener('DOMContentLoaded', () => {
     finalizeBtn.addEventListener('click', completeImaging);
 
     // --- Socket Setup ---
-    const socket = io({ transports: ['websocket'] });
-    socket.on('connect', () => {
+    const socket = window.appSocket;
+
+    function onConnect() {
         document.getElementById('connection-status').textContent = 'Connected';
         socket.emit('join', { room: `station:${HUB_ID}:Imaging` });
         socket.emit('join', { room: `hub:${HUB_ID}` });
         fetchAndSyncQueue();
-    });
+    }
+
+    socket.on('connect', onConnect);
+    if (socket.connected) {
+        onConnect();
+    }
+
     socket.on('order.updated', () => fetchAndSyncQueue());
     
     // --- Initialization ---

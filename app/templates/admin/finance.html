@@ -1,0 +1,223 @@
+<!-- app/templates/admin/finance.html -->
+{% extends "base.html" %}
+
+{% block title %}Finance Dashboard{% endblock %}
+
+{% block content %}
+<style>
+    .finance-container { max-width: 1200px; }
+    h1 { text-align: center; margin-bottom: 0.5rem; }
+    .period-selector { text-align: center; margin-bottom: 2rem; }
+    .period-selector button {
+        padding: 0.6em 1.2em; border: 1px solid #ccc; border-radius: 20px;
+        background-color: #f0f0f0; cursor: pointer; margin: 0 0.25rem;
+    }
+    .period-selector button.active { background-color: #007bff; color: white; border-color: #007bff; }
+    
+    .guidance-card {
+        background: #e9ecef; border: 1px solid #dee2e6; padding: 1.5rem;
+        border-radius: 8px; text-align: center; margin-bottom: 2rem;
+    }
+    .guidance-card blockquote {
+        margin: 0; font-size: 1.2em; font-style: italic; color: #495057;
+    }
+    .guidance-card.healthy { background-color: #d1e7dd; border-color: #b2dfc1; }
+    .guidance-card.healthy blockquote { color: #0f5132; }
+    .guidance-card.caution { background-color: #fff3cd; border-color: #ffe69c; }
+    .guidance-card.caution blockquote { color: #664d03; }
+    .guidance-card.warning { background-color: #f8d7da; border-color: #f5c2c7; }
+    .guidance-card.warning blockquote { color: #842029; }
+
+    .balance-grid {
+        display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 2.5rem;
+    }
+    .balance-card, .inventory-card {
+        background: #fff; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .balance-card h2 { margin-top: 0; }
+    .live-balance-value { font-size: 3.5em; font-weight: 700; color: #0d6efd; margin: 0.2em 0; }
+    .balance-breakdown { list-style-type: none; padding: 0; margin: 1em 0 0 0; }
+    .balance-breakdown li { display: flex; justify-content: space-between; font-size: 1.1em; padding: 0.5em 0; }
+    #btn-record-withdrawal {
+        width: 100%; padding: 1em; margin-top: 1.5em; font-size: 1.1em;
+        background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;
+    }
+    
+    .inventory-card h3 { margin-top: 0; }
+    .inventory-list { list-style-type: none; padding: 0; }
+    .inventory-item { margin-bottom: 1.25em; }
+    .inventory-item-header { display: flex; justify-content: space-between; font-weight: 500; margin-bottom: 0.3em; }
+    .progress-bar { height: 1.5em; background-color: #e9ecef; border-radius: 5px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; background-color: #28a745; transition: width 0.5s ease; text-align: right; color: white; padding-right: 5px; line-height: 1.5em; box-sizing: border-box; }
+    .progress-bar-fill.low { background-color: #ffc107; }
+    .progress-bar-fill.critical { background-color: #dc3545; }
+
+    .utility-tracker { margin-top: 1.5rem; }
+    .utility-edit { display: flex; gap: 0.5em; align-items: center; margin-top: 0.5em; }
+    .utility-edit input { flex-grow: 1; padding: 0.5em; border: 1px solid #ccc; border-radius: 4px; }
+    .utility-edit button { padding: 0.5em 1em; background-color: #0d6efd; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    .utility-tracker small { color: #6c757d; display: block; margin-top: 0.5em; }
+
+    .transactions-section { background: #fff; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .table-wrapper { max-height: 400px; overflow-y: auto; margin-top: 1rem; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 0.8em 1em; text-align: left; border-bottom: 1px solid #eee; }
+    td .revenue { color: #198754; font-weight: 500; }
+    td .withdrawal { color: #dc3545; font-weight: 500; }
+    
+    .modal {
+        display: none; position: fixed; z-index: 1000; left: 0; top: 0;
+        width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5);
+    }
+    .modal-content {
+        background-color: #fefefe; margin: 10% auto; padding: 2em; border: 1px solid #888;
+        width: 80%; max-width: 500px; border-radius: 8px; position: relative;
+    }
+    .close-btn {
+        color: #aaa; position: absolute; top: 10px; right: 20px;
+        font-size: 28px; font-weight: bold; cursor: pointer;
+    }
+    .modal .form-group { margin-bottom: 1em; }
+    .modal label { display: block; margin-bottom: 0.5em; }
+    .modal input, .modal select { width: 100%; padding: 0.8em; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+    .modal button[type="submit"] { width: 100%; padding: 1em; background-color: #28a745; color: white; border: none; border-radius: 5px; font-size: 1.1em; cursor: pointer; }
+</style>
+
+<div class="finance-container">
+    <h1>Finance Dashboard</h1>
+    <div class="period-selector">
+        <button data-period="today">Today</button>
+        <button data-period="week">This Week</button>
+        <button data-period="month" class="active">This Month</button>
+        <button data-period="quarter">This Quarter</button>
+        <button data-period="year">This Year</button>
+        <button data-period="all">All Time</button>
+    </div>
+
+    <div id="loading-state" style="text-align: center; padding: 2rem;">Loading financial data...</div>
+
+    <div id="finance-content" style="display: none;">
+        <div class="guidance-card" id="guidance-card">
+            <blockquote id="guidance-message"></blockquote>
+        </div>
+
+        <div class="balance-grid">
+            <div class="balance-card">
+                <h2>Live Business Balance</h2>
+                <p>This is the actual cash that should be in your business bank account right now.</p>
+                <div class="live-balance-value" id="live-balance">R 0.00</div>
+                <ul class="balance-breakdown">
+                    <li><span>(+) Total Revenue</span> <strong id="bd-revenue">R 0.00</strong></li>
+                    <li><span>(-) Total Withdrawals</span> <strong id="bd-withdrawals">R 0.00</strong></li>
+                </ul>
+                <hr>
+                <h4>Guidance Breakdown (This Month)</h4>
+                <ul class="balance-breakdown">
+                    <li><span>(-) Bills To Pay</span> <strong id="bd-bills">R 0.00</strong></li>
+                    <li><span>(-) Safety Buffer Goal</span> <strong id="bd-buffer">R 0.00</strong></li>
+                </ul>
+                <button id="btn-record-withdrawal">Record a Withdrawal / Purchase</button>
+            </div>
+            <div class="inventory-card">
+                <h3>Inventory Status</h3>
+                <div id="inventory-list" class="inventory-list"></div>
+                
+                <hr>
+                <div class="utility-tracker">
+                    <div id="electricity-tracker-item" class="inventory-item">
+                        <div class="inventory-item-header">
+                            <span>Monthly Electricity Usage</span>
+                            <span id="electricity-usage-display">... / ... kWh</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div id="electricity-progress-fill" class="progress-bar-fill" style="width: 0%;">0%</div>
+                        </div>
+                    </div>
+                    <div class="utility-edit">
+                        <label for="electricity-usage-input" style="display:none;">Corrected Total kWh Used:</label>
+                        <input type="number" id="electricity-usage-input" step="0.1" placeholder="Corrected Total kWh Used">
+                        <button id="btn-save-electricity">Save</button>
+                    </div>
+                    <small>Enter your meter reading to correct the automatically tracked value.</small>
+                </div>
+                
+            </div>
+        </div>
+
+        <div class="transactions-section">
+            <h2>Transaction Log</h2>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Description</th>
+                            <th>Type</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactions-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Withdrawal Modal -->
+<div id="withdrawal-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close-btn">&times;</span>
+        <h2>Record a Withdrawal</h2>
+        <form id="withdrawal-form">
+            <div class="form-group">
+                <label for="withdrawal-amount">Amount (R)</label>
+                <input type="number" id="withdrawal-amount" step="0.01" required>
+            </div>
+            <div class="form-group">
+                <label for="withdrawal-type">Type</label>
+                <select id="withdrawal-type" required>
+                    <option value="" disabled selected>-- Select Type --</option>
+                    <option value="profit_draw">Profit Draw (Personal)</option>
+                    <option value="cost_reimbursement">Purchase for Business (Inventory)</option>
+                    <option value="fixed_cost">Fixed Cost Payment</option>
+                    <option value="capital_expenditure">Capital Expense (e.g., New Machine)</option>
+                </select>
+            </div>
+
+            <div id="inventory-fields" class="conditional-fields" style="display: none;">
+                <div class="form-group">
+                    <label for="inventory-item-sku">Inventory Item</label>
+                    <select id="inventory-item-sku"></select>
+                </div>
+                <div class="form-group">
+                    <label for="inventory-quantity">Quantity Purchased</label>
+                    <input type="number" id="inventory-quantity" step="0.01">
+                </div>
+            </div>
+            
+            <div id="fixed-cost-fields" class="conditional-fields" style="display: none;">
+                <div class="form-group">
+                    <label for="fixed-cost-type">Fixed Cost Type</label>
+                    <select id="fixed-cost-type">
+                        <option value="Rent Payment">Rent Payment</option>
+                        <option value="Insurance Payment">Insurance Payment</option>
+                        <option value="Base Electricity Payment">Base Electricity Payment</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="description-field" class="conditional-fields" style="display: none;">
+                 <div class="form-group">
+                    <label for="withdrawal-description">Description</label>
+                    <input type="text" id="withdrawal-description">
+                </div>
+            </div>
+
+            <button type="submit" id="submit-withdrawal-btn">Record</button>
+        </form>
+        <div id="withdrawal-feedback" style="margin-top: 1em; text-align: center;"></div>
+    </div>
+</div>
+
+<script src="/static/js/finance.js"></script>
+{% endblock %}

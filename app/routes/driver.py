@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 
 from fastapi import (APIRouter, Depends, Form, HTTPException, Request, Response,
-                     File, UploadFile)
+                     File, UploadFile, BackgroundTasks)
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
@@ -16,6 +16,8 @@ from app.db import get_session
 from app.models import Bag, Image, Order, User, Setting
 from app.auth import get_current_driver_user
 from app.services.state_machine import apply_transition
+from app.services.finance_calculator import create_finance_entries_for_order
+from app.services.inventory_manager import deduct_stock_for_order
 from app.config import DATA_ROOT
 
 router = APIRouter()
@@ -66,7 +68,6 @@ async def accept_delivery_job(user_id: int, request_data: OrderActionRequest, cu
 
     return order
 
-# --- THIS IS THE FIX: Accept load_count from the form ---
 @router.post("/api/drivers/{user_id}/picked_up", response_model=Order, dependencies=[Depends(get_current_driver_user)])
 async def picked_up_order(
     user_id: int, 
@@ -85,7 +86,6 @@ async def picked_up_order(
     if pin not in valid_pins:
         raise HTTPException(status_code=403, detail="Invalid PIN provided.")
 
-    # Save the confirmed load count to the order
     order.confirmed_load_count = load_count
     session.add(order)
 
@@ -95,7 +95,6 @@ async def picked_up_order(
         pass
     updated_order = apply_transition(session, order, "PickedUp", user_id=user_id, meta=meta)
     return updated_order
-# --- END OF FIX ---
 
 @router.post("/api/drivers/{user_id}/delivered_to_hub", response_model=Order, dependencies=[Depends(get_current_driver_user)])
 async def delivered_to_hub_order(user_id: int, order_id: int = Form(...), hub_qr_code: str = Form(...), proof_photo: Optional[UploadFile] = File(None), current_user: User = Depends(get_current_driver_user), session: Session = Depends(get_session)):
@@ -130,7 +129,15 @@ async def pickup_from_hub(user_id: int, order_id: int = Form(...), hub_qr_code: 
     return updated_order
 
 @router.post("/api/drivers/{user_id}/delivered", response_model=Order, dependencies=[Depends(get_current_driver_user)])
-async def delivered_order(user_id: int, order_id: int = Form(...), pin: str = Form(...), proof_photo: Optional[UploadFile] = File(None), current_user: User = Depends(get_current_driver_user), session: Session = Depends(get_session)):
+async def delivered_order(
+    user_id: int,
+    background_tasks: BackgroundTasks,
+    order_id: int = Form(...),
+    pin: str = Form(...),
+    proof_photo: Optional[UploadFile] = File(None),
+    current_user: User = Depends(get_current_driver_user),
+    session: Session = Depends(get_session)
+):
     if user_id != current_user.id: raise HTTPException(status_code=403, detail="Forbidden")
     order = session.get(Order, order_id)
     if not order: raise HTTPException(status_code=404, detail="Order not found")
@@ -146,11 +153,17 @@ async def delivered_order(user_id: int, order_id: int = Form(...), pin: str = Fo
         # ... file saving logic ...
         pass
     updated_order = apply_transition(session, order, "Delivered", user_id=user_id, meta=meta)
+
+    background_tasks.add_task(create_finance_entries_for_order, order_id=order.id, session=session)
+    background_tasks.add_task(deduct_stock_for_order, order_id=order.id, session=session)
+    
     return updated_order
 
 @router.get("/api/drivers/available_orders", response_model=list[Order], dependencies=[Depends(get_current_driver_user)])
 async def get_available_orders(session: Session = Depends(get_session)):
-    available_orders = session.exec(select(Order).where(Order.status == "Created")).all()
+    available_orders = session.exec(
+        select(Order).where(Order.status == "Created", Order.dispatch_method == "inhouse")
+    ).all()
     return available_orders
 
 @router.get("/api/drivers/available_deliveries", response_model=list[Order], dependencies=[Depends(get_current_driver_user)])

@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- DOM SELECTORS ---
     const selectors = {
-        // --- THIS IS THE FIX: New selectors for new layout ---
         kpiRetentionRate: document.getElementById('kpi-retention-rate'),
         kpiAvgLifespan: document.getElementById('kpi-avg-lifespan'),
         kpiOrderFrequency: document.getElementById('kpi-order-frequency'),
@@ -18,7 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
         kpiClaimRate: document.getElementById('kpi-claim-rate'),
         kpiClaimsResolution: document.getElementById('kpi-claims-resolution'),
         kpiAutoClaims: document.getElementById('kpi-auto-claims'),
-        // --- END OF FIX ---
         kpiTurnaround: document.getElementById('kpi-turnaround'),
         kpiPickup: document.getElementById('kpi-pickup'),
         kpiDelivery: document.getElementById('kpi-delivery'),
@@ -61,7 +59,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- RENDERING FUNCTIONS ---
     function renderKpis(data) {
-        // --- THIS IS THE FIX: Populate all new and reorganized cards ---
         // Business Metrics
         const retentionValue = selectors.kpiRetentionRate.querySelector('.kpi-value');
         retentionValue.textContent = `${data.retention.retention_percentage.toFixed(1)}%`;
@@ -82,22 +79,27 @@ document.addEventListener('DOMContentLoaded', () => {
         turnaroundValue.textContent = `${data.turnaround.percentage_on_time.toFixed(1)}%`;
         turnaroundValue.className = `kpi-value ${getStatusColorClass(data.turnaround.percentage_on_time, { green: 90, amber: 75 })}`;
         turnaroundSubtext.innerHTML = `(${data.turnaround.total_completed} orders) P50: ${data.turnaround.p50_minutes}m`;
+        const turnaroundGoalHours = (data.turnaround.goal_minutes / 60).toFixed(1).replace('.0', '');
+        document.getElementById('turnaround-goal').textContent = `${turnaroundGoalHours}`;
         
         const pickupValue = selectors.kpiPickup.querySelector('.kpi-value');
         const pickupSubtext = selectors.kpiPickup.querySelector('.kpi-subtext');
         pickupValue.textContent = `${data.pickup.percentage_on_time.toFixed(1)}%`;
         pickupValue.className = `kpi-value ${getStatusColorClass(data.pickup.percentage_on_time, { green: 92, amber: 80 })}`;
         pickupSubtext.innerHTML = `(${data.pickup.total_pickups} pickups) Median: ${data.pickup.median_pickup_time}m`;
+        document.getElementById('pickup-goal').textContent = data.pickup.goal_minutes;
 
         const deliveryValue = selectors.kpiDelivery.querySelector('.kpi-value');
         const deliverySubtext = selectors.kpiDelivery.querySelector('.kpi-subtext');
         deliveryValue.textContent = `${data.delivery.percentage_on_time.toFixed(1)}%`;
         deliveryValue.className = `kpi-value ${getStatusColorClass(data.delivery.percentage_on_time, { green: 92, amber: 80 })}`;
         deliverySubtext.innerHTML = `(${data.delivery.total_deliveries} deliveries) Avg: ${data.delivery.avg_delivery_time}m`;
+        document.getElementById('delivery-goal').textContent = data.delivery.goal_minutes;
         
         const claimsResolutionValue = selectors.kpiClaimsResolution.querySelector('.kpi-value');
         claimsResolutionValue.textContent = `${data.claims_resolution.on_time_percentage.toFixed(1)}%`;
         claimsResolutionValue.className = `kpi-value ${getStatusColorClass(data.claims_resolution.on_time_percentage, { green: 95, amber: 85 })}`;
+        document.getElementById('claims-goal').textContent = data.claims_resolution.goal_minutes;
 
         const claimRateValue = selectors.kpiClaimRate.querySelector('.kpi-value');
         const claimRateSubtext = selectors.kpiClaimRate.querySelector('.kpi-subtext');
@@ -108,7 +110,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const autoClaimsValue = selectors.kpiAutoClaims.querySelector('.kpi-value');
         autoClaimsValue.textContent = `${data.claims_resolution.auto_claim_percentage.toFixed(1)}%`;
         autoClaimsValue.className = `kpi-value ${getStatusColorClass(100 - data.claims_resolution.auto_claim_percentage, { green: 90, amber: 70 })}`; // Lower is better
-        // --- END OF FIX ---
     }
 
     function renderStations(data) {
@@ -175,9 +176,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const diffMinutes = (new Date(sla) - new Date()) / 1000 / 60;
         if (diffMinutes < 0) {
-            row.className = 'sla-breached';
+            row.className = 'sla_breached';
         } else if (diffMinutes < 30) {
-            row.className = 'sla-approaching';
+            row.className = 'sla_approaching';
         } else {
             row.className = '';
         }
@@ -363,7 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch('/api/admin/settings');
             const settings = await response.json();
-            pricePerLoad = parseFloat(settings.price_per_load) || 0.0;
+            pricePerLoad = parseFloat(settings.standard_price_per_load) || 0.0;
         } catch (error) {
             console.error("Failed to fetch settings:", error);
         }
@@ -412,10 +413,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    const socket = io({ transports: ['websocket'] });
-    socket.on('connect', () => {
-        socket.emit('join', { room: `hub:${HUB_ID}` });
-    });
+    // --- THIS IS THE FIX: Use the global socket instance ---
+    const socket = window.appSocket;
+
+    function onConnect() {
+        console.log('Command room socket connected.');
+        socket.emit('join', { room: `hub:${HUB_ID}` }); // Redundant but harmless
+    }
+    socket.on('connect', onConnect);
+    if (socket.connected) {
+        onConnect();
+    }
+    // --- END OF FIX ---
+
     socket.on('order.updated', (order) => {
         updateOrInsertOrderRow(order);
         fetchAllOrders();

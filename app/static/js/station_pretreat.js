@@ -60,7 +60,6 @@ document.addEventListener('DOMContentLoaded', () => {
             <p><strong>Customer:</strong> ${basket.order.customer_name}</p>
         `;
         
-        // --- THIS IS THE FIX ---
         // The "Mark as Complete" button is now always enabled when a basket is active.
         completeBtn.disabled = false;
         
@@ -71,7 +70,6 @@ document.addEventListener('DOMContentLoaded', () => {
             startBtn.disabled = false;
             timerDisplay.textContent = formatTime(SOAKING_TIME_SECONDS);
         }
-        // --- END OF FIX ---
 
         await fetchAndRenderStainedImages(basket.order_id);
     };
@@ -132,7 +130,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderActiveOrder();
     };
     
-    // --- THIS IS THE FIX: Correctly parse UTC timestamp ---
     const startRobustTimer = (basket) => {
         clearInterval(timerInterval);
         
@@ -143,7 +140,6 @@ document.addEventListener('DOMContentLoaded', () => {
             startTimeStr += 'Z';
         }
         const startTime = new Date(startTimeStr);
-        // --- END OF FIX ---
 
         const update = () => {
             const now = new Date();

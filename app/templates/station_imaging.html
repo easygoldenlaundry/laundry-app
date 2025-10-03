@@ -96,7 +96,6 @@
         border-radius: 8px;
         text-align: center;
     }
-    /* --- UPDATED --- */
     .basket-counter { display: flex; align-items: center; justify-content: center; gap: 1em; margin-top: 1em; }
     .basket-counter label { font-size: 1.2em; font-weight: 500; }
     .basket-counter input {
@@ -160,6 +159,7 @@
 
 </div>
 
-<script src="/static/vendor/socket.io.min.js"></script>
+{% endblock %}
+{% block page_scripts %}
 <script src="/static/js/imaging.js"></script>
-{% endblock %} 
+{% endblock %}

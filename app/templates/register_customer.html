@@ -23,7 +23,6 @@
     {% endif %}
 
     <form action="/register/customer" method="post">
-        <!-- --- THIS IS THE FIX: Pass pending booking data through a hidden field --- -->
         {% if booking_data %}
         <input type="hidden" name="pending_booking" value="{{ request.cookies.get('pending_booking') }}">
         {% endif %}

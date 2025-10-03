@@ -4,9 +4,47 @@ from typing import Optional, List
 from sqlmodel import Field, SQLModel, Relationship
 from sqlalchemy import TEXT, Column
 
-# --- This new function ensures all default timestamps are timezone-aware. ---
 def now_utc():
     return datetime.now(timezone.utc)
+
+# --- NEW MODEL ---
+class InventoryItem(SQLModel, table=True):
+    sku: str = Field(primary_key=True)
+    name: str
+    current_stock_level: float = Field(default=0.0)
+    unit_of_measurement: str  # 'kg', 'liters', 'units'
+    low_stock_threshold: float = Field(default=0.0)
+    average_cost_per_unit: float = Field(default=0.0)
+
+# --- NEW MODEL ---
+class Withdrawal(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    amount: float
+    withdrawal_type: str  # 'cost_reimbursement', 'profit_draw', 'capital_expenditure', 'fixed_cost'
+    description: str = Field(sa_column=Column(TEXT))
+    timestamp: datetime = Field(default_factory=now_utc)
+    inventory_item_sku: Optional[str] = Field(default=None, foreign_key="inventoryitem.sku")
+    quantity_purchased: Optional[float] = None
+
+class FinanceEntry(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    order_id: Optional[int] = Field(default=None, foreign_key="order.id")
+    entry_type: str  # 'revenue', 'variable_cost', 'fixed_cost_accrual'
+    amount: float
+    description: str = Field(sa_column=Column(TEXT))
+    timestamp: datetime = Field(default_factory=now_utc)
+    
+    order: Optional["Order"] = Relationship(back_populates="finance_entries")
+
+class Message(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    order_id: int = Field(foreign_key="order.id")
+    sender_role: str  # 'admin' or 'customer'
+    content: str = Field(sa_column=Column(TEXT))
+    timestamp: datetime = Field(default_factory=now_utc)
+    is_read: bool = Field(default=False)
+    
+    order: Optional["Order"] = Relationship(back_populates="messages")
 
 class Setting(SQLModel, table=True):
     key: str = Field(primary_key=True)
@@ -31,8 +69,8 @@ class Order(SQLModel, table=True):
     created_at: datetime = Field(default_factory=now_utc)
     updated_at: datetime = Field(default_factory=now_utc)
     customer_id: Optional[int] = Field(default=None, foreign_key="customer.id")
-    # --- THIS IS THE FIX: Add a field to store the confirmed load count ---
     confirmed_load_count: Optional[int] = Field(default=None)
+    dispatch_method: Optional[str] = Field(default="inhouse")
 
 
     # --- Fields for KPI Tracking ---
@@ -54,6 +92,8 @@ class Order(SQLModel, table=True):
     customer: Optional["Customer"] = Relationship(back_populates="orders")
     bags: List["Bag"] = Relationship(back_populates="order")
     images: List["Image"] = Relationship(back_populates="order")
+    messages: List["Message"] = Relationship(back_populates="order")
+    finance_entries: List["FinanceEntry"] = Relationship(back_populates="order")
 
 class Basket(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -104,6 +144,10 @@ class Customer(SQLModel, table=True):
     full_name: str
     phone_number: str
     address: str
+    # --- NEW FIELDS FOR MOBILE APP ---
+    whatsapp_number: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     
     orders: List["Order"] = Relationship(back_populates="customer")
 

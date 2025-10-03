@@ -19,6 +19,22 @@
         .nav-dropdown-content a { color: black; padding: 12px 16px; text-decoration: none; display: block; margin-left: 0; }
         .nav-dropdown-content a:hover { background-color: #f1f1f1; }
         .nav-dropdown:hover .nav-dropdown-content { display: block; }
+
+        .nav-link-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        .notification-dot {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 10px;
+            height: 10px;
+            background-color: #dc3545;
+            border-radius: 50%;
+            border: 2px solid #333;
+            display: none; /* Hidden by default */
+        }
     </style>
 </head>
 <body>
@@ -48,7 +64,6 @@
                     <div class="nav-dropdown">
                         <a href="#" style="cursor:default;">Stations</a>
                         <div class="nav-dropdown-content">
-                            <!-- --- The links are correct here. NO /admin prefix. --- -->
                             <a href="/hub_intake">Hub Intake</a>
                             <a href="/imaging">Imaging</a>
                             <a href="/pretreat">Pretreat</a>
@@ -63,6 +78,10 @@
                 {# --- Admin-Only Links --- #}
                 {% if request.state.user.role == 'admin' %}
                     <a href="/admin/dashboard">Admin Dashboard</a>
+                    <div class="nav-link-wrapper">
+                        <a href="/admin/uber-dispatch" id="uber-chat-link">Uber / Chat</a>
+                        <span class="notification-dot" id="chat-notification-dot"></span>
+                    </div>
                 {% endif %}
 
                 <span class="user-info">Logged in as: {{ request.state.user.display_name }} ({{ request.state.user.role }})</span>
@@ -73,5 +92,59 @@
     <div class="container">
         {% block content %}{% endblock %}
     </div>
+
+    {% if request.state.user and request.state.user.role in ['admin', 'staff'] %}
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- THIS IS THE FIX ---
+        // Create a single, globally accessible socket instance.
+        // All other page-specific scripts will reuse this instance.
+        const socket = io({ transports: ['websocket'] });
+        window.appSocket = socket;
+        // --- END OF FIX ---
+
+        const notificationDot = document.getElementById('chat-notification-dot');
+
+        const updateAdminNotificationDot = async () => {
+            if (!notificationDot) return;
+            try {
+                const response = await fetch('/api/admin/unread-count');
+                const data = await response.json();
+                if (data.unread_count > 0) {
+                    notificationDot.style.display = 'block';
+                } else {
+                    notificationDot.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Failed to fetch unread count:', error);
+            }
+        };
+
+        // This allows other scripts (like uber_dispatch.js) to trigger an update
+        document.addEventListener('unreadMessagesUpdated', updateAdminNotificationDot);
+
+        // Initial check on page load
+        updateAdminNotificationDot();
+
+        // Use the global socket for base template features
+        socket.on('connect', () => {
+            socket.emit('join', { room: 'hub:1' });
+        });
+
+        // Event from backend when a customer sends a new message
+        socket.on('new_customer_message', () => {
+            updateAdminNotificationDot();
+        });
+        
+        // Event from backend after an admin resolves a chat
+        // This ensures the dot disappears immediately without a full page reload.
+        socket.on('unread_count_updated', () => {
+            updateAdminNotificationDot();
+        });
+    });
+    </script>
+    {% endif %}
+    {% block page_scripts %}{% endblock %}
 </body>
 </html>

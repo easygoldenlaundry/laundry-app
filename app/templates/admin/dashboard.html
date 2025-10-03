@@ -105,10 +105,9 @@
     .step.active .step-icon { border-color: #3498db; background-color: #fff; color: #3498db; transform: scale(1.1); box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.2); animation: pulse 1.5s infinite; }
     .step.active .step-label { color: #3498db; }
 
-    /* --- NEW: Styles for timeline markers --- */
     .timeline-markers {
         position: absolute;
-        top: -16px; /* Adjust vertical position */
+        top: -16px;
         left: 0;
         right: 0;
         height: 100%;
@@ -147,7 +146,6 @@
 
     @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(52, 152, 219, 0); } 100% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0); } }
 
-    /* Connection Status & Nav... */
     #connection-status { position: fixed; top: 10px; right: 10px; padding: 8px; border-radius: 5px; color: white; z-index: 1000; }
     .status-connected { background-color: #28a745; }
     .status-disconnected { background-color: #dc3545; }
@@ -160,8 +158,9 @@
 <h1>Live Order Overview</h1>
 
 <nav class="station-nav">
-    <!-- ADD THIS LINE for the Command Room -->
     <a href="/admin/command-room">Command Room</a> 
+    <a href="/admin/finance">Finance</a>
+    <a href="/admin/uber-dispatch">Uber Dispatch</a>
     <a href="/admin/users">User Management</a>
     <a href="/admin/settings">Settings</a>
     <a href="/admin/claims">Claims Management</a>
@@ -178,6 +177,7 @@
     <!-- JavaScript will render the live order timelines here -->
 </div>
 
-<script src="/static/vendor/socket.io.min.js"></script>
+{% endblock %}
+{% block page_scripts %}
 <script src="/static/js/dashboard.js"></script>
 {% endblock %}

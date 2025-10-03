@@ -39,7 +39,6 @@ def process_qa_decision(
         session.add(order)
         dispatch_delivery_for_order(session, order, request.user_id)
     else:
-        # --- THIS IS THE FIX ---
         # On fail, reset all baskets to Pretreat and move the order back to Processing.
         baskets = session.query(Basket).filter(Basket.order_id == order_id).all()
         for basket in baskets:
@@ -52,7 +51,6 @@ def process_qa_decision(
             "reason": "Resetting all baskets to Pretreat"
         }
         apply_transition(session, order, "Processing", user_id=request.user_id, meta=meta)
-        # --- END OF FIX ---
 
     session.refresh(order)
     return order

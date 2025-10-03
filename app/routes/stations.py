@@ -1,6 +1,6 @@
 # app/routes/stations.py
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
+from sqlmodel import Session, select, update
 from pydantic import BaseModel
 from sqlalchemy.orm import selectinload 
 from typing import List
@@ -8,7 +8,8 @@ from datetime import datetime, timezone
 import asyncio
 
 from app.db import get_session
-from app.models import Order, Machine, Station, Event, Basket
+from app.models import Order, Machine, Station, Event, Basket, Setting, FinanceEntry
+from app.routes.queues import BasketPublic
 from app.services.state_machine import apply_transition
 from app.sockets import broadcast_machine_update, broadcast_order_update
 
@@ -16,6 +17,18 @@ router = APIRouter(tags=["Stations"])
 
 class CycleRequest(BaseModel):
     user_id: int
+
+@router.get("/api/baskets/{basket_id}", response_model=BasketPublic)
+def get_basket_details(basket_id: int, session: Session = Depends(get_session)):
+    """Retrieves full details for a single basket, including its parent order."""
+    basket = session.exec(
+        select(Basket)
+        .where(Basket.id == basket_id)
+        .options(selectinload(Basket.order))
+    ).first()
+    if not basket:
+        raise HTTPException(status_code=404, detail="Basket not found")
+    return BasketPublic.from_orm(basket)
 
 def check_and_promote_order_to_qa(order_id: int, session: Session):
     """Checks if an order is ready to be moved to the QA queue."""
@@ -109,6 +122,7 @@ async def finish_basket_cycle(basket_id: int, station_type: str, request: CycleR
     """
     Finishes a basket's cycle, releases the machine, moves the basket to the
     next state, and checks if the parent order can be moved to QA.
+    Also tracks electricity, water, and maintenance costs.
     """
     machine = session.exec(select(Machine).where(Machine.current_basket_id == basket_id)).first()
     
@@ -118,6 +132,43 @@ async def finish_basket_cycle(basket_id: int, station_type: str, request: CycleR
     basket = session.get(Basket, basket_id)
     if not basket:
          raise HTTPException(status_code=404, detail=f"Basket {basket_id} not found.")
+
+    all_settings_db = session.exec(select(Setting)).all()
+    settings_map = {s.key: s for s in all_settings_db}
+
+    settings_to_increment = {}
+    if station_type == "washing":
+        settings_to_increment = {"monthly_tracker_electricity_kwh": "usage_kwh_per_wash"}
+    elif station_type == "drying":
+        settings_to_increment = {"monthly_tracker_electricity_kwh": "usage_kwh_per_dry"}
+    
+    for tracker_key, usage_key in settings_to_increment.items():
+        tracker_setting = settings_map.get(tracker_key)
+        usage_setting = settings_map.get(usage_key)
+
+        if tracker_setting and usage_setting:
+            try:
+                current_value = float(tracker_setting.value)
+                amount_to_add = float(usage_setting.value)
+                tracker_setting.value = str(current_value + amount_to_add)
+                session.add(tracker_setting)
+            except (ValueError, TypeError):
+                print(f"Warning: Could not parse finance setting '{tracker_key}' or '{usage_key}' as a number.")
+
+    if station_type in ["washing", "drying"]:
+        maintenance_cost_setting = settings_map.get("cost_maintenance_per_cycle")
+        if maintenance_cost_setting:
+            try:
+                cost = float(maintenance_cost_setting.value)
+                if cost > 0:
+                    session.add(FinanceEntry(
+                        order_id=basket.order_id,
+                        entry_type='variable_cost',
+                        amount=cost,
+                        description=f"Machine Maintenance ({station_type})"
+                    ))
+            except (ValueError, TypeError):
+                print("Warning: Could not parse cost_maintenance_per_cycle setting.")
 
     next_status_map = {
         "Pretreat": "Washing",
@@ -139,11 +190,8 @@ async def finish_basket_cycle(basket_id: int, station_type: str, request: CycleR
     
     basket.status = next_status
     basket.updated_at = datetime.now(timezone.utc)
-    # --- THIS IS THE FIX ---
-    # When leaving the Pretreat station, reset the soaking timer state.
     if station_type == "Pretreat":
         basket.soaking_started_at = None
-    # --- END OF FIX ---
     session.add(basket)
     
     event = Event(

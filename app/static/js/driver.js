@@ -20,7 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
             switch (order.status) {
                 case 'AssignedToDriver':
                     jobTypeHtml = `<p class="job-type pickup">Customer Pickup</p>`;
-                    // --- THIS IS THE FIX: Add load count input field ---
                     actionsHtml = `
                         <div class="pickup-proof">
                             <label for="load-count-${order.id}">Number of Loads:</label>
@@ -29,7 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             <input type="text" id="pin-${order.id}" placeholder="e.g., 1234" required />
                             <button class="btn btn-action" data-action="picked_up" data-order-id="${order.id}">Mark as Picked Up</button>
                         </div>`;
-                    // --- END OF FIX ---
                     break;
                 case 'PickedUp':
                      jobTypeHtml = `<p class="job-type pickup">En-route to Hub</p>`;
@@ -105,7 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             useFormData = true;
             if (action === 'picked_up') {
-                // --- THIS IS THE FIX: Get and validate load count before sending ---
                 const loadCountInput = document.getElementById(`load-count-${orderId}`);
                 const pinInput = document.getElementById(`pin-${orderId}`);
                 
@@ -119,7 +116,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 formData.append('load_count', loadCountInput.value);
                 formData.append('pin', pinInput.value);
-                // --- END OF FIX ---
             } else if (action === 'delivered_to_hub') {
                 const qrInput = document.getElementById(`hub-qr-${orderId}`);
                 if (!qrInput || !qrInput.value) {

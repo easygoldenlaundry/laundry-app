@@ -34,7 +34,7 @@
         font-weight: 500;
         margin-bottom: 0.5em;
     }
-    .form-group input {
+    .form-group input, .form-group select {
         width: 100%;
         padding: 0.5em;
         border: 1px solid #ccc;
@@ -60,73 +60,119 @@
     }
     .status-success { background-color: #d4edda; color: #155724; }
     .status-error { background-color: #f8d7da; color: #721c24; }
+
+    /* New styles for inventory table */
+    #inventory-table { width: 100%; border-collapse: collapse; margin-top: 1em; }
+    #inventory-table th, #inventory-table td { border: 1px solid #ddd; padding: 0.5em; text-align: left; }
+    #inventory-table input { width: 90%; padding: 0.3em; }
+    #add-inventory-form { display: flex; gap: 0.5em; margin-top: 1em; }
 </style>
 
 <div class="container">
     <h1>Application Settings</h1>
 
-    <div class="settings-grid">
-        <div class="settings-card" id="pricing-settings">
-            <h3>Pricing & Delivery</h3>
+    <form id="settings-form" class="settings-grid">
+        <div class="settings-card" id="dispatch-settings">
+            <h3>Dispatch</h3>
             <div class="form-group">
-                <label for="price_per_load">Price per Load (R)</label>
-                <input type="number" step="0.01" id="price_per_load" data-key="price_per_load">
+                <label for="default_dispatch_method">Default Dispatch Method</label>
+                <select id="default_dispatch_method" name="default_dispatch_method">
+                    <option value="inhouse">In-house Driver Fleet</option>
+                    <option value="uber">Uber Direct (Manual Admin)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="settings-card" id="dynamic-pricing-settings">
+            <h3>Pricing</h3>
+            <div class="form-group">
+                <label for="standard_price_per_load">Standard Price per Load (R)</label>
+                <input type="number" step="0.01" id="standard_price_per_load" name="standard_price_per_load">
             </div>
             <div class="form-group">
-                <label for="express_delivery_hours">Express Delivery (Hours)</label>
-                <input type="number" id="express_delivery_hours" data-key="express_delivery_hours">
+                <label for="wait_and_save_price_per_load">"Wait & Save" Price per Load (R)</label>
+                <input type="number" step="0.01" id="wait_and_save_price_per_load" name="wait_and_save_price_per_load">
+            </div>
+        </div>
+        
+        <div class="settings-card" id="finance-cost-settings">
+            <h3>Finance & Costs</h3>
+             <div class="form-group">
+                <label for="finance_safety_buffer_percent">Safety Buffer (%)</label>
+                <input type="number" step="1" id="finance_safety_buffer_percent" name="finance_safety_buffer_percent">
             </div>
             <div class="form-group">
-                <label for="next_day_delivery_hours">Next Day Delivery (Hours)</label>
-                <input type="number" id="next_day_delivery_hours" data-key="next_day_delivery_hours">
+                <label for="cost_rent_monthly">Monthly Rent (R)</label>
+                <input type="number" step="0.01" id="cost_rent_monthly" name="cost_rent_monthly">
+            </div>
+             <div class="form-group">
+                <label for="cost_insurance_monthly">Monthly Insurance (R)</label>
+                <input type="number" step="0.01" id="cost_insurance_monthly" name="cost_insurance_monthly">
+            </div>
+            <div class="form-group">
+                <label for="cost_base_electricity_monthly">Base Monthly Electricity (R)</label>
+                <input type="number" step="0.01" id="cost_base_electricity_monthly" name="cost_base_electricity_monthly">
             </div>
         </div>
 
         <div class="settings-card" id="cycle-time-settings">
-            <h3>Machine Cycle Times</h3>
+            <h3>Machine Cycle Times & Usage</h3>
             <div class="form-group">
                 <label for="wash_cycle_time_seconds">Washing Time (seconds)</label>
-                <input type="number" id="wash_cycle_time_seconds" data-key="wash_cycle_time_seconds">
+                <input type="number" id="wash_cycle_time_seconds" name="wash_cycle_time_seconds">
             </div>
+            <div class="form-group">
+                <label for="usage_kwh_per_wash">Electricity per Wash (kWh)</label>
+                <input type="number" step="0.1" id="usage_kwh_per_wash" name="usage_kwh_per_wash">
+            </div>
+            <div class="form-group">
+                <label for="usage_water_kl_per_wash">Water per Wash (kL)</label>
+                <input type="number" step="0.001" id="usage_water_kl_per_wash" name="usage_water_kl_per_wash">
+            </div>
+             <hr>
             <div class="form-group">
                 <label for="dry_cycle_time_seconds">Drying Time (seconds)</label>
-                <input type="number" id="dry_cycle_time_seconds" data-key="dry_cycle_time_seconds">
+                <input type="number" id="dry_cycle_time_seconds" name="dry_cycle_time_seconds">
             </div>
             <div class="form-group">
+                <label for="usage_kwh_per_dry">Electricity per Dry (kWh)</label>
+                <input type="number" step="0.1" id="usage_kwh_per_dry" name="usage_kwh_per_dry">
+            </div>
+             <hr>
+            <div class="form-group">
                 <label for="fold_cycle_time_seconds">Folding Time (seconds)</label>
-                <input type="number" id="fold_cycle_time_seconds" data-key="fold_cycle_time_seconds">
+                <input type="number" id="fold_cycle_time_seconds" name="fold_cycle_time_seconds">
             </div>
         </div>
 
-        <div class="settings-card" id="machine-settings">
-            <h3>Hub & Machines</h3>
+        <div class="settings-card" id="inventory-settings">
+            <h3>Inventory & Maintenance</h3>
             <div class="form-group">
-                <label for="washing_machine_count">Number of Washing Machines</label>
-                <input type="number" id="washing_machine_count" data-key="washing_machine_count" min="0">
+                <label for="cost_maintenance_per_cycle">Maintenance Cost per Machine Cycle (R)</label>
+                <input type="number" step="0.01" id="cost_maintenance_per_cycle" name="cost_maintenance_per_cycle">
             </div>
-            <div class="form-group">
-                <label for="drying_machine_count">Number of Drying Machines</label>
-                <input type="number" id="drying_machine_count" data-key="drying_machine_count" min="0">
-            </div>
-            <div class="form-group">
-                <label for="folding_machine_count">Number of Folding Machines</label>
-                <input type="number" id="folding_machine_count" data-key="folding_machine_count" min="0">
-            </div>
-        </div>
-        
-        <div class="settings-card" id="qr-code-settings">
-            <h3>QR & Secret Codes</h3>
-             <!-- --- THIS IS THE FIX: Removed the obsolete hub intake QR setting --- -->
-            <div class="form-group">
-                <label for="driver_hub_delivery_qr">Driver Hub Delivery QR (driver scan)</label>
-                <input type="text" id="driver_hub_delivery_qr" data-key="driver_hub_delivery_qr">
-            </div>
-            <div class="form-group">
-                <label for="driver_hub_pickup_qr">Driver Hub Pickup QR (driver scan)</label>
-                <input type="text" id="driver_hub_pickup_qr" data-key="driver_hub_pickup_qr">
+            <hr>
+            <h4>Tracked Inventory Items</h4>
+            <table id="inventory-table">
+                <thead>
+                    <tr><th>Name</th><th>Unit</th><th>Low Stock Threshold</th></tr>
+                </thead>
+                <tbody id="inventory-table-body">
+                    <!-- JS will populate this -->
+                </tbody>
+            </table>
+            <div id="add-inventory-form">
+                <input type="text" id="new-inv-name" placeholder="Item Name">
+                <input type="text" id="new-inv-sku" placeholder="SKU (e.g., SOAP-001)">
+                <button type="button" id="add-inv-btn">Add</button>
             </div>
         </div>
-    </div>
+
+        <div class="settings-card" id="kpi-goal-settings">
+            <h3>KPI Goals</h3>
+            <!-- ... existing KPI goal inputs ... -->
+        </div>
+    </form>
     
     <div class="save-btn-container">
         <button id="save-btn">Save All Settings</button>

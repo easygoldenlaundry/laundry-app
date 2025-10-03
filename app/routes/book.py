@@ -6,8 +6,9 @@ import logging
 import json
 from typing import Optional
 from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, BackgroundTasks
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
@@ -16,29 +17,66 @@ from app.models import Order, Item, Event, Bag, Setting, User, Customer
 from app.sockets import broadcast_order_update
 from app.auth import get_current_user
 from app.security import signer
+from app.services import capacity_planner
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
-# --- THIS IS THE FIX: Redirect root to the booking page ---
+def wants_json(request: Request) -> bool:
+    accept_header = request.headers.get("accept", "")
+    return "application/json" in accept_header
+
+@router.get("/api/mobile/pricing")
+def get_mobile_pricing_estimate():
+    """Simple pricing estimate for the mobile app."""
+    return {
+        "distance_km": 5.2, # Placeholder
+        "pickup_cost": 50.0, # Placeholder
+        "estimated_time": "15 minutes" # Placeholder
+    }
+
 @router.get("/", include_in_schema=False)
 def root():
     return RedirectResponse(url="/book")
 
+@router.get("/api/booking/availability")
+def get_booking_availability(session: Session = Depends(get_session)):
+    """API endpoint to provide dynamic pricing and availability slots to the booking page."""
+    try:
+        slots_data = capacity_planner.generate_availability_slots(session)
+        return slots_data
+    except Exception as e:
+        logging.error(f"Error generating availability slots: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not calculate availability.")
+
 @router.get("/book", response_class=HTMLResponse)
 async def get_booking_form(request: Request, user: User = Depends(get_current_user), session: Session = Depends(get_session)):
-    """Serves the customer-facing booking form."""
-    price_setting = session.get(Setting, "price_per_load")
-    price = price_setting.value if price_setting else "150.00"
-    
+    # ... (this function remains unchanged)
     customer_profile = None
     if user and user.role == 'customer':
         customer_profile = session.exec(select(Customer).where(Customer.user_id == user.id)).first()
 
+    try:
+        settings = capacity_planner.get_settings_as_dict(session)
+        base_turnaround_seconds = capacity_planner.get_base_turnaround_seconds(settings)
+        min_turnaround_hours = round(base_turnaround_seconds / 3600, 1)
+        
+        hero_data = {
+            "turnaround": min_turnaround_hours,
+            "pickup": "under 60",
+            "insurance": "5,000"
+        }
+    except Exception:
+        hero_data = {
+            "turnaround": "3+",
+            "pickup": "under 60",
+            "insurance": "5,000"
+        }
+
     return templates.TemplateResponse("book.html", {
         "request": request,
-        "price_per_load": price,
-        "customer": customer_profile
+        "customer": customer_profile,
+        "hero_data": hero_data
     })
 
 
@@ -46,98 +84,99 @@ async def get_booking_form(request: Request, user: User = Depends(get_current_us
 async def create_order_from_booking(
     request: Request,
     background_tasks: BackgroundTasks,
-    customer_name: str = Form(...),
-    customer_phone: str = Form(...),
-    customer_address: str = Form(...),
-    delivery_option: str = Form(...), # 'express' or 'next_day'
+    # Web form fields
+    customer_name: Optional[str] = Form(None),
+    customer_address: Optional[str] = Form(None),
+    selected_slot_timestamp: Optional[str] = Form(None),
+    is_wait_and_save: Optional[bool] = Form(None),
     notes_for_driver: Optional[str] = Form(None),
-    external_id: str = Form(...),
-    hub_id: int = Form(1),
+    external_id: Optional[str] = Form(None),
+    hub_id: Optional[int] = Form(None),
+    # Mobile form fields
+    pickup_address: Optional[str] = Form(None),
+    pickup_latitude: Optional[float] = Form(None),
+    pickup_longitude: Optional[float] = Form(None),
+    phone: Optional[str] = Form(None),
+    processing_option: Optional[str] = Form(None),
+    # Common fields
+    customer_phone: Optional[str] = Form(None),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
-    """
-    Handles the booking form submission.
-    - If logged in, creates the order.
-    - If not logged in, saves form data to a cookie and redirects to registration.
-    """
-    # --- Handle unauthenticated users ---
+    """Handles booking from both web and mobile, returning the appropriate response."""
+    is_json_request = wants_json(request)
+
     if not user:
-        booking_data = {
-            "customer_name": customer_name,
-            "customer_phone": customer_phone,
-            "customer_address": customer_address,
-            "delivery_option": delivery_option,
-            "notes_for_driver": notes_for_driver,
-            "external_id": external_id,
-            "hub_id": hub_id
-        }
+        # This should not happen for mobile, as it requires auth.
+        # This logic is for web users who are not logged in.
+        # ... (existing web redirect to register logic)
+        booking_data = { "customer_name": customer_name, "customer_phone": customer_phone, "customer_address": customer_address, "selected_slot_timestamp": selected_slot_timestamp, "is_wait_and_save": is_wait_and_save, "notes_for_driver": notes_for_driver, "external_id": external_id, "hub_id": hub_id }
         signed_data = signer.sign(json.dumps(booking_data).encode('utf-8')).decode('utf-8')
-        # --- THIS IS THE FIX: Use a 303 redirect to change the method from POST to GET ---
         response = RedirectResponse(url="/register/customer", status_code=303)
-        response.set_cookie(key="pending_booking", value=signed_data, httponly=True, max_age=900) # 15 min expiry
+        response.set_cookie(key="pending_booking", value=signed_data, httponly=True, max_age=900)
         return response
 
-    # --- Logic for logged-in users ---
-    existing_order = session.exec(
-        select(Order).where(Order.external_id == external_id)
-    ).first()
+    customer_profile = session.exec(select(Customer).where(Customer.user_id == user.id)).first()
+    if not customer_profile:
+        raise HTTPException(status_code=404, detail="Customer profile not found")
 
-    if existing_order:
-        logging.warning(f"Duplicate booking submission for external_id: {external_id}. Redirecting to existing order {existing_order.id}.")
-        return RedirectResponse(
-            url=f"/track/{existing_order.tracking_token}", status_code=303
+    if is_json_request:
+        # --- MOBILE APP LOGIC ---
+        slots_data = capacity_planner.generate_availability_slots(session)
+        price_per_load = slots_data.get("slot", {}).get("price_per_load", 210.0)
+        turnaround_hours = slots_data.get("slot", {}).get("turnaround_hours", 12)
+        
+        customer_profile.address = pickup_address
+        customer_profile.latitude = pickup_latitude
+        customer_profile.longitude = pickup_longitude
+        session.add(customer_profile)
+
+        new_order = Order(
+            external_id=f"mob-{uuid.uuid4()}", tracking_token=f"trk_{secrets.token_urlsafe(12)}",
+            customer_name=customer_profile.full_name, customer_phone=phone,
+            customer_address=pickup_address, hub_id=1, status="Created",
+            customer_id=customer_profile.id,
+            sla_deadline=datetime.fromisoformat(slots_data['slot']['timestamp']) if processing_option == 'standard' else datetime.now(timezone.utc) + timedelta(hours=48)
+        )
+    else:
+        # --- WEB APP LOGIC ---
+        existing_order = session.exec(select(Order).where(Order.external_id == external_id)).first()
+        if existing_order:
+            return RedirectResponse(url=f"/track/{existing_order.tracking_token}", status_code=303)
+
+        sla_deadline = datetime.fromisoformat(selected_slot_timestamp) if selected_slot_timestamp else datetime.now(timezone.utc) + timedelta(hours=48)
+        new_order = Order(
+            external_id=external_id, tracking_token=f"trk_{secrets.token_urlsafe(12)}",
+            customer_name=customer_name, customer_phone=customer_phone, customer_address=customer_address,
+            hub_id=hub_id, status="Created", sla_deadline=sla_deadline, notes_for_driver=notes_for_driver,
+            customer_id=customer_profile.id
         )
 
-    customer_profile = session.exec(select(Customer).where(Customer.user_id == user.id)).first()
-
-    settings = {s.key: s.value for s in session.exec(select(Setting)).all()}
-    now = datetime.now(timezone.utc)
-    sla_deadline = None
-    if delivery_option == "express":
-        hours = int(settings.get("express_delivery_hours", 5))
-        sla_deadline = now + timedelta(hours=hours)
-    elif delivery_option == "next_day":
-        hours = int(settings.get("next_day_delivery_hours", 24))
-        sla_deadline = now + timedelta(hours=hours)
-
-    sanitized_phone = re.sub(r"[^0-9+]", "", customer_phone)
-    pickup_pin = str(secrets.randbelow(10000)).zfill(4)
-    delivery_pin = str(secrets.randbelow(10000)).zfill(4)
-    tracking_token = f"trk_{secrets.token_urlsafe(12)}"
-    
-    new_order = Order(
-        external_id=external_id,
-        tracking_token=tracking_token,
-        customer_name=customer_name,
-        customer_phone=sanitized_phone,
-        customer_address=customer_address,
-        hub_id=hub_id,
-        status="Created",
-        sla_deadline=sla_deadline,
-        pickup_pin=pickup_pin,
-        delivery_pin=delivery_pin,
-        notes_for_driver=notes_for_driver,
-        customer_id=customer_profile.id if customer_profile else None
-    )
     session.add(new_order)
     session.commit()
     session.refresh(new_order)
 
-    bag_code = f"BAG-{secrets.token_hex(4).upper()}"
-    default_bag = Bag(order_id=new_order.id, bag_code=bag_code)
-    session.add(default_bag)
-
-    initial_event = Event(order_id=new_order.id, to_status="Created", meta=f"Created via web booking. external_id: {external_id}")
-    session.add(initial_event)
-    
+    # Common post-creation logic
+    bag = Bag(order_id=new_order.id, bag_code=f"BAG-{secrets.token_hex(4).upper()}")
+    event = Event(order_id=new_order.id, to_status="Created", meta="Created via booking.")
+    session.add_all([bag, event])
     session.commit()
     session.refresh(new_order)
-
-    logging.info(f"New order created from web booking. Order ID: {new_order.id}, External ID: {external_id}")
-
+    
     background_tasks.add_task(broadcast_order_update, new_order)
 
-    return RedirectResponse(
-        url=f"/track/{new_order.tracking_token}?new=true", status_code=303
-    )
+    if is_json_request:
+        # Return JSON for mobile
+        order_dict = new_order.dict()
+        order_dict.update({
+            "processing_time": f"~{turnaround_hours} hr",
+            "price_per_load": price_per_load,
+            "pickup_cost": 50.0, # Placeholder
+        })
+        return JSONResponse(content={
+            "order": order_dict,
+            "message": "Booking created successfully"
+        })
+    else:
+        # Return redirect for web
+        return RedirectResponse(url=f"/track/{new_order.tracking_token}?new=true", status_code=303)

@@ -4,7 +4,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const ordersContainer = document.getElementById('orders-container');
     const statusIndicator = document.getElementById('connection-status');
     
-    // --- NEW: Unified timeline definition, matching the backend ---
     const TIMELINE_STEPS = [
         {'id': 'Booked', 'label': 'Booked', 'icon': 'fa-solid fa-file-alt'},
         {'id': 'PickedUp', 'label': 'Picked Up', 'icon': 'fa-solid fa-truck-pickup'},
@@ -32,14 +31,24 @@ document.addEventListener('DOMContentLoaded', () => {
         "Pretreat": "Pretreat", "Washing": "Washing", "Drying": "Drying", "Folding": "Folding", "QA": "QA"
     };
     
-    const socket = io({ transports: ['websocket'] });
+    // --- THIS IS THE FIX: Use the global socket instance created in base.html ---
+    const socket = window.appSocket;
 
-    socket.on('connect', () => {
+    function onConnect() {
         statusIndicator.textContent = 'Connected';
         statusIndicator.className = 'status-connected';
         socket.emit('join', { room: `hub:${HUB_ID}` });
         fetchAllActiveOrders();
-    });
+    }
+
+    socket.on('connect', onConnect);
+
+    // If the socket is already connected when this script runs, the 'connect'
+    // event may have already fired, so we need to manually trigger the setup.
+    if (socket.connected) {
+        onConnect();
+    }
+    // --- END OF FIX ---
 
     socket.on('disconnect', () => {
         statusIndicator.textContent = 'Disconnected';
@@ -50,7 +59,6 @@ document.addEventListener('DOMContentLoaded', () => {
         updateOrInsertOrderCard(order);
     });
     
-    // --- REWRITTEN: This function now generates the new, advanced timeline ---
     const createOrderCard = (order) => {
         const card = document.createElement('div');
         card.className = 'order-card';
@@ -60,7 +68,6 @@ document.addEventListener('DOMContentLoaded', () => {
             card.dataset.slaDeadline = order.sla_deadline;
         }
 
-        // --- New Timeline Generation Logic ---
         const timelineStepIds = TIMELINE_STEPS.map(step => step.id);
         const totalSteps = timelineStepIds.length;
         let markersHTML = '';
@@ -71,7 +78,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let furthestMarkerIndex = -1;
 
         if (orderTimelineId !== "Processing") {
-            // This is a pre- or post-processing order state
             try {
                 const currentIndex = timelineStepIds.indexOf(orderTimelineId);
                 const progress = (currentIndex + 0.5) / totalSteps * 100;
@@ -118,7 +124,6 @@ document.addEventListener('DOMContentLoaded', () => {
             furthestMarkerIndex = maxBasketIndex > -1 ? maxBasketIndex : imagingIndex;
         }
 
-        // Generate step labels and classes
         let stepsHTML = '';
         TIMELINE_STEPS.forEach((step, index) => {
             let statusClass = 'pending';
@@ -135,7 +140,6 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         });
 
-        // Assemble the card HTML
         card.innerHTML = `
             <div class="order-header">
                 <div class="order-title">

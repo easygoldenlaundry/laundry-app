@@ -82,10 +82,9 @@ async def track_order_page(
 
     formatted_sla = order.sla_deadline.strftime('%A, %b %d at %H:%M') if order.sla_deadline else ""
     
-    # --- THIS IS THE FIX: Fetch price per load from settings ---
-    price_setting = session.get(Setting, "price_per_load")
-    price_per_load = float(price_setting.value) if price_setting else 0.0
-    # --- END OF FIX ---
+    price_setting = session.get(Setting, "standard_price_per_load")
+    price_per_load = float(price_setting.value) if price_setting else 210.0
+    
 
     # --- REWRITTEN: New unified timeline logic ---
     timeline_step_ids = [step['id'] for step in TIMELINE_STEPS]
@@ -167,5 +166,5 @@ async def track_order_page(
         "timeline_steps": TIMELINE_STEPS,
         "markers": markers,
         "overall_progress_percent": overall_progress_percent,
-        "price_per_load": price_per_load, # Pass price to template
+        "price_per_load": price_per_load,
     })

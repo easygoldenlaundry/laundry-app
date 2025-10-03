@@ -15,7 +15,6 @@
         margin: 0 auto;
     }
     h1 { font-size: 2em; color: #2c3e50; text-align: center; margin-bottom: 0.5rem; }
-    /* --- THIS IS THE FIX: New styles for section headers --- */
     h2.section-header {
         font-size: 1.5em;
         color: #34495e;
@@ -131,7 +130,6 @@
 <div class="command-room-container">
     <h1>Admin Command Room</h1>
 
-    <!-- --- THIS IS THE FIX: New Structure --- -->
     <h2 class="section-header">Key Business Metrics</h2>
     <div id="retention-kpi-row" class="retention-kpi-row">
         <div class="kpi-card" id="kpi-retention-rate">
@@ -159,22 +157,22 @@
     <h2 class="section-header">Delivering on Promises</h2>
     <div id="kpi-row" class="kpi-row">
         <div class="kpi-card" id="kpi-turnaround">
-            <h4>Turnaround ≤ 2.5h</h4>
+            <h4>Turnaround ≤ <span id="turnaround-goal">...</span>h</h4>
             <div class="kpi-value">...</div>
             <div class="kpi-subtext"></div>
         </div>
         <div class="kpi-card" id="kpi-pickup">
-            <h4>Pickup ≤ 15m</h4>
+            <h4>Pickup ≤ <span id="pickup-goal">...</span>m</h4>
             <div class="kpi-value">...</div>
             <div class="kpi-subtext"></div>
         </div>
         <div class="kpi-card" id="kpi-delivery">
-            <h4>Delivery ≤ 15m</h4>
+            <h4>Delivery ≤ <span id="delivery-goal">...</span>m</h4>
             <div class="kpi-value">...</div>
             <div class="kpi-subtext"></div>
         </div>
         <div class="kpi-card" id="kpi-claims-resolution">
-            <h4>Claims ≤ 5m</h4>
+            <h4>Claims ≤ <span id="claims-goal">...</span>m</h4>
             <div class="kpi-value">...</div>
             <div class="kpi-subtext">Human-resolved claims</div>
         </div>
@@ -189,7 +187,6 @@
             <div class="kpi-subtext">% of total resolved claims</div>
         </div>
     </div>
-    <!-- --- END OF FIX --- -->
 
 
     <!-- Row 2: Real-time Table & Alerts -->
@@ -338,6 +335,7 @@
     </div>
 </div>
 
-<script src="/static/vendor/socket.io.min.js"></script>
+{% endblock %}
+{% block page_scripts %}
 <script src="/static/js/command_room.js"></script>
 {% endblock %}

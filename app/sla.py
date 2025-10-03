@@ -50,13 +50,11 @@ async def check_slas_periodically():
                 ).all()
 
                 for order in orders_to_check:
-                    # --- THIS IS THE FIX ---
                     # Ensure the deadline from the DB is timezone-aware before comparison
                     sla_deadline_aware = order.sla_deadline
                     if sla_deadline_aware.tzinfo is None:
                         # If the datetime is naive, assume it's UTC
                         sla_deadline_aware = sla_deadline_aware.replace(tzinfo=timezone.utc)
-                    # --- END OF FIX ---
 
                     # Nearing Breach: within the warning window but not yet breached
                     if (sla_deadline_aware - timedelta(minutes=SLA_WARNING_WINDOW_MINUTES)) < now < sla_deadline_aware:

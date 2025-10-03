@@ -13,6 +13,11 @@ from app.auth import get_current_admin_user
 router = APIRouter(prefix="/admin", dependencies=[Depends(get_current_admin_user)])
 templates = Jinja2Templates(directory="app/templates")
 
+@router.get("/uber-dispatch", response_class=HTMLResponse)
+async def get_uber_dispatch_page(request: Request):
+    """Serves the manual Uber dispatch management page."""
+    return templates.TemplateResponse("admin/uber_dispatch.html", {"request": request})
+
 @router.get("/users", response_class=HTMLResponse)
 async def get_user_management_page(request: Request):
     """Serves the user management page."""

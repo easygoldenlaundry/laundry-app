@@ -3,13 +3,11 @@ from fastapi import APIRouter, Request, Depends
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-# --- THIS IS THE FIX: Import the new dependency factory ---
 from app.auth import station_access_dependency
 
 router = APIRouter() # Remove the global dependency
 templates = Jinja2Templates(directory="app/templates")
 
-# --- THIS IS THE FIX: Apply specific permissions to each route ---
 @router.get("/hub_intake", response_class=HTMLResponse, dependencies=[Depends(station_access_dependency("hub_intake"))])
 async def get_hub_intake(request: Request):
     """Serves the hub intake scanning page."""

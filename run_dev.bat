@@ -1,4 +1,5 @@
 @echo off
-rem run_dev.bat
-rem Point uvicorn to the socket_app in main.py
-uvicorn app.main:socket_app --reload --port 8000
+echo Starting the development server with live reload...
+
+:: --- THIS IS THE FIX: The server must now run the main "app" instance ---
+uvicorn app.main:app --reload

@@ -13,6 +13,17 @@ import json # For parsing Event.meta
 
 from app.models import Order, Event, Claim, Image, Machine, Station, User, Driver, Basket, Setting, Customer
 
+def _get_settings_dict(session: Session) -> Dict[str, Any]:
+    """Helper to fetch all settings and cast them to appropriate types."""
+    settings = session.exec(select(Setting)).all()
+    settings_dict = {}
+    for s in settings:
+        try:
+            settings_dict[s.key] = float(s.value)
+        except (ValueError, TypeError):
+            settings_dict[s.key] = s.value
+    return settings_dict
+
 
 def _get_percentile(data: List[float], percentile: float) -> float:
     """
@@ -41,13 +52,14 @@ def _get_percentile(data: List[float], percentile: float) -> float:
     d1 = data[int(c)]
     return d0 + (d1 - d0) * (k - f)
 
-
 def get_turnaround_kpi(session: Session, window_hours: int = 24) -> Dict[str, Any]:
     """
     Calculates the percentage of orders with a turnaround time <= 2.5 hours (150 minutes)
     and provides 50th, 90th, and 95th percentile turnaround times.
     Turnaround is defined as `delivered_at` - `picked_up_at`.
     """
+    settings = _get_settings_dict(session)
+    goal_minutes = settings.get("kpi_goal_turnaround_minutes", 150)
     start_time = datetime.now(timezone.utc) - timedelta(hours=window_hours)
     
     orders = session.exec(
@@ -59,7 +71,7 @@ def get_turnaround_kpi(session: Session, window_hours: int = 24) -> Dict[str, An
     ).all()
 
     if not orders:
-        return {"percentage_on_time": 100, "total_completed": 0, "p50_minutes": 0, "p90_minutes": 0, "p95_minutes": 0}
+        return {"percentage_on_time": 100, "total_completed": 0, "p50_minutes": 0, "p90_minutes": 0, "p95_minutes": 0, "goal_minutes": goal_minutes}
 
     turnaround_times_minutes = []
     for order in orders:
@@ -67,10 +79,10 @@ def get_turnaround_kpi(session: Session, window_hours: int = 24) -> Dict[str, An
         turnaround_times_minutes.append(turnaround)
     
     total_completed = len(turnaround_times_minutes)
-    on_time_count = sum(1 for t in turnaround_times_minutes if t <= 150)
+    on_time_count = sum(1 for t in turnaround_times_minutes if t <= goal_minutes)
     
     if total_completed == 0:
-        return {"percentage_on_time": 100, "total_completed": 0, "p50_minutes": 0, "p90_minutes": 0, "p95_minutes": 0}
+        return {"percentage_on_time": 100, "total_completed": 0, "p50_minutes": 0, "p90_minutes": 0, "p95_minutes": 0, "goal_minutes": goal_minutes}
 
     p50 = _get_percentile(turnaround_times_minutes, 0.50)
     p90 = _get_percentile(turnaround_times_minutes, 0.90)
@@ -81,7 +93,8 @@ def get_turnaround_kpi(session: Session, window_hours: int = 24) -> Dict[str, An
         "total_completed": total_completed,
         "p50_minutes": round(p50, 1),
         "p90_minutes": round(p90, 1),
-        "p95_minutes": round(p95, 1)
+        "p95_minutes": round(p95, 1),
+        "goal_minutes": goal_minutes
     }
 
 def get_pickup_kpi(session: Session, window_hours: int = 24) -> Dict[str, Any]:
@@ -89,6 +102,8 @@ def get_pickup_kpi(session: Session, window_hours: int = 24) -> Dict[str, Any]:
     Calculates the percentage of pickups completed within 15 minutes of order creation.
     Pickup time is `picked_up_at` - `created_at`.
     """
+    settings = _get_settings_dict(session)
+    goal_minutes = settings.get("kpi_goal_pickup_minutes", 15)
     start_time = datetime.now(timezone.utc) - timedelta(hours=window_hours)
     
     orders = session.exec(
@@ -99,19 +114,20 @@ def get_pickup_kpi(session: Session, window_hours: int = 24) -> Dict[str, Any]:
     ).all()
 
     if not orders:
-        return {"percentage_on_time": 100, "total_pickups": 0, "median_pickup_time": 0}
+        return {"percentage_on_time": 100, "total_pickups": 0, "median_pickup_time": 0, "goal_minutes": goal_minutes}
 
     pickup_times = [(o.picked_up_at - o.created_at).total_seconds() / 60 for o in orders]
     total_pickups = len(pickup_times)
-    on_time_count = sum(1 for t in pickup_times if t <= 15)
+    on_time_count = sum(1 for t in pickup_times if t <= goal_minutes)
     
     if total_pickups == 0:
-        return {"percentage_on_time": 100, "total_pickups": 0, "median_pickup_time": 0}
+        return {"percentage_on_time": 100, "total_pickups": 0, "median_pickup_time": 0, "goal_minutes": goal_minutes}
 
     return {
         "percentage_on_time": (on_time_count / total_pickups) * 100,
         "total_pickups": total_pickups,
-        "median_pickup_time": round(median(pickup_times), 1)
+        "median_pickup_time": round(median(pickup_times), 1),
+        "goal_minutes": goal_minutes
     }
 
 def get_delivery_kpi(session: Session, window_hours: int = 24) -> Dict[str, Any]:
@@ -119,6 +135,8 @@ def get_delivery_kpi(session: Session, window_hours: int = 24) -> Dict[str, Any]
     Calculates the percentage of deliveries completed within 15 minutes of being ready for delivery.
     Delivery time is `delivered_at` - `out_for_delivery_at`.
     """
+    settings = _get_settings_dict(session)
+    goal_minutes = settings.get("kpi_goal_delivery_minutes", 15)
     start_time = datetime.now(timezone.utc) - timedelta(hours=window_hours)
     
     orders = session.exec(
@@ -129,19 +147,20 @@ def get_delivery_kpi(session: Session, window_hours: int = 24) -> Dict[str, Any]
     ).all()
 
     if not orders:
-        return {"percentage_on_time": 100, "total_deliveries": 0, "avg_delivery_time": 0}
+        return {"percentage_on_time": 100, "total_deliveries": 0, "avg_delivery_time": 0, "goal_minutes": goal_minutes}
 
     delivery_times = [(o.delivered_at - o.out_for_delivery_at).total_seconds() / 60 for o in orders]
     total_deliveries = len(delivery_times)
-    on_time_count = sum(1 for t in delivery_times if t <= 15)
+    on_time_count = sum(1 for t in delivery_times if t <= goal_minutes)
     
     if total_deliveries == 0:
-        return {"percentage_on_time": 100, "total_deliveries": 0, "avg_delivery_time": 0}
+        return {"percentage_on_time": 100, "total_deliveries": 0, "avg_delivery_time": 0, "goal_minutes": goal_minutes}
 
     return {
         "percentage_on_time": (on_time_count / total_deliveries) * 100,
         "total_deliveries": total_deliveries,
-        "avg_delivery_time": round(sum(delivery_times) / total_deliveries, 1)
+        "avg_delivery_time": round(sum(delivery_times) / total_deliveries, 1),
+        "goal_minutes": goal_minutes
     }
 
 def get_claim_rate_kpi(session: Session, window_hours: int = 24) -> Dict[str, Any]:
@@ -408,7 +427,6 @@ def get_retention_kpis(session: Session) -> Dict[str, Any]:
         if not customer.orders:
             continue
         
-        # --- THIS IS THE FIX: Ensure all datetimes are timezone-aware before comparison ---
         order_dates = []
         for o in customer.orders:
             created_at_aware = o.created_at
@@ -418,7 +436,6 @@ def get_retention_kpis(session: Session) -> Dict[str, Any]:
         
         if not order_dates:
             continue
-        # --- END OF FIX ---
         
         first_order_date = min(order_dates)
         last_order_date = max(order_dates)
@@ -457,6 +474,8 @@ def get_claims_resolution_kpi(session: Session, window_hours: int = 72) -> Dict[
     - % of claims handled by a human within 5 minutes.
     - % of total claims that are auto-resolved.
     """
+    settings = _get_settings_dict(session)
+    goal_seconds = settings.get("kpi_goal_claim_minutes", 5) * 60
     start_time = datetime.now(timezone.utc) - timedelta(hours=window_hours)
     
     resolved_claims = session.exec(
@@ -467,7 +486,7 @@ def get_claims_resolution_kpi(session: Session, window_hours: int = 72) -> Dict[
     ).all()
 
     if not resolved_claims:
-        return {"on_time_percentage": 100, "auto_claim_percentage": 0}
+        return {"on_time_percentage": 100, "auto_claim_percentage": 0, "goal_minutes": goal_seconds / 60}
 
     human_resolved_on_time = 0
     human_resolved_total = 0
@@ -479,7 +498,6 @@ def get_claims_resolution_kpi(session: Session, window_hours: int = 72) -> Dict[
         else:
             human_resolved_total += 1
 
-            # --- THIS IS THE FIX: Ensure all datetimes are timezone-aware before subtraction ---
             resolved_at_aware = claim.resolved_at
             
             if resolved_at_aware and resolved_at_aware.tzinfo is None:
@@ -491,13 +509,13 @@ def get_claims_resolution_kpi(session: Session, window_hours: int = 72) -> Dict[
             
             if resolved_at_aware and created_at_aware:
                 resolve_time_seconds = (resolved_at_aware - created_at_aware).total_seconds()
-                if resolve_time_seconds <= 300: # 5 minutes
+                if resolve_time_seconds <= goal_seconds:
                     human_resolved_on_time += 1
-            # --- END OF FIX ---
     
     total_resolved = human_resolved_total + auto_resolved_total
 
     return {
         "on_time_percentage": (human_resolved_on_time / human_resolved_total) * 100 if human_resolved_total > 0 else 100,
         "auto_claim_percentage": (auto_resolved_total / total_resolved) * 100 if total_resolved > 0 else 0,
+        "goal_minutes": goal_seconds / 60
     }

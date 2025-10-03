@@ -29,7 +29,6 @@ async def get_dashboard_kpis(session: Session = Depends(get_session)):
     """Fetches all executive-level KPIs for the cards in Row 1."""
     active_orders = dashboard_queries.get_active_inflight_orders(session)
     
-    # --- THIS IS THE FIX: Call new query functions and update the response ---
     return {
         "retention": dashboard_queries.get_retention_kpis(session),
         "turnaround": dashboard_queries.get_turnaround_kpi(session),
@@ -40,7 +39,6 @@ async def get_dashboard_kpis(session: Session = Depends(get_session)):
         "claims": dashboard_queries.get_claims_summary(session),
         "active_orders_count": len(active_orders)
     }
-    # --- END OF FIX ---
 
 @router.get("/api/dashboard/orders")
 async def get_dashboard_orders_table(session: Session = Depends(get_session)):

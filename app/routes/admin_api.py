@@ -1,14 +1,17 @@
 # app/routes/admin_api.py
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from sqlmodel import Session, select, func, update
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal, Dict
 from datetime import datetime, timezone
+import json
 
 from app.db import get_session
-from app.models import User, Station, Machine, Claim, Order, Setting
+from app.models import User, Station, Machine, Claim, Order, Setting, Message, InventoryItem
 from app.services.state_machine import apply_transition
+from app.services.finance_calculator import create_finance_entries_for_order
 from app.auth import get_current_admin_user
+from app.sockets import broadcast_admin_notification
 
 router = APIRouter(
     prefix="/api/admin", 
@@ -32,7 +35,6 @@ def toggle_user_activation(user_id: int, session: Session = Depends(get_session)
     session.add(user); session.commit(); session.refresh(user)
     return user
 
-# --- THIS IS THE FIX: New endpoint to update user permissions ---
 class PermissionsUpdateRequest(BaseModel):
     allowed_stations: List[str]
 
@@ -45,7 +47,6 @@ def update_user_permissions(user_id: int, request: PermissionsUpdateRequest, ses
     if user.role != "staff":
         raise HTTPException(status_code=400, detail="Permissions can only be set for staff members.")
 
-    # Convert the list of strings to a single comma-separated string for DB storage
     user.allowed_stations = ",".join(request.allowed_stations)
     session.add(user)
     session.commit()
@@ -53,8 +54,114 @@ def update_user_permissions(user_id: int, request: PermissionsUpdateRequest, ses
     return user
 
 
+# --- Uber Dispatch & Chat API ---
+class UberOrderPublic(Order):
+    unread_message_count: int
 
+@router.get("/uber-orders", response_model=List[UberOrderPublic])
+def get_uber_dispatch_orders(session: Session = Depends(get_session)):
+    """
+    Gets all active Uber orders, plus any completed orders that have unread messages.
+    """
+    TERMINAL_STATUSES = ["Delivered", "Closed"]
+    
+    active_orders = session.exec(
+        select(Order)
+        .where(Order.dispatch_method == "uber", Order.status.notin_(TERMINAL_STATUSES))
+    ).all()
+    
+    completed_with_unread = session.exec(
+        select(Order).join(Message).where(
+            Order.dispatch_method == "uber",
+            Order.status.in_(TERMINAL_STATUSES),
+            Message.sender_role == 'customer',
+            Message.is_read == False
+        ).distinct()
+    ).all()
+    
+    all_orders_map = {o.id: o for o in active_orders}
+    for order in completed_with_unread:
+        if order.id not in all_orders_map:
+            all_orders_map[order.id] = order
 
+    response_orders = []
+    sorted_orders = sorted(all_orders_map.values(), key=lambda o: o.created_at)
+
+    for order in sorted_orders:
+        unread_count = session.exec(
+            select(func.count(Message.id))
+            .where(
+                Message.order_id == order.id,
+                Message.is_read == False,
+                Message.sender_role == 'customer'
+            )
+        ).one()
+        order_data = UberOrderPublic.from_orm(order, update={'unread_message_count': unread_count})
+        response_orders.append(order_data)
+
+    return response_orders
+
+@router.get("/unread-count")
+def get_total_unread_message_count(session: Session = Depends(get_session)):
+    """Gets the total count of unread messages from customers across all orders."""
+    unread_count = session.exec(
+        select(func.count(Message.id))
+        .where(Message.is_read == False, Message.sender_role == 'customer')
+    ).one()
+    return {"unread_count": unread_count}
+
+class UberStatusUpdateRequest(BaseModel):
+    order_id: int
+    action: Literal["picked_up", "delivered_to_hub", "picked_up_from_hub", "delivered_to_customer"]
+
+@router.post("/uber-orders/update-status", response_model=Order)
+def update_uber_order_status(
+    request: UberStatusUpdateRequest,
+    background_tasks: BackgroundTasks,
+    admin_user: User = Depends(get_current_admin_user),
+    session: Session = Depends(get_session)
+):
+    """Allows an admin to manually update the status of an Uber order for both pickup and delivery."""
+    order = session.get(Order, request.order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.dispatch_method != "uber":
+        raise HTTPException(status_code=400, detail="This order is not an Uber dispatch.")
+    
+    target_status_map = {
+        "picked_up": "PickedUp",
+        "delivered_to_hub": "DeliveredToHub",
+        "picked_up_from_hub": "OnRouteToCustomer",
+        "delivered_to_customer": "Delivered"
+    }
+    target_status = target_status_map.get(request.action)
+
+    if not target_status:
+        raise HTTPException(status_code=400, detail="Invalid action.")
+
+    updated_order = apply_transition(
+        session, order, target_status, user_id=admin_user.id, meta={"manual_uber_update": True}
+    )
+
+    if target_status == "Delivered":
+        background_tasks.add_task(create_finance_entries_for_order, order_id=order.id, session=session)
+
+    return updated_order
+
+@router.post("/orders/{order_id}/resolve-chat")
+async def resolve_chat_for_order(order_id: int, session: Session = Depends(get_session)):
+    """Marks all customer messages for an order as read. Used by admins to dismiss a chat."""
+    statement = (
+        update(Message)
+        .where(Message.order_id == order_id, Message.sender_role == 'customer')
+        .values(is_read=True)
+    )
+    session.exec(statement)
+    session.commit()
+    
+    await broadcast_admin_notification("unread_count_updated")
+
+    return {"message": "Chat resolved. All messages marked as read."}
 
 # --- Settings API ---
 
@@ -64,59 +171,76 @@ def get_all_settings(session: Session = Depends(get_session)):
     settings = session.exec(select(Setting)).all()
     return {s.key: s.value for s in settings}
 
-class SettingsUpdateRequest(BaseModel):
-    settings: Dict[str, str]
+class SingleSettingUpdate(BaseModel):
+    value: str
+
+@router.post("/settings/{key}", status_code=200)
+def update_single_setting(
+    key: str,
+    request: SingleSettingUpdate,
+    session: Session = Depends(get_session)
+):
+    """Updates the value of a single setting by its key."""
+    setting = session.get(Setting, key)
+    if not setting:
+        raise HTTPException(status_code=404, detail=f"Setting with key '{key}' not found.")
+    
+    setting.value = request.value
+    session.add(setting)
+    session.commit()
+    return {"message": f"Setting '{key}' updated successfully."}
 
 def reconcile_machines(session: Session, station_type: str, new_count: int, cycle_time: int):
-    """Adds or removes machines for a station to match a new count."""
     station = session.exec(select(Station).where(Station.type == station_type)).first()
-    if not station:
-        return # Station might not exist in some environments
-
+    if not station: return
     current_machines = session.exec(select(Machine).where(Machine.station_id == station.id)).all()
-    current_count = len(current_machines)
-    diff = new_count - current_count
-
-    if diff > 0:  # Add machines
+    diff = new_count - len(current_machines)
+    if diff > 0:
         for _ in range(diff):
-            new_machine = Machine(
-                station_id=station.id,
-                type=station.type.removesuffix('ing'),
-                cycle_time_seconds=cycle_time
-            )
-            session.add(new_machine)
-    elif diff < 0:  # Remove machines
+            session.add(Machine(station_id=station.id, type=station.type.removesuffix('ing'), cycle_time_seconds=cycle_time))
+    elif diff < 0:
         idle_machines = [m for m in current_machines if m.state == "idle"]
-        num_to_remove = abs(diff)
-        if len(idle_machines) < num_to_remove:
-            # Not raising exception, just removing what we can to avoid blocking settings saves.
-            # A more advanced implementation might queue this for later.
-            num_to_remove = len(idle_machines)
-        
-        for i in range(num_to_remove):
+        for i in range(min(abs(diff), len(idle_machines))):
             session.delete(idle_machines[i])
 
+def update_inventory_items(session: Session, inventory_data_json: str):
+    """Creates or updates inventory items from a JSON string provided by the settings page."""
+    try:
+        inventory_data = json.loads(inventory_data_json)
+        for item_data in inventory_data:
+            sku = item_data.get('sku')
+            if not sku: continue
+            
+            item = session.get(InventoryItem, sku)
+            if not item:
+                item = InventoryItem(sku=sku)
+            
+            item.name = item_data.get('name')
+            item.unit_of_measurement = item_data.get('unit')
+            item.low_stock_threshold = float(item_data.get('threshold', 0))
+            session.add(item)
+    except (json.JSONDecodeError, TypeError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=f"Invalid inventory data format: {e}")
+
 @router.post("/settings")
-def update_settings(request: SettingsUpdateRequest, session: Session = Depends(get_session)):
-    """Updates multiple settings at once and reconciles machine counts."""
-    for key, value in request.settings.items():
+def update_settings(request: Dict[str, str], session: Session = Depends(get_session)):
+    """Updates multiple settings and reconciles machines and inventory."""
+    inventory_data_json = request.pop("inventory_items_json", "[]")
+
+    for key, value in request.items():
         setting = session.get(Setting, key)
         if setting:
             setting.value = value
             session.add(setting)
-        else:
-            new_setting = Setting(key=key, value=value)
-            session.add(new_setting)
     
-    # After saving, reconcile machine counts based on new settings
+    update_inventory_items(session, inventory_data_json)
+    
     try:
-        reconcile_machines(session, "washing", int(request.settings.get("washing_machine_count", 1)), int(request.settings.get("wash_cycle_time_seconds", 1800)))
-        reconcile_machines(session, "drying", int(request.settings.get("drying_machine_count", 1)), int(request.settings.get("dry_cycle_time_seconds", 2400)))
-        reconcile_machines(session, "folding", int(request.settings.get("folding_machine_count", 1)), int(request.settings.get("fold_cycle_time_seconds", 300)))
+        reconcile_machines(session, "washing", int(request.get("washing_machine_count", 1)), int(request.get("wash_cycle_time_seconds", 1800)))
+        reconcile_machines(session, "drying", int(request.get("drying_machine_count", 1)), int(request.get("dry_cycle_time_seconds", 2400)))
+        reconcile_machines(session, "folding", int(request.get("folding_machine_count", 1)), int(request.get("fold_cycle_time_seconds", 300)))
     except Exception as e:
-        # Avoid crashing if a station doesn't exist yet
-        print(f"Could not reconcile machines, possibly expected during initial setup: {e}")
-
+        print(f"Could not reconcile machines: {e}")
 
     session.commit()
     return {"message": "Settings updated successfully."}

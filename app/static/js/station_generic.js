@@ -34,7 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const itemDiv = document.createElement('div');
             itemDiv.className = 'queue-item';
             itemDiv.dataset.basketId = basket.id;
-            // --- THIS IS THE FIX: Basket Naming ---
             itemDiv.textContent = `Order #${basket.order.id}.${basket.basket_index} - ${basket.order.customer_name}`;
             if (basket.id === activeBasketId) {
                 itemDiv.classList.add('active');
@@ -59,7 +58,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         activeOrderDisplay.style.display = 'block';
         const basket = basketDataCache.get(activeBasketId);
-        // --- THIS IS THE FIX: Basket Naming ---
         activeOrderInfo.innerHTML = `
             <h3>Order #${basket.order.id}.${basket.basket_index}</h3>
             <p><strong>Customer:</strong> ${basket.order.customer_name}</p>
@@ -81,11 +79,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     const getCycleTime = () => {
-        // Find any machine for this station to get the default cycle time
         for (const machine of machineStates.values()) {
             return machine.cycle_time_seconds;
         }
-        // Default fallbacks matching seed data
         const defaults = { 'washing': 1800, 'drying': 2400, 'folding': 300 };
         return defaults[STATION_TYPE] || 1800;
     };
@@ -151,15 +147,33 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`/api/queues/${HUB_ID}/${STATION_TYPE}`);
             if (!response.ok) throw new Error("Failed to fetch queue.");
             
-            const baskets = await response.json();
-            renderQueue(baskets);
+            const basketsInQueue = await response.json();
+            let allBasketsToDisplay = [...basketsInQueue];
+            let idToSetActive = null;
 
-            const activeBasketStillInQueue = baskets.some(b => b.id === activeBasketId);
-            if (!activeBasketStillInQueue) {
-                setActiveBasket(baskets.length > 0 ? baskets[0].id : null);
-            } else {
-                renderActiveOrder();
+            let runningBasketId = null;
+            for (const machine of machineStates.values()) {
+                if (machine.state === 'running' && machine.current_basket_id) {
+                    runningBasketId = machine.current_basket_id;
+                    break;
+                }
             }
+
+            if (runningBasketId) {
+                idToSetActive = runningBasketId;
+                if (!allBasketsToDisplay.some(b => b.id === runningBasketId)) {
+                    const basketRes = await fetch(`/api/baskets/${runningBasketId}`);
+                    if (basketRes.ok) {
+                        const runningBasketData = await basketRes.json();
+                        allBasketsToDisplay.unshift(runningBasketData);
+                    }
+                }
+            } else if (basketsInQueue.length > 0) {
+                idToSetActive = basketsInQueue[0].id;
+            }
+
+            renderQueue(allBasketsToDisplay);
+            setActiveBasket(idToSetActive);
 
         } catch (error) {
             console.error("Error fetching queue:", error);
@@ -189,7 +203,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id: USER_ID })
             });
-            // The websocket event will handle the UI update. No immediate action needed.
         } catch (error) {
             alert(`Error: ${error.message}`);
             startBtn.disabled = false;
@@ -205,7 +218,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id: USER_ID })
             });
-            // The websocket event will handle the UI update.
         } catch (error) {
             alert(`Error: ${error.message}`);
             finishBtn.disabled = false;
@@ -246,8 +258,8 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('order.updated', () => fetchQueue());
 
     socket.on('machine.updated', async () => {
-        await fetchAndRenderMachineStatus();
-        renderActiveOrder();
+        // This is a crucial change: we refetch the whole queue to get the correct active basket
+        await fetchQueue();
     });
 
     // --- Initialization ---

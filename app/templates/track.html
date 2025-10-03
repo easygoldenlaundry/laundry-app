@@ -128,7 +128,6 @@
     .modal-content { background-color: #fefefe; margin: 10% auto; padding: 2em; border: 1px solid #888; width: 80%; max-width: 500px; border-radius: 8px; }
     @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0.4); } 70% { box-shadow: 0 0 0 12px rgba(52, 152, 219, 0); } 100% { box-shadow: 0 0 0 0 rgba(52, 152, 219, 0); } }
 
-    /* --- THIS IS THE FIX: Fully Responsive Design for Mobile --- */
     @media (max-width: 768px) {
         .tracking-wrapper {
             padding: 1.5em 1em;
@@ -146,7 +145,6 @@
         .pricing-summary div p { font-size: 1.4em; }
 
 
-        /* --- Timeline Scrolling Container --- */
         .timeline-container {
             margin: 4em 0;
             padding: 0;
@@ -154,8 +152,8 @@
         .timeline-scroll-wrapper {
             overflow-x: auto;
             padding: 1em 0;
-            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-            scrollbar-width: thin; /* Firefox scrollbar */
+            -webkit-overflow-scrolling: touch; 
+            scrollbar-width: thin; 
         }
         .timeline-scroll-wrapper::-webkit-scrollbar {
             height: 6px;
@@ -165,9 +163,8 @@
             border-radius: 3px;
         }
         .timeline-steps {
-            /* Set a min-width larger than the screen to force scrolling */
             min-width: 800px; 
-            padding: 0 1em; /* Add some space at the ends */
+            padding: 0 1em; 
         }
 
         .step-label { word-break: normal; font-size: 0.8em; }
@@ -178,12 +175,11 @@
             gap: 2.5em;
         }
 
-        /* --- Vertically Scrolling Image Gallery --- */
         .gallery-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
             gap: 0.5em;
-            max-height: 350px; /* Limit height to force vertical scroll */
+            max-height: 350px; 
             overflow-y: auto;
             padding: 0.5em;
             background-color: #f8f9fa;
@@ -215,6 +211,93 @@
             font-size: 1.1em;
         }
     }
+
+    .chat-fab {
+        position: fixed;
+        bottom: 25px;
+        right: 25px;
+        width: 60px;
+        height: 60px;
+        background-color: #007bff;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        cursor: pointer;
+        z-index: 1000;
+        transition: transform 0.2s ease;
+    }
+    .chat-fab:hover { transform: scale(1.1); }
+    .chat-fab .unread-badge {
+        position: absolute;
+        top: -2px;
+        right: -2px;
+        width: 24px;
+        height: 24px;
+        background-color: #dc3545;
+        color: white;
+        border-radius: 50%;
+        font-size: 14px;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid white;
+        animation: pulse-badge 1.5s infinite;
+    }
+    @keyframes pulse-badge { 0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); } }
+
+    .chat-widget {
+        position: fixed;
+        bottom: 100px;
+        right: 25px;
+        width: 350px;
+        max-width: 90vw;
+        height: 500px;
+        max-height: 70vh;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        z-index: 999;
+        display: flex;
+        flex-direction: column;
+        transform: translateY(20px) scale(0.95);
+        opacity: 0;
+        pointer-events: none;
+        transition: all 0.3s ease;
+    }
+    .chat-widget.open {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+        pointer-events: auto;
+    }
+    .chat-header {
+        background: #007bff;
+        color: white;
+        padding: 1em;
+        border-top-left-radius: 12px;
+        border-top-right-radius: 12px;
+        font-weight: bold;
+    }
+    .chat-history {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 1em;
+    }
+    .chat-message { margin-bottom: 0.8em; }
+    .chat-message p { margin: 0.2em 0; padding: 0.6em 1em; border-radius: 15px; max-width: 80%; word-wrap: break-word; line-height: 1.4; }
+    .chat-message.customer p { background-color: #007bff; color: white; border-bottom-left-radius: 2px; float: left; clear: both; }
+    .chat-message.admin p { background-color: #e9ecef; color: #333; border-bottom-right-radius: 2px; float: right; clear: both; }
+    .chat-message .meta { font-size: 0.75em; color: #888; margin-top: 3px; clear: both; }
+    .chat-message.customer .meta { text-align: left; }
+    .chat-message.admin .meta { text-align: right; }
+    .chat-form { display: flex; padding: 1em; border-top: 1px solid #eee; }
+    .chat-form input { flex-grow: 1; border: 1px solid #ccc; padding: 0.8em; border-radius: 20px; }
+    .chat-form button { background: none; border: none; font-size: 1.5em; cursor: pointer; color: #007bff; padding: 0 0.5em; }
+
 </style>
 
 <div class="tracking-wrapper" id="track-container" data-order-id="{{ order.id }}">
@@ -250,7 +333,6 @@
     </div>
     {% endif %}
 
-    <!-- --- THIS IS THE FIX: Added a wrapper for scrolling --- -->
     <div class="timeline-container">
         <div class="timeline-scroll-wrapper">
             <div style="position: relative; min-height: 100px;">
@@ -282,20 +364,22 @@
         </div>
     </div>
 
-    {% if order.status == 'AssignedToDriver' and order.pickup_pin %}
-    <div class="pin-display">
-        <p>Please provide this PIN to your driver for pickup:</p>
-        <p class="pin-code">{{ order.pickup_pin }}</p>
-        <p><small>(Alternatively, the driver can use the last 4 digits of your phone number.)</small></p>
-    </div>
-    {% endif %}
+    {% if order.dispatch_method == 'inhouse' %}
+        {% if order.status == 'AssignedToDriver' and order.pickup_pin %}
+        <div class="pin-display">
+            <p>Please provide this PIN to your driver for pickup:</p>
+            <p class="pin-code">{{ order.pickup_pin }}</p>
+            <p><small>(Alternatively, the driver can use the last 4 digits of your phone number.)</small></p>
+        </div>
+        {% endif %}
 
-    {% if order.status == 'OnRouteToCustomer' and order.delivery_pin %}
-    <div class="pin-display">
-        <p>Please provide this PIN to your driver for delivery:</p>
-        <p class="pin-code">{{ order.delivery_pin }}</p>
-        <p><small>(Alternatively, the driver can use the last 4 digits of your phone number.)</small></p>
-    </div>
+        {% if order.status == 'OnRouteToCustomer' and order.delivery_pin %}
+        <div class="pin-display">
+            <p>Please provide this PIN to your driver for delivery:</p>
+            <p class="pin-code">{{ order.delivery_pin }}</p>
+            <p><small>(Alternatively, the driver can use the last 4 digits of your phone number.)</small></p>
+        </div>
+        {% endif %}
     {% endif %}
 
     <div class="details-grid">
@@ -359,28 +443,124 @@
     </div>
 </div>
 
+<div class="chat-fab" id="chat-fab">
+    <i class="fas fa-comment-dots"></i>
+    <span class="unread-badge" id="chat-unread-badge" style="display: none;">0</span>
+</div>
+
+<div class="chat-widget" id="chat-widget">
+    <div class="chat-header">Chat with Support</div>
+    <div class="chat-history" id="chat-history"></div>
+    <form class="chat-form" id="chat-form">
+        <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off" required>
+        <button type="submit"><i class="fas fa-paper-plane"></i></button>
+    </form>
+</div>
+
 <script src="/static/vendor/socket.io.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const trackContainer = document.getElementById('track-container');
     const orderId = trackContainer.dataset.orderId;
+    let unreadCount = 0;
+    let notificationsPermitted = false;
 
-    // --- THIS IS THE FIX: Center the active timeline step on page load ---
+    // --- CHAT SELECTORS ---
+    const chatFab = document.getElementById('chat-fab');
+    const chatWidget = document.getElementById('chat-widget');
+    const chatHistory = document.getElementById('chat-history');
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    const unreadBadge = document.getElementById('chat-unread-badge');
+
+    const updateUnreadBadge = () => {
+        if (unreadCount > 0) {
+            unreadBadge.textContent = unreadCount;
+            unreadBadge.style.display = 'flex';
+        } else {
+            unreadBadge.style.display = 'none';
+        }
+    };
+
+    const appendMessageToChat = (msg) => {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `chat-message ${msg.sender_role}`;
+        const timestamp = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        messageDiv.innerHTML = `<p>${msg.content.replace(/\n/g, '<br>')}</p><div class="meta">${timestamp}</div>`;
+        chatHistory.appendChild(messageDiv);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    };
+    
+    const showNotification = (message) => {
+        if (!notificationsPermitted || document.hasFocus()) return;
+        new Notification(`New Message for Order #${orderId}`, {
+            body: message.content,
+            icon: "/static/images/favicon.ico"
+        });
+    };
+
+    const fetchInitialChat = async () => {
+        try {
+            const response = await fetch(`/api/orders/${orderId}/messages`);
+            const messages = await response.json();
+            messages.forEach(msg => {
+                appendMessageToChat(msg);
+                if (msg.sender_role === 'admin' && !msg.is_read) {
+                    unreadCount++;
+                }
+            });
+            updateUnreadBadge();
+        } catch (error) {
+            console.error("Could not fetch chat history", error);
+        }
+    };
+
+    chatFab.addEventListener('click', async () => {
+        const isOpen = chatWidget.classList.toggle('open');
+        if (isOpen) {
+            if (unreadCount > 0) {
+                unreadCount = 0;
+                updateUnreadBadge();
+                await fetch(`/api/orders/${orderId}/messages/mark-read`, { method: 'POST' });
+            }
+            if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') notificationsPermitted = true;
+            }
+        }
+    });
+
+    chatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const content = chatInput.value.trim();
+        if (!content) return;
+        
+        chatInput.disabled = true;
+        try {
+            await fetch(`/api/orders/${orderId}/messages`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content })
+            });
+            chatInput.value = ''; // Message appears via WebSocket echo
+        } catch (error) {
+            console.error("Failed to send message", error);
+        } finally {
+            chatInput.disabled = false;
+            chatInput.focus();
+        }
+    });
+    
+    // --- Center active timeline step ---
     const centerActiveTimelineStep = () => {
         const timelineScroller = document.querySelector('.timeline-scroll-wrapper');
         const activeStep = document.querySelector('.step.active');
         if (timelineScroller && activeStep) {
             const scrollAmount = activeStep.offsetLeft - (timelineScroller.offsetWidth / 2) + (activeStep.offsetWidth / 2);
-            timelineScroller.scrollTo({
-                left: scrollAmount,
-                behavior: 'smooth'
-            });
+            timelineScroller.scrollTo({ left: scrollAmount, behavior: 'smooth' });
         }
     };
-    // Run this after a short delay to allow the browser to render everything first
     setTimeout(centerActiveTimelineStep, 100);
-    // --- END OF FIX ---
-
 
     // --- Delivery Request Logic ---
     const deliveryBtn = document.getElementById('request-delivery-btn');
@@ -442,13 +622,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Real-Time Update Logic ---
-    const currentStatus = "{{ order.status }}";
     const orderIdInt = parseInt(orderId);
-    if (["Delivered", "Closed", "Cancelled"].includes(currentStatus)) {
-        console.log("Order is in a terminal state. Real-time updates disabled.");
-        return;
-    }
-
+    
     const socket = io({ transports: ['websocket'] });
 
     socket.on('connect', () => {
@@ -462,8 +637,23 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.reload();
         }
     });
+    
+    socket.on('message.new', (message) => {
+        if (message.order_id === orderIdInt) {
+            appendMessageToChat(message);
+            if (message.sender_role === 'admin' && !chatWidget.classList.contains('open')) {
+                unreadCount++;
+                updateUnreadBadge();
+                showNotification(message);
+            }
+        }
+    });
 
     socket.on('disconnect', () => console.log('Socket disconnected.'));
+    
+    // --- INIT ---
+    if (Notification.permission === 'granted') notificationsPermitted = true;
+    fetchInitialChat();
 });
 </script>
 {% endblock %}

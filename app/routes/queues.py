@@ -13,7 +13,6 @@ router = APIRouter(prefix="/api/queues", tags=["Queues"])
 
 # --- Pydantic models for clear API responses ---
 
-# --- THIS IS THE FIX: Create explicit response models to ensure bag data is included ---
 class BagForQueue(BaseModel):
     bag_code: str
 
@@ -24,10 +23,10 @@ class OrderForQueue(BaseModel):
     id: int
     customer_name: str
     bags: List[BagForQueue] = []
+    dispatch_method: Optional[str] = None
 
     class Config:
         orm_mode = True
-# --- END OF FIX ---
 
 class OrderForBasket(BaseModel):
     id: int
@@ -105,7 +104,6 @@ def get_qa_summary(hub_id: int = 1, session: Session = Depends(get_session)):
             
     return summary_list
 
-# --- THIS IS THE FIX: Update the response_model for the generic route ---
 @router.get("/{hub_id}/{station_type}", response_model=Union[List[OrderForQueue], List[BasketPublic]])
 def get_station_queue(
     hub_id: int,

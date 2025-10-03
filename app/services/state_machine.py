@@ -7,7 +7,7 @@ from app.sockets import broadcast_order_update
 import asyncio
 
 ALLOWED_TRANSITIONS = {
-    "Created": ["AssignedToDriver"],
+    "Created": ["AssignedToDriver", "PickedUp"],
     "AssignedToDriver": ["PickedUp"],
     "PickedUp": ["DeliveredToHub", "AtHub"],
     "DeliveredToHub": ["AtHub", "Imaging"],
