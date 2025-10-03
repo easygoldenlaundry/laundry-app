@@ -90,6 +90,15 @@ def get_current_driver_user(current_user: User = Depends(get_current_active_user
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied. This page is for drivers only.")
     return current_user
 
+def get_current_customer_user(current_user: User = Depends(get_current_active_user)) -> User:
+    """Dependency to ensure the user is an active customer."""
+    if not current_user or current_user.role != 'customer':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. This action is for customers only."
+        )
+    return current_user
+
 def station_access_dependency(station_name: str):
     """
     A dependency factory that creates a dependency to check for station access.
