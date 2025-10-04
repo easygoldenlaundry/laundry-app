@@ -33,7 +33,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-# This middleware is now ONLY for the web app's cookie-based authentication.
+# This middleware is ONLY for the web app's cookie-based authentication.
 async def set_user_on_request_state(request: Request, session: Session):
     """
     [WEB APP ONLY] Reads the token from cookies, decodes it, and sets `request.state.user`.
@@ -53,12 +53,12 @@ async def set_user_on_request_state(request: Request, session: Session):
     
     request.state.user = user
 
-# This dependency is now ONLY for the web app.
+# This dependency is ONLY for the web app.
 def get_current_user(request: Request) -> Optional[User]:
     """[WEB APP ONLY] Returns the user object from the request's state."""
     return getattr(request.state, "user", None)
 
-# --- THIS IS THE NEW BULLETPROOF DEPENDENCY FOR THE MOBILE APP API ---
+# This is the NEW BULLETPROOF DEPENDENCY FOR THE MOBILE APP API
 def get_current_api_user(
     request: Request,
     session: Session = Depends(get_session)
@@ -96,10 +96,9 @@ def get_current_api_user(
         raise HTTPException(status_code=403, detail="Your account is inactive.")
         
     return user
-# --- END OF NEW DEPENDENCY ---
 
 
-# The dependencies below will now be used by web app routes that require authentication
+# The dependencies below are used by web app routes that require authentication
 async def get_current_active_user(request: Request, current_user: User = Depends(get_current_user)) -> User:
     """[WEB APP ONLY] Dependency to get an active user and redirect if not found."""
     if not current_user:
