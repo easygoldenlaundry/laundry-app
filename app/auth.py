@@ -33,19 +33,13 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+# This middleware is now ONLY for the web app's cookie-based authentication.
 async def set_user_on_request_state(request: Request, session: Session):
     """
-    Reads the token from the Authorization header (for mobile) or cookies (for web),
-    decodes it, and sets `request.state.user`.
+    [WEB APP ONLY] Reads the token from cookies, decodes it, and sets `request.state.user`.
     """
     user = None
-    token_with_bearer = None
-
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        token_with_bearer = auth_header
-    if not token_with_bearer:
-        token_with_bearer = request.cookies.get("access_token")
+    token_with_bearer = request.cookies.get("access_token")
 
     if token_with_bearer and token_with_bearer.startswith("Bearer "):
         token = token_with_bearer.split(" ")[1]
@@ -57,67 +51,88 @@ async def set_user_on_request_state(request: Request, session: Session):
         except JWTError:
             user = None
     
-    # This is where the user object is attached to the request lifecycle
     request.state.user = user
 
-# --- THIS IS THE FIX ---
-# This dependency now relies on the middleware having already run.
-# It no longer takes `request: Request` as an argument itself.
+# This dependency is now ONLY for the web app.
 def get_current_user(request: Request) -> Optional[User]:
-    """
-    FastAPI dependency that returns the user object from the request's state.
-    The user is attached to the state by the `set_user_on_request_state` middleware.
-    """
+    """[WEB APP ONLY] Returns the user object from the request's state."""
     return getattr(request.state, "user", None)
-# --- END OF FIX ---
 
-def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
+# --- THIS IS THE NEW BULLETPROOF DEPENDENCY FOR THE MOBILE APP API ---
+def get_current_api_user(
+    request: Request,
+    session: Session = Depends(get_session)
+) -> User:
     """
-    Dependency to get an active user. Raises 401 for API if not authenticated or 403 if inactive.
+    A self-contained dependency for API endpoints.
+    1. Extracts token from Authorization header.
+    2. Decodes token.
+    3. Fetches user from DB.
+    4. Raises 401/403 if any step fails.
+    This avoids any conflicts with request.state or form parsing.
     """
-    if not current_user:
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
+            detail="Not authenticated: Missing or invalid Authorization header",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = auth_header.split(" ")[1]
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Invalid token: Subject missing")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token: Could not validate credentials")
+
+    user = session.exec(select(User).where(User.username == username)).first()
+    if user is None:
+        raise HTTPException(status_code=401, detail="Invalid token: User not found")
+    
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Your account is inactive.")
+        
+    return user
+# --- END OF NEW DEPENDENCY ---
+
+
+# The dependencies below will now be used by web app routes that require authentication
+async def get_current_active_user(request: Request, current_user: User = Depends(get_current_user)) -> User:
+    """[WEB APP ONLY] Dependency to get an active user and redirect if not found."""
+    if not current_user:
+        next_url = request.url.path
+        raise HTTPException(
+            status_code=status.HTTP_307_TEMPORARY_REDIRECT, 
+            detail="Not authenticated", 
+            headers={"Location": f"/login?next={next_url}"}
         )
     if not current_user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your account is inactive.")
     return current_user
 
 def get_current_admin_user(current_user: User = Depends(get_current_active_user)) -> User:
-    """Dependency to ensure the user is an active admin."""
-    if current_user.role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not an admin")
+    if current_user.role != "admin": raise HTTPException(status_code=403, detail="Not an admin")
     return current_user
 
 def get_current_staff_user(current_user: User = Depends(get_current_active_user)) -> User:
-    """Dependency to ensure the user is an active staff member or admin."""
-    if current_user.role not in ["staff", "admin"]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+    if current_user.role not in ["staff", "admin"]: raise HTTPException(status_code=403, detail="Access denied.")
     return current_user
 
 def get_current_driver_user(current_user: User = Depends(get_current_active_user)) -> User:
-    """Dependency to ensure the user is an active driver."""
-    if current_user.role != "driver":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+    if current_user.role != "driver": raise HTTPException(status_code=403, detail="Access denied.")
     return current_user
 
 def get_current_customer_user(current_user: User = Depends(get_current_active_user)) -> User:
-    """Dependency to ensure the user is an active customer."""
-    if not current_user or current_user.role != 'customer':
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied. This action is for customers only."
-        )
+    if current_user.role != 'customer': raise HTTPException(status_code=403, detail="Access denied.")
     return current_user
 
 def station_access_dependency(station_name: str):
-    """A dependency factory that creates a dependency to check for station access."""
     def _check_station_access(current_user: User = Depends(get_current_active_user)) -> User:
         if current_user.role == 'admin': return current_user
         if current_user.role == 'staff':
-            allowed = (current_user.allowed_stations or "").split(',')
-            if station_name in allowed: return current_user
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Permission denied for {station_name} station.")
+            if station_name in (current_user.allowed_stations or ""): return current_user
+        raise HTTPException(status_code=403, detail=f"Permission denied for {station_name} station.")
     return _check_station_access
