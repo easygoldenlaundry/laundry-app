@@ -15,7 +15,7 @@ from sqlalchemy.orm import selectinload
 
 from app.db import get_session
 from app.models import User, Customer, Order, Bag, Setting, Event
-from app.auth import get_password_hash, create_access_token, get_current_user, get_current_customer_user
+from app.auth import get_password_hash, create_access_token, get_current_user, get_current_api_user
 from app.security import signer
 from app.sockets import broadcast_order_update
 from starlette.responses import Response
@@ -87,7 +87,7 @@ async def register_customer_api(
 
 @api_router.get("/me", response_model=UserProfile)
 def get_current_user_profile(
-    user: User = Depends(get_current_customer_user),
+    user: User = Depends(get_current_api_user),
     session: Session = Depends(get_session)
 ):
     """Gets the profile for the currently authenticated user."""
@@ -107,8 +107,8 @@ def update_current_user_profile(
     full_name: str = Form(...),
     phone_number: str = Form(...),
     address: str = Form(...),
-    whatsapp_number: Optional[str] = Form(None),
-    user: User = Depends(get_current_customer_user),
+    whatsapp_number: Optional[str] = Form(None), 
+    user: User = Depends(get_current_api_user),
     session: Session = Depends(get_session)
 ):
     """Updates the profile for the currently authenticated user."""
@@ -133,7 +133,7 @@ def update_current_user_profile(
 
 @api_router.get("/me/orders/active", response_model=List[Order])
 def get_my_active_orders(
-    user: User = Depends(get_current_customer_user),
+    user: User = Depends(get_current_api_user),
     session: Session = Depends(get_session)
 ):
     """Gets all active orders for the currently authenticated customer."""

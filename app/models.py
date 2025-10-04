@@ -71,6 +71,8 @@ class Order(SQLModel, table=True):
     customer_id: Optional[int] = Field(default=None, foreign_key="customer.id")
     confirmed_load_count: Optional[int] = Field(default=None)
     dispatch_method: Optional[str] = Field(default="inhouse")
+    distance_km: Optional[float] = Field(default=None)
+    pickup_cost: Optional[float] = Field(default=None)
 
 
     # --- Fields for KPI Tracking ---
@@ -89,7 +91,7 @@ class Order(SQLModel, table=True):
     events: List["Event"] = Relationship(back_populates="order")
     claims: List["Claim"] = Relationship(back_populates="order")
     baskets: List["Basket"] = Relationship(back_populates="order")
-    customer: Optional["Customer"] = Relationship(back_populates="orders")
+    customer: Optional["Customer"] = Relationship(back_populates="customer")
     bags: List["Bag"] = Relationship(back_populates="order")
     images: List["Image"] = Relationship(back_populates="order")
     messages: List["Message"] = Relationship(back_populates="order")

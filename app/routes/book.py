@@ -70,7 +70,9 @@ async def create_booking_api(
     new_order = Order(
         external_id=f"mob-{uuid.uuid4()}", tracking_token=f"trk_{secrets.token_urlsafe(12)}",
         customer_name=customer.full_name, customer_phone=phone, customer_address=pickup_address,
-        hub_id=1, status="Created", customer_id=customer.id, sla_deadline=sla_deadline
+        hub_id=1, status="Created", customer_id=customer.id, sla_deadline=sla_deadline,
+        distance_km=distance_km,
+        pickup_cost=pickup_cost
     )
     session.add(new_order)
     session.commit(); session.refresh(new_order)
