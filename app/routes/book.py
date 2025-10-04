@@ -15,7 +15,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.models import Order, Event, Bag, Setting, User, Customer
 from app.sockets import broadcast_order_update
-from app.auth import get_current_user
+from app.auth import get_current_user, get_current_active_user # Import the correct dependency
 from app.security import signer
 from app.services import capacity_planner
 
@@ -41,7 +41,9 @@ async def create_booking_api(
     pickup_longitude: float = Form(...),
     phone: str = Form(...),
     processing_option: str = Form(...),
-    user: User = Depends(get_current_user),
+    # --- THIS IS THE FIX ---
+    user: User = Depends(get_current_active_user), # Use the dependency that enforces authentication
+    # --- END OF FIX ---
     session: Session = Depends(get_session)
 ):
     """Creates a new booking from the mobile app, always returning JSON."""
@@ -122,8 +124,9 @@ async def create_order_from_booking_web(
         response = RedirectResponse(url="/register/customer", status_code=303)
         response.set_cookie(key="pending_booking", value=signed_data, httponly=True, max_age=900)
         return response
-
-    if session.exec(select(Order).where(Order.external_id == external_id)).first():
+    
+    existing_order = session.exec(select(Order).where(Order.external_id == external_id)).first()
+    if existing_order:
         return RedirectResponse(url=f"/track/{existing_order.tracking_token}", status_code=303)
 
     customer_profile = session.exec(select(Customer).where(Customer.user_id == user.id)).first()
