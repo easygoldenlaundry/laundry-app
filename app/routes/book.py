@@ -15,7 +15,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.models import Order, Event, Bag, Setting, User, Customer
 from app.sockets import broadcast_order_update
-from app.auth import get_current_user, get_current_active_user # Import the correct dependency
+from app.auth import get_current_user, get_current_active_user
 from app.security import signer
 from app.services import capacity_planner
 
@@ -41,9 +41,12 @@ async def create_booking_api(
     pickup_longitude: float = Form(...),
     phone: str = Form(...),
     processing_option: str = Form(...),
-    # --- THIS IS THE FIX ---
-    user: User = Depends(get_current_active_user), # Use the dependency that enforces authentication
+    # --- THIS IS THE FIX: Accept the extra fields sent by the app ---
+    terms_accepted: bool = Form(...),
+    distance_km: Optional[float] = Form(None),
+    pickup_cost: Optional[float] = Form(None),
     # --- END OF FIX ---
+    user: User = Depends(get_current_active_user),
     session: Session = Depends(get_session)
 ):
     """Creates a new booking from the mobile app, always returning JSON."""
@@ -78,8 +81,11 @@ async def create_booking_api(
     background_tasks.add_task(broadcast_order_update, new_order)
 
     order_dict = new_order.dict()
+    # Add extra fields to the response as requested by the original spec
     order_dict.update({
-        "processing_time": f"~{turnaround_hours} hr", "price_per_load": price_per_load, "pickup_cost": 50.0,
+        "processing_time": f"~{turnaround_hours} hr", 
+        "price_per_load": price_per_load, 
+        "pickup_cost": pickup_cost, # Use the value from the form
     })
     return JSONResponse(content={"order": order_dict, "message": "Booking created successfully"})
 
