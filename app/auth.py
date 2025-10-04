@@ -57,20 +57,23 @@ async def set_user_on_request_state(request: Request, session: Session):
         except JWTError:
             user = None
     
+    # This is where the user object is attached to the request lifecycle
     request.state.user = user
 
+# --- THIS IS THE FIX ---
+# This dependency now relies on the middleware having already run.
+# It no longer takes `request: Request` as an argument itself.
 def get_current_user(request: Request) -> Optional[User]:
     """
-    FastAPI dependency that returns the user object from the request state.
+    FastAPI dependency that returns the user object from the request's state.
+    The user is attached to the state by the `set_user_on_request_state` middleware.
     """
     return getattr(request.state, "user", None)
+# --- END OF FIX ---
 
-# --- THIS IS THE FIX ---
 def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
     """
-    Synchronous dependency to get an active user.
-    Raises 401 for API if not authenticated or 403 if inactive.
-    This is safer for endpoints that also parse request bodies like Forms.
+    Dependency to get an active user. Raises 401 for API if not authenticated or 403 if inactive.
     """
     if not current_user:
         raise HTTPException(
@@ -81,7 +84,6 @@ def get_current_active_user(current_user: User = Depends(get_current_user)) -> U
     if not current_user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your account is inactive.")
     return current_user
-# --- END OF FIX ---
 
 def get_current_admin_user(current_user: User = Depends(get_current_active_user)) -> User:
     """Dependency to ensure the user is an active admin."""
@@ -92,13 +94,13 @@ def get_current_admin_user(current_user: User = Depends(get_current_active_user)
 def get_current_staff_user(current_user: User = Depends(get_current_active_user)) -> User:
     """Dependency to ensure the user is an active staff member or admin."""
     if current_user.role not in ["staff", "admin"]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied. This page is for hub staff only.")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
     return current_user
 
 def get_current_driver_user(current_user: User = Depends(get_current_active_user)) -> User:
     """Dependency to ensure the user is an active driver."""
     if current_user.role != "driver":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied. This page is for drivers only.")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
     return current_user
 
 def get_current_customer_user(current_user: User = Depends(get_current_active_user)) -> User:
@@ -111,18 +113,11 @@ def get_current_customer_user(current_user: User = Depends(get_current_active_us
     return current_user
 
 def station_access_dependency(station_name: str):
-    """
-    A dependency factory that creates a dependency to check for station access.
-    """
+    """A dependency factory that creates a dependency to check for station access."""
     def _check_station_access(current_user: User = Depends(get_current_active_user)) -> User:
-        if current_user.role == 'admin':
-            return current_user
+        if current_user.role == 'admin': return current_user
         if current_user.role == 'staff':
             allowed = (current_user.allowed_stations or "").split(',')
-            if station_name in allowed:
-                return current_user
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"You do not have permission to access the {station_name} station."
-        )
+            if station_name in allowed: return current_user
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Permission denied for {station_name} station.")
     return _check_station_access

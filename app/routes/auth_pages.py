@@ -15,6 +15,11 @@ from app.auth import create_access_token, verify_password, ACCESS_TOKEN_EXPIRE_M
 router = APIRouter(tags=["Authentication"])
 templates = Jinja2Templates(directory="app/templates")
 
+def wants_json(request: Request) -> bool:
+    """Check if the client's Accept header prefers a JSON response."""
+    accept_header = request.headers.get("accept", "")
+    return "application/json" in accept_header
+
 @router.get("/login", response_class=HTMLResponse, include_in_schema=False)
 async def login_page(request: Request):
     """Serves the main login page."""
@@ -30,12 +35,9 @@ async def login_for_access_token(
     """
     Handles form submission from login page/API.
     - For mobile, it returns a JSON object with token and user data.
-    - For web, the browser receives JSON but the login form submission flow
-      will set a cookie and redirect via client-side logic if needed,
-      or we can adapt it to handle the JSON response. A redirect is cleaner.
-      Let's keep the content negotiation here as it's a hybrid endpoint.
+    - For web, it returns a redirect response with a cookie.
     """
-    is_json_request = "application/json" in request.headers.get("accept", "")
+    is_json_request = wants_json(request)
 
     user = session.exec(select(User).where((User.username == form_data.username) | (User.email == form_data.username))).first()
 
