@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- App Constants ---
-DB_PATH = "./brain.db"
 DATA_ROOT = "./data"
 
 # --- Secrets ---

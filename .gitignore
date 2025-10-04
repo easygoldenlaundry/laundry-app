@@ -6,13 +6,11 @@ venv/
 __pycache__/
 *.pyc
 
-# Databases
-brain.db
-*.sqlite3
-backups/
-
-# Environment files
+# Environment files - VERY IMPORTANT
 .env
 
 # Logs
 logs/
+
+# Data files (images, etc.) - keep this if you store uploads locally
+data/

@@ -15,9 +15,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.models import Order, Event, Bag, Setting, User, Customer
 from app.sockets import broadcast_order_update
-# --- THIS IS THE FIX ---
-from app.auth import get_current_user, get_current_api_user # Import the new API dependency
-# --- END OF FIX ---
+from app.auth import get_current_user, get_current_api_user
 from app.security import signer
 from app.services import capacity_planner
 
@@ -46,9 +44,7 @@ async def create_booking_api(
     terms_accepted: bool = Form(...),
     distance_km: Optional[float] = Form(None),
     pickup_cost: Optional[float] = Form(None),
-    # --- THIS IS THE FIX ---
-    user: User = Depends(get_current_api_user), # Use the new, robust API dependency
-    # --- END OF FIX ---
+    user: User = Depends(get_current_api_user),
     session: Session = Depends(get_session)
 ):
     """Creates a new booking from the mobile app, always returning JSON."""
@@ -92,7 +88,6 @@ async def create_booking_api(
 
 
 # --- Existing Web Endpoints (HTML only) ---
-# (The rest of this file remains unchanged)
 
 @router.get("/", include_in_schema=False)
 def root():

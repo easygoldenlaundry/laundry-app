@@ -1,10 +1,18 @@
 # app/db.py
+import os
+from dotenv import load_dotenv
 from sqlmodel import create_engine, SQLModel, Session
-from app.config import DB_PATH
 
-# The connect_args is needed for SQLite to allow multiple threads to access it,
-# which is what happens with FastAPI's dependencies.
-engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
+# Load environment variables from .env file
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL environment variable not set.")
+
+# For Supabase/PostgreSQL, we don't need 'check_same_thread'
+engine = create_engine(DATABASE_URL)
 
 def get_engine():
     """Returns the global engine instance."""
