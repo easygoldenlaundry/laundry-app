@@ -91,7 +91,7 @@ class Order(SQLModel, table=True):
     events: List["Event"] = Relationship(back_populates="order")
     claims: List["Claim"] = Relationship(back_populates="order")
     baskets: List["Basket"] = Relationship(back_populates="order")
-    customer: Optional["Customer"] = Relationship(back_populates="customer")
+    customer: Optional["Customer"] = Relationship(back_populates="orders")
     bags: List["Bag"] = Relationship(back_populates="order")
     images: List["Image"] = Relationship(back_populates="order")
     messages: List["Message"] = Relationship(back_populates="order")
