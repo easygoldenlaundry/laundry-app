@@ -35,11 +35,23 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 
 async def set_user_on_request_state(request: Request, session: Session):
     """
-    Reads the token from cookies, decodes it, and sets `request.state.user`.
-    This function is called by the middleware for every request.
+    Reads the token from the Authorization header (for mobile) or cookies (for web),
+    decodes it, and sets `request.state.user`.
     """
-    token_with_bearer = request.cookies.get("access_token")
     user = None
+    token_with_bearer = None
+
+    # --- THIS IS THE FIX ---
+    # 1. Try to get the token from the Authorization header (for mobile/API)
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token_with_bearer = auth_header
+
+    # 2. If not found, fall back to checking cookies (for web browser)
+    if not token_with_bearer:
+        token_with_bearer = request.cookies.get("access_token")
+    # --- END OF FIX ---
+
     if token_with_bearer and token_with_bearer.startswith("Bearer "):
         token = token_with_bearer.split(" ")[1]
         try:
@@ -48,20 +60,32 @@ async def set_user_on_request_state(request: Request, session: Session):
             if username:
                 user = session.exec(select(User).where(User.username == username)).first()
         except JWTError:
+            # Token is invalid, expired, or malformed
             user = None
+    
     request.state.user = user
 
 def get_current_user(request: Request) -> Optional[User]:
     """
     FastAPI dependency that returns the user object from the request state,
-    which was set by the middleware.
+    which was set by the middleware. For API endpoints, this should be followed
+    by a dependency that raises an error if the user is None.
     """
     return getattr(request.state, "user", None)
 
 
 async def get_current_active_user(request: Request, current_user: User = Depends(get_current_user)) -> User:
-    """Dependency to get an active user. Rejects inactive users."""
+    """Dependency to get an active user. Raises 401 for API or redirects for web if not authenticated."""
     if not current_user:
+        # For API requests, we should return a 401 Unauthorized
+        accept_header = request.headers.get("accept", "")
+        if "application/json" in accept_header:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        # For web requests, we redirect to login
         next_url = request.url.path
         raise HTTPException(
             status_code=status.HTTP_307_TEMPORARY_REDIRECT, 
@@ -105,17 +129,12 @@ def station_access_dependency(station_name: str):
     Admins are always granted access.
     """
     def _check_station_access(current_user: User = Depends(get_current_active_user)) -> User:
-        # Admins have access to everything
         if current_user.role == 'admin':
             return current_user
-        
-        # Staff must have the specific station in their allowed list
         if current_user.role == 'staff':
             allowed = (current_user.allowed_stations or "").split(',')
             if station_name in allowed:
                 return current_user
-        
-        # If none of the above, deny access
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"You do not have permission to access the {station_name} station."
