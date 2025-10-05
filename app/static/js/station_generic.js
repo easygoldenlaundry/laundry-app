@@ -247,13 +247,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    const socket = io({ transports: ['websocket'] });
-    socket.on('connect', () => {
+    // --- THIS IS THE FIX: Use the global socket instance ---
+    const socket = window.appSocket;
+    
+    function onConnect() {
         console.log(`${STATION_TITLE} socket connected.`);
         socket.emit('join', { room: `station:${HUB_ID}:${STATION_TYPE}` });
         socket.emit('join', { room: `hub:${HUB_ID}` });
         fetchQueue();
-    });
+    }
+    socket.on('connect', onConnect);
+    if (socket.connected) {
+        onConnect();
+    }
+    // --- END OF FIX ---
     
     socket.on('order.updated', () => fetchQueue());
 

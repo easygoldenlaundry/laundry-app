@@ -338,9 +338,9 @@ document.addEventListener('DOMContentLoaded', () => {
             { metric: `Avg QA Time`, value: `${data.avg_qa_time.toFixed(2)} min` },
             { metric: `Total Claims`, value: data.total_claims },
             { metric: `Total Compensation`, value: `R ${data.total_compensation.toFixed(2)}` },
-            { metric: `% Orders with Stains`, value: `${data.percent_with_stains.toFixed(1)}%` },
-            { metric: `% QA Passed`, value: `${data.percent_qa_passed.toFixed(1)}%` },
-            { metric: `% QA Failed`, value: `${data.percent_qa_failed.toFixed(1)}%` },
+            { metric: `_get_percentile with Stains`, value: `${data.percent_with_stains.toFixed(1)}%` },
+            { metric: `_get_percentile QA Passed`, value: `${data.percent_qa_passed.toFixed(1)}%` },
+            { metric: `_get_percentile QA Failed`, value: `${data.percent_qa_failed.toFixed(1)}%` },
         ];
 
         statsRows.forEach(row => {
@@ -418,9 +418,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function onConnect() {
         console.log('Command room socket connected.');
-        socket.emit('join', { room: `hub:${HUB_ID}` }); // Redundant but harmless
+        // The join to hub:1 is already handled by base.html, so this is not strictly necessary
+        // but it is harmless to leave it.
+        socket.emit('join', { room: `hub:${HUB_ID}` });
     }
+
     socket.on('connect', onConnect);
+
+    // If the socket is already connected when this script loads, manually trigger the onConnect logic.
     if (socket.connected) {
         onConnect();
     }
@@ -428,6 +433,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     socket.on('order.updated', (order) => {
         updateOrInsertOrderRow(order);
+        // Refreshing all data on every update might be too much, but it's simple.
+        // A more advanced implementation might update specific KPIs.
         fetchAllOrders();
         fetchAggregatedStats();
         fetchKpisAndActiveOrders(); 
@@ -440,6 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchAllOrders();
         fetchAggregatedStats();
         
+        // Refresh data periodically as a fallback
         setInterval(fetchKpisAndActiveOrders, 15000);
         setInterval(fetchAllOrders, 60000);
         setInterval(fetchAggregatedStats, 60000);

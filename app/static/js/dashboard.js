@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function onConnect() {
         statusIndicator.textContent = 'Connected';
         statusIndicator.className = 'status-connected';
-        socket.emit('join', { room: `hub:${HUB_ID}` });
+        // The join to hub:1 is already handled by base.html
         fetchAllActiveOrders();
     }
 

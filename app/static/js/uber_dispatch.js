@@ -170,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await fetch(`/api/orders/${currentChatOrderId}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: content })
+                body: JSON.stringify({ message: content }) // Ensure key is "message"
             });
             chatInput.value = ''; // Message will be appended via WebSocket
         } catch (error) {
@@ -182,12 +182,17 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- SOCKET.IO ---
-    const socket = io({ transports: ['websocket'] });
+    // --- THIS IS THE FIX: Use the global socket instance ---
+    const socket = window.appSocket;
 
-    socket.on('connect', () => {
-        socket.emit('join', { room: 'hub:1' });
-        console.log('Admin socket connected.');
-    });
+    function onConnect() {
+        console.log('Admin socket connected for Uber dispatch.');
+    }
+    socket.on('connect', onConnect);
+    if (socket.connected) {
+        onConnect();
+    }
+    // --- END OF FIX ---
 
     socket.on('order.updated', (order) => {
         fetchAndRenderOrders();

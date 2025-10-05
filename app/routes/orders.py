@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from app.db import get_session
 from app.models import Order, Bag, Image, Item, Basket, User, Message, Customer
 from app.services.state_machine import apply_transition
-from app.auth import get_current_user, get_current_customer_user
+from app.auth import get_current_user, get_current_api_user
 from app.sockets import broadcast_message_update, broadcast_admin_notification
 from app.config import DATA_ROOT
 import aiofiles
@@ -228,11 +228,10 @@ class MessageCreate(BaseModel):
 async def send_message(
     order_id: int,
     message_data: MessageCreate,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_api_user), # <<< THIS IS THE FIX
     session: Session = Depends(get_session)
 ):
-    """Sends a message from either an admin or a customer."""
-    if not user: raise HTTPException(status_code=401, detail="Not authenticated")
+    """Sends a message from either an admin or a customer. Works for mobile apps."""
     order = session.get(Order, order_id)
     if not order: raise HTTPException(404, "Order not found")
     
@@ -257,7 +256,7 @@ async def send_message(
         "sender_role": new_message.sender_role, "message": new_message.content,
         "timestamp": new_message.timestamp.isoformat(), "read": new_message.is_read
     }
-    # Use broadcast_message_update format for socket event
+
     socket_msg = { "order_id": new_message.order_id, "sender_role": new_message.sender_role, "content": new_message.content, "timestamp": new_message.timestamp.isoformat() }
     await broadcast_message_update(socket_msg)
     
@@ -269,19 +268,15 @@ async def send_message(
 @router.post("/{order_id}/messages/mark-read", status_code=204)
 def mark_messages_as_read(
     order_id: int,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_api_user), # <<< THIS IS THE FIX
     session: Session = Depends(get_session)
 ):
-    # ... (this function remains unchanged)
-    if not user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    # Admins mark messages from customers as read
-    if user.role in ["admin", "staff"]:
-        sender_to_mark = 'customer'
     # Customers mark messages from admins as read
-    elif user.role == "customer":
+    if user.role == "customer":
         sender_to_mark = 'admin'
+    # Admins mark messages from customers as read
+    elif user.role in ["admin", "staff"]:
+        sender_to_mark = 'customer'
     else:
         return # Other roles can't participate in chat
 

@@ -44,34 +44,45 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user: UserProfile
 
+# --- THIS IS THE FIX ---
+class CustomerRegistrationRequest(BaseModel):
+    full_name: str
+    email: EmailStr
+    password: str
+    phone_number: str
+    address: str
+    whatsapp_number: Optional[str] = None
+
+class ProfileUpdateRequest(BaseModel):
+    full_name: str
+    phone_number: str
+    address: str
+    whatsapp_number: Optional[str] = None
+
+
 # --- NEW: Mobile App API Endpoints (JSON only) ---
 
 @api_router.post("/customers/register", response_model=TokenResponse)
 async def register_customer_api(
-    full_name: str = Form(...),
-    email: str = Form(...),
-    password: str = Form(...),
-    phone_number: str = Form(...),
-    address: str = Form(...),
-    whatsapp_number: Optional[str] = Form(None),
+    request_data: CustomerRegistrationRequest,
     session: Session = Depends(get_session)
 ):
     """Handles customer registration for the mobile app, always returning JSON."""
-    existing_user = session.exec(select(User).where(User.email == email)).first()
+    existing_user = session.exec(select(User).where(User.email == request_data.email)).first()
     if existing_user:
         raise HTTPException(status_code=409, detail="Email is already registered")
 
-    hashed_password = get_password_hash(password)
+    hashed_password = get_password_hash(request_data.password)
     new_user = User(
-        username=email, email=email, hashed_password=hashed_password,
-        display_name=full_name, role="customer", is_active=True
+        username=request_data.email, email=request_data.email, hashed_password=hashed_password,
+        display_name=request_data.full_name, role="customer", is_active=True
     )
     session.add(new_user)
     session.commit(); session.refresh(new_user)
 
     new_customer = Customer(
-        user_id=new_user.id, full_name=full_name, phone_number=phone_number,
-        address=address, whatsapp_number=whatsapp_number
+        user_id=new_user.id, full_name=request_data.full_name, phone_number=request_data.phone_number,
+        address=request_data.address, whatsapp_number=request_data.whatsapp_number
     )
     session.add(new_customer)
     session.commit(); session.refresh(new_customer)
@@ -104,10 +115,7 @@ def get_current_user_profile(
 
 @api_router.post("/me/update", response_model=UserProfile)
 def update_current_user_profile(
-    full_name: str = Form(...),
-    phone_number: str = Form(...),
-    address: str = Form(...),
-    whatsapp_number: Optional[str] = Form(None), 
+    request_data: ProfileUpdateRequest,
     user: User = Depends(get_current_api_user),
     session: Session = Depends(get_session)
 ):
@@ -116,10 +124,10 @@ def update_current_user_profile(
     if not customer:
         raise HTTPException(status_code=404, detail="Customer profile not found")
 
-    customer.full_name = full_name
-    customer.phone_number = phone_number
-    customer.address = address
-    customer.whatsapp_number = whatsapp_number
+    customer.full_name = request_data.full_name
+    customer.phone_number = request_data.phone_number
+    customer.address = request_data.address
+    customer.whatsapp_number = request_data.whatsapp_number
     session.add(customer)
     session.commit()
     session.refresh(customer)

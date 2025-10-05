@@ -62,11 +62,13 @@ def deduct_stock_for_order(order_id: int, session: Session):
     session.commit()
     logging.info(f"Deducted inventory for Order {order_id}.")
     
-    # Run the async check in the current event loop or a new one
+    # --- THIS IS THE FIX ---
+    # Use create_task on the running event loop instead of asyncio.run()
     try:
         loop = asyncio.get_running_loop()
         loop.create_task(check_for_low_stock(session))
     except RuntimeError:
+        # This is a fallback for when the function is called from a context without a running loop
         asyncio.run(check_for_low_stock(session))
 
 

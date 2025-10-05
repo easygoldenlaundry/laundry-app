@@ -58,18 +58,19 @@ def get_current_user(request: Request) -> Optional[User]:
     """[WEB APP ONLY] Returns the user object from the request's state."""
     return getattr(request.state, "user", None)
 
+# --- THIS IS THE FIX ---
 # This is the NEW BULLETPROOF DEPENDENCY FOR THE MOBILE APP API
 def get_current_api_user(
     request: Request,
     session: Session = Depends(get_session)
 ) -> User:
     """
-    A self-contained dependency for API endpoints.
+    A self-contained dependency for API endpoints (mobile app).
     1. Extracts token from Authorization header.
     2. Decodes token.
     3. Fetches user from DB.
     4. Raises 401/403 if any step fails.
-    This avoids any conflicts with request.state or form parsing.
+    This avoids any conflicts with request.state or web-based auth.
     """
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
@@ -80,20 +81,25 @@ def get_current_api_user(
         )
 
     token = auth_header.split(" ")[1]
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
     try:
         payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
-            raise HTTPException(status_code=401, detail="Invalid token: Subject missing")
+            raise credentials_exception
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token: Could not validate credentials")
+        raise credentials_exception
 
     user = session.exec(select(User).where(User.username == username)).first()
     if user is None:
-        raise HTTPException(status_code=401, detail="Invalid token: User not found")
+        raise credentials_exception
     
     if not user.is_active:
-        raise HTTPException(status_code=403, detail="Your account is inactive.")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your account is inactive.")
         
     return user
 

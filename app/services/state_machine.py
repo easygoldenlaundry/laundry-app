@@ -73,10 +73,13 @@ def apply_transition(session: Session, order: Order, to_status: str, user_id: in
     session.commit()
     session.refresh(order)
 
+    # --- THIS IS THE FIX ---
+    # Use create_task on the running event loop instead of asyncio.run()
     try:
-        asyncio.run(broadcast_order_update(order))
-    except RuntimeError:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         loop.create_task(broadcast_order_update(order))
+    except RuntimeError:
+        # This is a fallback for when the function is called from a context without a running loop
+        asyncio.run(broadcast_order_update(order))
 
     return order

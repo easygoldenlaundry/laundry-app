@@ -119,7 +119,7 @@ def seed_database():
         if not station_check:
             print("No stations found. Creating stations for Hub 1...")
             stations = [
-                Station(hub_id=1, type="imaging", capacity=5, title="Imaging Station"), Station(hub_id=1, type="Pretreat", capacity=5, title="Pretreat Station"),
+                Station(hub_id=1, type="imaging", capacity=5, title="Imaging Station"), Station(hub_id=1, type="pretreat", capacity=5, title="Pretreat Station"),
                 Station(hub_id=1, type="washing", capacity=10, title="Washing Station"), Station(hub_id=1, type="drying", capacity=10, title="Drying Station"),
                 Station(hub_id=1, type="folding", capacity=8, title="Folding Station"), Station(hub_id=1, type="qa", capacity=5, title="Quality Assurance"),
             ]
