@@ -32,9 +32,6 @@ def get_mobile_pricing_estimate():
     """Simple pricing estimate for the mobile app."""
     return {"distance_km": 5.2, "pickup_cost": 50.0, "estimated_time": "15 minutes"}
 
-# --- THIS IS THE FIX ---
-# This endpoint now correctly uses the mobile app authenticator (get_current_api_user)
-# and correctly handles form data as seen in the Android logs.
 @api_router.post("/orders/book")
 async def create_booking_api(
     request: Request,
@@ -47,7 +44,7 @@ async def create_booking_api(
     terms_accepted: bool = Form(...),
     distance_km: Optional[float] = Form(None),
     pickup_cost: Optional[float] = Form(None),
-    user: User = Depends(get_current_api_user), # Correct dependency for mobile apps
+    user: User = Depends(get_current_api_user),
     session: Session = Depends(get_session)
 ):
     """Creates a new booking from the mobile app, always returning JSON."""
@@ -58,7 +55,6 @@ async def create_booking_api(
     if not customer:
         raise HTTPException(status_code=404, detail="Customer profile not found for the authenticated user.")
 
-    # Calculate SLA and price based on the selected option
     slots_data = capacity_planner.generate_availability_slots(session)
     if processing_option == 'standard':
         if not slots_data.get("slot"):
@@ -67,13 +63,11 @@ async def create_booking_api(
     else: # wait_and_save
         sla_deadline = datetime.now(timezone.utc) + timedelta(hours=48)
     
-    # Update customer's default address and location from this booking
     customer.address = pickup_address
     customer.latitude = pickup_latitude
     customer.longitude = pickup_longitude
     session.add(customer)
 
-    # Create the new order using your SQLModel objects
     new_order = Order(
         external_id=f"mob-{uuid.uuid4().hex[:8]}",
         tracking_token=f"trk_{secrets.token_urlsafe(12)}",
@@ -86,23 +80,25 @@ async def create_booking_api(
         sla_deadline=sla_deadline,
         distance_km=distance_km,
         pickup_cost=pickup_cost,
-        dispatch_method="inhouse" # Default to inhouse, can be changed by admin
+        dispatch_method="inhouse",
+        # --- POPULATE NEW FIELDS ---
+        pickup_lat=pickup_latitude,
+        pickup_lon=pickup_longitude,
+        delivery_lat=pickup_latitude, # Assume delivery is to the same location
+        delivery_lon=pickup_longitude
     )
     session.add(new_order)
     session.commit()
     session.refresh(new_order)
 
-    # Create associated records (Bag, Event)
     bag = Bag(order_id=new_order.id, bag_code=f"BAG-{secrets.token_hex(4).upper()}")
     event = Event(order_id=new_order.id, to_status="Created", user_id=user.id, meta="Created via mobile booking.")
     session.add_all([bag, event])
     session.commit()
     session.refresh(new_order)
     
-    # Notify the dashboard in the background
     background_tasks.add_task(broadcast_order_update, new_order)
 
-    # Return the created order object as JSON
     return JSONResponse(content={"order": json.loads(new_order.json()), "message": "Booking created successfully"})
 
 
@@ -158,6 +154,7 @@ async def create_order_from_booking_web(
         external_id=external_id, tracking_token=f"trk_{secrets.token_urlsafe(12)}", customer_name=customer_name,
         customer_phone=customer_phone, customer_address=customer_address, hub_id=hub_id, status="Created",
         sla_deadline=sla_deadline, notes_for_driver=notes_for_driver, customer_id=customer_profile.id if customer_profile else None
+        # Note: Lat/Lon are not captured by the web form currently. This is okay.
     )
     session.add(new_order)
     session.commit(); session.refresh(new_order)

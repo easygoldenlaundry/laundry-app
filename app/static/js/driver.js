@@ -6,6 +6,60 @@ document.addEventListener('DOMContentLoaded', () => {
     const availableDeliveriesList = document.getElementById('available-deliveries-list');
     const myJobsList = document.getElementById('my-jobs-list');
 
+    // --- NEW: Location Tracking Logic ---
+    let lastSentLocationTime = 0;
+    let currentPosition = null;
+    const LOCATION_UPDATE_INTERVAL_MS = 20000; // 20 seconds
+
+    const positionOptions = {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+    };
+
+    function handlePositionUpdate(pos) {
+        currentPosition = {
+            lat: pos.coords.latitude,
+            lon: pos.coords.longitude,
+        };
+        console.log('Location updated:', currentPosition);
+    }
+
+    function handlePositionError(err) {
+        console.warn(`Geolocation ERROR(${err.code}): ${err.message}`);
+    }
+
+    // Start watching the driver's position
+    navigator.geolocation.watchPosition(handlePositionUpdate, handlePositionError, positionOptions);
+
+    async function sendLocationUpdate() {
+        if (!currentPosition) {
+            console.log('Skipping location send: No position captured yet.');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/driver/location', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(currentPosition)
+            });
+            if (response.ok) {
+                console.log('Successfully sent location update to backend.');
+            } else {
+                console.error('Failed to send location update.', response.status);
+            }
+        } catch (error) {
+            console.error('Error sending location update:', error);
+        }
+    }
+    
+    // Periodically send the latest captured location
+    setInterval(sendLocationUpdate, LOCATION_UPDATE_INTERVAL_MS);
+
+    // --- End of New Location Logic ---
+
+
     const createJobCard = (order, jobType = 'pickup', isAccepted = false) => {
         const card = document.createElement('div');
         card.className = 'job-card';

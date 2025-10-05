@@ -39,12 +39,17 @@ class UserProfile(BaseModel):
     role: str
     created_at: Optional[datetime]
 
+# --- NEW: Simplified Public User model ---
+class UserPublic(BaseModel):
+    id: int
+    display_name: str
+    role: str
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserProfile
 
-# --- THIS IS THE FIX ---
 class CustomerRegistrationRequest(BaseModel):
     full_name: str
     email: EmailStr
@@ -62,12 +67,26 @@ class ProfileUpdateRequest(BaseModel):
 
 # --- NEW: Mobile App API Endpoints (JSON only) ---
 
+# --- NEW ENDPOINT ---
+@api_router.get("/users/{user_id}", response_model=UserPublic)
+def get_user_public_profile(
+    user_id: int,
+    user: User = Depends(get_current_api_user),
+    session: Session = Depends(get_session)
+):
+    """Gets basic, public-safe information for any user by their ID."""
+    target_user = session.get(User, user_id)
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return UserPublic.from_orm(target_user)
+
+
 @api_router.post("/customers/register", response_model=TokenResponse)
 async def register_customer_api(
     request_data: CustomerRegistrationRequest,
     session: Session = Depends(get_session)
 ):
-    """Handles customer registration for the mobile app, always returning JSON."""
+    # ... (rest of the file is unchanged) ...
     existing_user = session.exec(select(User).where(User.email == request_data.email)).first()
     if existing_user:
         raise HTTPException(status_code=409, detail="Email is already registered")

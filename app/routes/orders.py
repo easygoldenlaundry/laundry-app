@@ -9,13 +9,22 @@ from datetime import datetime, timezone
 from app.db import get_session
 from app.models import Order, Bag, Image, Item, Basket, User, Message, Customer
 from app.services.state_machine import apply_transition
-from app.auth import get_current_user, get_current_api_user
+from app.auth import get_current_api_user
 from app.sockets import broadcast_message_update, broadcast_admin_notification
 from app.config import DATA_ROOT
 import aiofiles
 import os
 
 router = APIRouter(prefix="/api/orders", tags=["Orders"])
+
+# --- NEW Pydantic Models for Response ---
+class DriverPublic(BaseModel):
+    id: int
+    display_name: str
+
+class OrderWithDriverResponse(BaseModel):
+    order: Order
+    driver: Optional[DriverPublic] = None
 
 
 class ImageCompletionRequest(BaseModel):
@@ -38,6 +47,36 @@ class MessagePublic(BaseModel):
     timestamp: datetime
     read: bool
 
+# --- NEW ENDPOINT ---
+@router.get("/{order_id}", response_model=OrderWithDriverResponse)
+def get_order_details(
+    order_id: int,
+    user: User = Depends(get_current_api_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Gets the full details for a single order, including driver info.
+    Protected to ensure only the customer or an admin can access it.
+    """
+    order = session.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Security check: User must be an admin or the customer who owns the order
+    if user.role != "admin" and order.customer_id != user.id:
+        customer = session.exec(select(Customer).where(Customer.user_id == user.id)).first()
+        if not customer or customer.id != order.customer_id:
+            raise HTTPException(status_code=403, detail="Not authorized to view this order")
+
+    driver_info = None
+    if order.assigned_driver_id:
+        driver_user = session.get(User, order.assigned_driver_id)
+        if driver_user:
+            driver_info = DriverPublic(id=driver_user.id, display_name=driver_user.display_name)
+    
+    return OrderWithDriverResponse(order=order, driver=driver_info)
+
+
 @router.get("/active")
 async def get_active_orders(hub_id: int = 1, session: Session = Depends(get_session)):
     """
@@ -51,12 +90,11 @@ async def get_active_orders(hub_id: int = 1, session: Session = Depends(get_sess
     ).options(selectinload(Order.baskets)).order_by(Order.created_at.desc())
     results = session.exec(statement).all()
     
-    # Convert to dicts for JSON serialization
     return [order.dict() for order in results]
 
+# ... (rest of the file is unchanged) ...
 @router.get("/{order_id}/bag", response_model=Bag)
 def get_order_bag(order_id: int, session: Session = Depends(get_session)):
-    # ... (this function remains unchanged)
     statement = select(Bag).where(Bag.order_id == order_id)
     bag = session.exec(statement).first()
     if not bag:
@@ -73,7 +111,6 @@ async def upload_order_image(
     proof_photo: UploadFile = File(...),
     session: Session = Depends(get_session)
 ):
-    # ... (this function remains unchanged)
     order = session.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -118,7 +155,6 @@ async def upload_order_image(
 
 @router.post("/{order_id}/complete-imaging", response_model=Order)
 def complete_imaging_stage(order_id: int, request: ImageCompletionRequest, session: Session = Depends(get_session)):
-    # ... (this function remains unchanged)
     order = session.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -171,7 +207,6 @@ def request_delivery(order_id: int, delivery_request: DeliveryRequest, session: 
 
 @router.get("/{order_id}/stained-images", response_model=List[Image])
 def get_stained_images(order_id: int, session: Session = Depends(get_session)):
-    # ... (this function remains unchanged)
     images = session.exec(
         select(Image).where(Image.order_id == order_id, Image.is_stain == True)
     ).all()
@@ -184,7 +219,6 @@ class QAImageUpdateRequest(BaseModel):
 
 @router.post("/images/{image_id}/qa-update", response_model=Image)
 def update_image_qa_status(image_id: int, request: QAImageUpdateRequest, session: Session = Depends(get_session)):
-    # ... (this function remains unchanged)
     image = session.get(Image, image_id)
     if not image:
         raise HTTPException(status_code=404, detail="Image not found")
@@ -222,16 +256,15 @@ def get_messages(order_id: int, session: Session = Depends(get_session)):
     return response
 
 class MessageCreate(BaseModel):
-    message: str # Changed from 'content' to 'message' to match spec
+    message: str
 
 @router.post("/{order_id}/messages", response_model=MessagePublic)
 async def send_message(
     order_id: int,
     message_data: MessageCreate,
-    user: User = Depends(get_current_api_user), # <<< THIS IS THE FIX
+    user: User = Depends(get_current_api_user),
     session: Session = Depends(get_session)
 ):
-    """Sends a message from either an admin or a customer. Works for mobile apps."""
     order = session.get(Order, order_id)
     if not order: raise HTTPException(404, "Order not found")
     
@@ -268,17 +301,15 @@ async def send_message(
 @router.post("/{order_id}/messages/mark-read", status_code=204)
 def mark_messages_as_read(
     order_id: int,
-    user: User = Depends(get_current_api_user), # <<< THIS IS THE FIX
+    user: User = Depends(get_current_api_user),
     session: Session = Depends(get_session)
 ):
-    # Customers mark messages from admins as read
     if user.role == "customer":
         sender_to_mark = 'admin'
-    # Admins mark messages from customers as read
     elif user.role in ["admin", "staff"]:
         sender_to_mark = 'customer'
     else:
-        return # Other roles can't participate in chat
+        return
 
     statement = (
         update(Message)

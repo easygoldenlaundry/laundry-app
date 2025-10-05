@@ -16,7 +16,7 @@ from app.tasks import delete_old_messages_periodically, reset_monthly_trackers
 from app.routes import (
     health, auth_pages, orders, queues, admin, driver, bags, 
     stations, admin_api, qa, book, track, claims, users, stations_pages,
-    admin_dashboard, finance
+    admin_dashboard, finance, location  # <<< NEW: Import location
 )
 
 
@@ -63,12 +63,13 @@ fastapi_app.mount("/data", StaticFiles(directory="data"), name="data")
 fastapi_app.include_router(health.router)
 fastapi_app.include_router(auth_pages.router)
 fastapi_app.include_router(users.router) # Web routes
-fastapi_app.include_router(users.api_router) # <<< NEW: Mobile API routes for users
+fastapi_app.include_router(users.api_router) # Mobile API routes for users
 fastapi_app.include_router(book.router) # Web routes
-fastapi_app.include_router(book.api_router) # <<< NEW: Mobile API routes for booking
+fastapi_app.include_router(book.api_router) # Mobile API routes for booking
 fastapi_app.include_router(track.router)
 fastapi_app.include_router(claims.router)
 fastapi_app.include_router(driver.router)
+fastapi_app.include_router(location.router) # <<< NEW: Include location router
 fastapi_app.include_router(stations_pages.router) 
 fastapi_app.include_router(admin.router)
 fastapi_app.include_router(admin_dashboard.router) 

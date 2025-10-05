@@ -91,6 +91,13 @@ async def broadcast_machine_update(machine):
     
     logging.debug(f"Broadcasted update for machine {machine.id} to rooms: {list(unique_rooms)}")
 
+# --- NEW FUNCTION ---
+async def broadcast_driver_location_update(order_id: int, payload: dict):
+    """Emits a 'driver.location_update' event to a specific order's room."""
+    room = f"order:{order_id}"
+    await socketio_server.emit('driver.location_update', payload, room=room)
+    logging.debug(f"Broadcasted location for order {order_id} to room {room}")
+
 
 @socketio_server.event
 async def connect(sid, environ):
