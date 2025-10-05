@@ -32,6 +32,9 @@ def get_mobile_pricing_estimate():
     """Simple pricing estimate for the mobile app."""
     return {"distance_km": 5.2, "pickup_cost": 50.0, "estimated_time": "15 minutes"}
 
+# --- THIS IS THE FIX ---
+# This endpoint now correctly uses the mobile app authenticator (get_current_api_user)
+# and correctly handles form data as seen in the Android logs.
 @api_router.post("/orders/book")
 async def create_booking_api(
     request: Request,
@@ -44,47 +47,63 @@ async def create_booking_api(
     terms_accepted: bool = Form(...),
     distance_km: Optional[float] = Form(None),
     pickup_cost: Optional[float] = Form(None),
-    user: User = Depends(get_current_api_user),
+    user: User = Depends(get_current_api_user), # Correct dependency for mobile apps
     session: Session = Depends(get_session)
 ):
     """Creates a new booking from the mobile app, always returning JSON."""
+    if not terms_accepted:
+        raise HTTPException(status_code=400, detail="Terms and conditions must be accepted.")
+    
     customer = session.exec(select(Customer).where(Customer.user_id == user.id)).first()
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer profile not found")
+        raise HTTPException(status_code=404, detail="Customer profile not found for the authenticated user.")
 
+    # Calculate SLA and price based on the selected option
     slots_data = capacity_planner.generate_availability_slots(session)
-    price_per_load = slots_data["wait_and_save_price"] if processing_option != 'standard' else slots_data.get("slot", {}).get("price_per_load", 210.0)
-    turnaround_hours = "Up to 48" if processing_option != 'standard' else slots_data.get("slot", {}).get("turnaround_hours", 12)
-    sla_deadline = datetime.now(timezone.utc) + timedelta(hours=48) if processing_option != 'standard' else datetime.fromisoformat(slots_data['slot']['timestamp'])
-
-    # Update customer location from booking
+    if processing_option == 'standard':
+        if not slots_data.get("slot"):
+             raise HTTPException(status_code=503, detail="Standard processing is currently unavailable. Please try again later.")
+        sla_deadline = datetime.fromisoformat(slots_data['slot']['timestamp'])
+    else: # wait_and_save
+        sla_deadline = datetime.now(timezone.utc) + timedelta(hours=48)
+    
+    # Update customer's default address and location from this booking
     customer.address = pickup_address
     customer.latitude = pickup_latitude
     customer.longitude = pickup_longitude
     session.add(customer)
 
+    # Create the new order using your SQLModel objects
     new_order = Order(
-        external_id=f"mob-{uuid.uuid4()}", tracking_token=f"trk_{secrets.token_urlsafe(12)}",
-        customer_name=customer.full_name, customer_phone=phone, customer_address=pickup_address,
-        hub_id=1, status="Created", customer_id=customer.id, sla_deadline=sla_deadline,
+        external_id=f"mob-{uuid.uuid4().hex[:8]}",
+        tracking_token=f"trk_{secrets.token_urlsafe(12)}",
+        customer_name=customer.full_name,
+        customer_phone=phone,
+        customer_address=pickup_address,
+        hub_id=1,
+        status="Created",
+        customer_id=customer.id,
+        sla_deadline=sla_deadline,
         distance_km=distance_km,
-        pickup_cost=pickup_cost
+        pickup_cost=pickup_cost,
+        dispatch_method="inhouse" # Default to inhouse, can be changed by admin
     )
     session.add(new_order)
-    session.commit(); session.refresh(new_order)
+    session.commit()
+    session.refresh(new_order)
 
-    # Common post-creation logic
+    # Create associated records (Bag, Event)
     bag = Bag(order_id=new_order.id, bag_code=f"BAG-{secrets.token_hex(4).upper()}")
-    event = Event(order_id=new_order.id, to_status="Created", meta="Created via mobile booking.")
+    event = Event(order_id=new_order.id, to_status="Created", user_id=user.id, meta="Created via mobile booking.")
     session.add_all([bag, event])
-    session.commit(); session.refresh(new_order)
+    session.commit()
+    session.refresh(new_order)
+    
+    # Notify the dashboard in the background
     background_tasks.add_task(broadcast_order_update, new_order)
 
-    order_dict = new_order.dict()
-    order_dict.update({
-        "processing_time": f"~{turnaround_hours} hr", "price_per_load": price_per_load, "pickup_cost": pickup_cost,
-    })
-    return JSONResponse(content={"order": order_dict, "message": "Booking created successfully"})
+    # Return the created order object as JSON
+    return JSONResponse(content={"order": json.loads(new_order.json()), "message": "Booking created successfully"})
 
 
 # --- Existing Web Endpoints (HTML only) ---
