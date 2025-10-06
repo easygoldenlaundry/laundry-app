@@ -15,7 +15,11 @@ from app.config import DATA_ROOT
 import aiofiles
 import os
 
-router = APIRouter(prefix="/api/orders", tags=["Orders"])
+router = APIRouter(
+    prefix="/api/orders", 
+    tags=["Orders"], 
+    dependencies=[Depends(get_current_user_flexible)]
+)
 
 # --- NEW Pydantic Models for Response ---
 class DriverPublic(BaseModel):
