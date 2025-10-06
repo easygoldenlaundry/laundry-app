@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from app.db import get_session
 from app.models import Order, Bag, Image, Item, Basket, User, Message, Customer
 from app.services.state_machine import apply_transition
-from app.auth import get_current_admin_user # Use the working admin auth
+from app.auth import get_current_admin_user, get_current_api_user # Use the working admin auth
 from app.sockets import broadcast_message_update, broadcast_admin_notification
 from app.config import DATA_ROOT
 import aiofiles
