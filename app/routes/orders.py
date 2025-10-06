@@ -15,11 +15,7 @@ from app.config import DATA_ROOT
 import aiofiles
 import os
 
-router = APIRouter(
-    prefix="/api/orders", 
-    tags=["Orders"], 
-    dependencies=[Depends(get_current_admin_user)] # Use the working admin auth
-)
+router = APIRouter(prefix="/api/orders", tags=["Orders"])
 
 # --- NEW Pydantic Models for Response ---
 class DriverPublic(BaseModel):
@@ -55,7 +51,7 @@ class MessagePublic(BaseModel):
 @router.get("/{order_id}", response_model=OrderWithDriverResponse)
 def get_order_details(
     order_id: int,
-    user: User = Depends(get_current_admin_user),
+    user: User = Depends(get_current_api_user),
     session: Session = Depends(get_session)
 ):
     """
@@ -81,8 +77,12 @@ def get_order_details(
     return OrderWithDriverResponse(order=order, driver=driver_info)
 
 
-@router.get("/active")
-async def get_active_orders(hub_id: int = 1, session: Session = Depends(get_session)):
+@router.get("/active", response_model=List[Order])
+async def get_active_orders(
+    hub_id: int = 1,
+    user: User = Depends(get_current_admin_user), # Correct admin-only auth for this endpoint
+    session: Session = Depends(get_session)
+):
     """
     Returns a list of all orders that are not in a final state
     (e.g., 'Delivered' or 'Closed'). Eager loads baskets for dashboard view.
@@ -266,7 +266,7 @@ class MessageCreate(BaseModel):
 async def send_message(
     order_id: int,
     message_data: MessageCreate,
-    user: User = Depends(get_current_admin_user),
+    user: User = Depends(get_current_api_user),
     session: Session = Depends(get_session)
 ):
     order = session.get(Order, order_id)
@@ -305,7 +305,7 @@ async def send_message(
 @router.post("/{order_id}/messages/mark-read", status_code=204)
 def mark_messages_as_read(
     order_id: int,
-    user: User = Depends(get_current_admin_user),
+    user: User = Depends(get_current_api_user),
     session: Session = Depends(get_session)
 ):
     if user.role == "customer":
