@@ -123,15 +123,22 @@ def seed_database():
         else:
             print("Users already exist. Skipping creation.")
         
-        # FIX: Create Driver profiles for any driver users that don't have one
+        # ALWAYS check and create missing Driver profiles (migration fix)
+        print("Checking for driver users without Driver profiles...")
         driver_users = session.exec(select(User).where(User.role == "driver")).all()
+        created_count = 0
         for driver_user in driver_users:
             existing_driver = session.exec(select(Driver).where(Driver.user_id == driver_user.id)).first()
             if not existing_driver:
                 new_driver = Driver(user_id=driver_user.id, status="idle")
                 session.add(new_driver)
                 print(f"-> Created missing Driver profile for user ID: {driver_user.id} ({driver_user.username})")
-        session.commit()
+                created_count += 1
+        if created_count > 0:
+            session.commit()
+            print(f"-> Created {created_count} missing Driver profile(s)")
+        else:
+            print("-> All driver users already have Driver profiles")
 
         station_check = session.exec(select(Station)).first()
         if not station_check:
