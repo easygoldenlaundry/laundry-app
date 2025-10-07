@@ -101,6 +101,24 @@ def get_uber_dispatch_orders(session: Session = Depends(get_session)):
 
     return response_orders
 
+@router.get("/orders/active", response_model=List[Order])
+async def get_active_orders(hub_id: int = 1, session: Session = Depends(get_session)):
+    """
+    Returns a list of all orders that are not in a final state
+    (e.g., 'Delivered' or 'Closed'). Eager loads baskets for dashboard view.
+    Admin-only endpoint for the dashboard.
+    """
+    from sqlalchemy.orm import selectinload
+    
+    statement = select(Order).where(
+        Order.hub_id == hub_id,
+        Order.status != "Delivered",
+        Order.status != "Closed"
+    ).options(selectinload(Order.baskets)).order_by(Order.created_at.desc())
+    results = session.exec(statement).all()
+    
+    return [order.dict() for order in results]
+
 @router.get("/unread-count")
 def get_total_unread_message_count(session: Session = Depends(get_session)):
     """Gets the total count of unread messages from customers across all orders."""

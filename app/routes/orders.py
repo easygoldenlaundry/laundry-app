@@ -15,11 +15,7 @@ from app.config import DATA_ROOT
 import aiofiles
 import os
 
-router = APIRouter(
-    prefix="/api/orders", 
-    tags=["Orders"],
-    dependencies=[Depends(get_current_admin_user)]
-)
+router = APIRouter(prefix="/api/orders", tags=["Orders"])
 
 # --- NEW Pydantic Models for Response ---
 class DriverPublic(BaseModel):
@@ -80,23 +76,6 @@ def get_order_details(
     
     return OrderWithDriverResponse(order=order, driver=driver_info)
 
-
-@router.get("/active", response_model=List[Order])
-async def get_active_orders(hub_id: int = 1, session: Session = Depends(get_session)):
-    """
-    Returns a list of all orders that are not in a final state
-    (e.g., 'Delivered' or 'Closed'). Eager loads baskets for dashboard view.
-    """
-    statement = select(Order).where(
-        Order.hub_id == hub_id,
-        Order.status != "Delivered",
-        Order.status != "Closed"
-    ).options(selectinload(Order.baskets)).order_by(Order.created_at.desc())
-    results = session.exec(statement).all()
-    
-    return [order.dict() for order in results]
-
-# ... (rest of the file is unchanged) ...
 @router.get("/{order_id}/bag", response_model=Bag)
 def get_order_bag(order_id: int, session: Session = Depends(get_session)):
     statement = select(Bag).where(Bag.order_id == order_id)
