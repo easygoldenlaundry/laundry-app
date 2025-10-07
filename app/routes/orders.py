@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 from datetime import datetime, timezone
 
 from app.db import get_session
-from app.models import Order, Bag, Image, Item, Basket, User, Message, Customer
+from app.models import Order, Bag, Image, Item, Basket, User, Message, Customer, Driver
 from app.services.state_machine import apply_transition
 from app.auth import get_current_admin_user, get_current_api_user # Use the working admin auth
 from app.sockets import broadcast_message_update, broadcast_admin_notification
@@ -70,9 +70,12 @@ def get_order_details(
 
     driver_info = None
     if order.assigned_driver_id:
-        driver_user = session.get(User, order.assigned_driver_id)
-        if driver_user:
-            driver_info = DriverPublic(id=driver_user.id, display_name=driver_user.display_name)
+        # Get the driver record first, then get the user info
+        driver = session.exec(select(Driver).where(Driver.id == order.assigned_driver_id)).first()
+        if driver:
+            driver_user = session.get(User, driver.user_id)
+            if driver_user:
+                driver_info = DriverPublic(id=driver.id, display_name=driver_user.display_name)
     
     return OrderWithDriverResponse(order=order, driver=driver_info)
 

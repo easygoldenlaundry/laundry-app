@@ -49,6 +49,12 @@ async def accept_order(user_id: int, request_data: OrderActionRequest, current_u
     
     try:
         order.assigned_driver_id = driver.id  # Use driver.id, not user_id
+        
+        # Generate pickup PIN if not already set
+        if not order.pickup_pin:
+            import secrets
+            order.pickup_pin = str(secrets.randbelow(10000)).zfill(4)
+        
         session.add(order)
         updated_order = apply_transition(session, order, "AssignedToDriver", user_id=user_id)
         return updated_order
