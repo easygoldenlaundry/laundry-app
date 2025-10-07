@@ -11,12 +11,8 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL environment variable not set.")
 
-# For Supabase/PostgreSQL, we add connect_args to force IPv4 and improve stability.
-# This is a known fix for Render to Supabase 'Network is unreachable' errors.
-connect_args = {"host_req": "::"}
-
-# Add the connect_args to the engine creation.
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
+# For Supabase/PostgreSQL, we don't need 'check_same_thread'
+engine = create_engine(DATABASE_URL)
 
 def get_engine():
     """Returns the global engine instance."""
