@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from sqlmodel import Session, select
 from app.auth import get_password_hash
 from app.db import create_db_and_tables, get_engine
-from app.models import User, Station, Machine, Order, Item, Bag, Setting, Customer, InventoryItem
+from app.models import User, Station, Machine, Order, Item, Bag, Setting, Customer, InventoryItem, Driver
 
 def seed_database():
     """
@@ -109,11 +109,29 @@ def seed_database():
             user_staff = User(username="staff1", email="staff1@example.com", hashed_password=get_password_hash("password"), role="staff", display_name="Hub Staff Member", is_active=True, allowed_stations="hub_intake,imaging,pretreat,washing,drying,folding,qa_station")
             session.add_all([user_admin, user_driver, user_staff])
             session.commit()
+            session.refresh(user_driver)
+            
+            # Create Driver profile for the driver user
+            driver_profile = Driver(user_id=user_driver.id, status="idle")
+            session.add(driver_profile)
+            session.commit()
+            
             print(f"-> Created ADMIN user: {user_admin.username} (active: {user_admin.is_active})")
             print(f"-> Created DRIVER user: {user_driver.username} (active: {user_driver.is_active})")
+            print(f"-> Created DRIVER profile for user ID: {user_driver.id}")
             print(f"-> Created STAFF user: {user_staff.username} (active: {user_staff.is_active}) with full station access.")
         else:
             print("Users already exist. Skipping creation.")
+        
+        # FIX: Create Driver profiles for any driver users that don't have one
+        driver_users = session.exec(select(User).where(User.role == "driver")).all()
+        for driver_user in driver_users:
+            existing_driver = session.exec(select(Driver).where(Driver.user_id == driver_user.id)).first()
+            if not existing_driver:
+                new_driver = Driver(user_id=driver_user.id, status="idle")
+                session.add(new_driver)
+                print(f"-> Created missing Driver profile for user ID: {driver_user.id} ({driver_user.username})")
+        session.commit()
 
         station_check = session.exec(select(Station)).first()
         if not station_check:
