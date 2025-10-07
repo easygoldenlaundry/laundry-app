@@ -250,6 +250,10 @@ def update_settings(request: Dict[str, str], session: Session = Depends(get_sess
         if setting:
             setting.value = value
             session.add(setting)
+        else:
+            # Create new setting if it doesn't exist
+            new_setting = Setting(key=key, value=value)
+            session.add(new_setting)
     
     update_inventory_items(session, inventory_data_json)
     
@@ -260,8 +264,93 @@ def update_settings(request: Dict[str, str], session: Session = Depends(get_sess
     except Exception as e:
         print(f"Could not reconcile machines: {e}")
 
+    # Update station capacities
+    try:
+        update_station_capacity(session, "imaging", int(request.get("imaging_station_capacity", 5)))
+        update_station_capacity(session, "pretreat", int(request.get("pretreat_station_capacity", 5)))
+        update_station_capacity(session, "qa", int(request.get("qa_station_capacity", 5)))
+    except Exception as e:
+        print(f"Could not update station capacities: {e}")
+
     session.commit()
     return {"message": "Settings updated successfully."}
+
+def update_station_capacity(session: Session, station_type: str, new_capacity: int):
+    """Updates the capacity of a station."""
+    from app.models import Station
+    station = session.exec(select(Station).where(Station.type == station_type)).first()
+    if station:
+        station.capacity = new_capacity
+        session.add(station)
+
+@router.get("/machine-performance")
+def get_machine_performance(session: Session = Depends(get_session)):
+    """Returns real-time machine performance data."""
+    from app.models import Machine, Station, Event
+    from datetime import datetime, timedelta, timezone
+    
+    performance_data = {}
+    
+    # Get machine performance for each station type
+    for station_type in ["washing", "drying", "folding"]:
+        station = session.exec(select(Station).where(Station.type == station_type)).first()
+        if not station:
+            continue
+            
+        machines = session.exec(select(Machine).where(Machine.station_id == station.id)).all()
+        if not machines:
+            continue
+            
+        # Calculate average cycle time from recent events
+        recent_events = session.exec(
+            select(Event)
+            .where(Event.to_status.like(f"Basket-%Finished-{station_type}"))
+            .where(Event.timestamp >= datetime.now(timezone.utc) - timedelta(days=7))
+        ).all()
+        
+        if recent_events:
+            # Calculate average cycle time from events
+            cycle_times = []
+            for event in recent_events:
+                try:
+                    meta = json.loads(event.meta) if event.meta else {}
+                    if 'machine_id' in meta:
+                        machine = session.get(Machine, meta['machine_id'])
+                        if machine and machine.cycle_time_seconds:
+                            cycle_times.append(machine.cycle_time_seconds)
+                except:
+                    continue
+            
+            if cycle_times:
+                avg_cycle_time = sum(cycle_times) / len(cycle_times)
+                performance_data[station_type] = {
+                    "average_cycle_time": round(avg_cycle_time),
+                    "total_machines": len(machines),
+                    "active_machines": len([m for m in machines if m.state == "running"]),
+                    "idle_machines": len([m for m in machines if m.state == "idle"])
+                }
+    
+    return performance_data
+
+@router.get("/kpi-summary")
+def get_kpi_summary(session: Session = Depends(get_session)):
+    """Returns current KPI performance summary."""
+    from app.queries.dashboard_queries import (
+        get_retention_kpis, get_turnaround_kpi, get_pickup_kpi, 
+        get_delivery_kpi, get_claim_rate_kpi, get_claims_resolution_kpi
+    )
+    
+    try:
+        return {
+            "retention": get_retention_kpis(session),
+            "turnaround": get_turnaround_kpi(session),
+            "pickup": get_pickup_kpi(session),
+            "delivery": get_delivery_kpi(session),
+            "claim_rate": get_claim_rate_kpi(session),
+            "claims_resolution": get_claims_resolution_kpi(session)
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 
 # --- Claim Management API ---

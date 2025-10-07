@@ -66,6 +66,54 @@
     #inventory-table th, #inventory-table td { border: 1px solid #ddd; padding: 0.5em; text-align: left; }
     #inventory-table input { width: 90%; padding: 0.3em; }
     #add-inventory-form { display: flex; gap: 0.5em; margin-top: 1em; }
+    
+    /* Machine capacity styles */
+    .machine-section { 
+        border: 1px solid #e0e0e0; 
+        border-radius: 6px; 
+        padding: 1em; 
+        margin-bottom: 1em; 
+        background: #f9f9f9; 
+    }
+    .machine-section h4 { 
+        margin-top: 0; 
+        color: #333; 
+        border-bottom: 1px solid #ddd; 
+        padding-bottom: 0.5em; 
+    }
+    .real-time-display { 
+        margin-top: 0.5em; 
+        padding: 0.5em; 
+        background: #e8f4fd; 
+        border-radius: 4px; 
+        font-size: 0.9em; 
+    }
+    .current-time-label { 
+        color: #666; 
+        font-weight: 500; 
+    }
+    .current-time-value { 
+        color: #007bff; 
+        font-weight: bold; 
+    }
+    .time-unit { 
+        color: #666; 
+        font-size: 0.9em; 
+    }
+    
+    /* QR Code styles */
+    .form-group small { 
+        color: #666; 
+        font-size: 0.85em; 
+        margin-top: 0.25em; 
+        display: block; 
+    }
+    
+    /* Station capacity styles */
+    .settings-card h3 { 
+        color: #2c3e50; 
+        font-size: 1.1em; 
+    }
 </style>
 
 <div class="container">
@@ -168,9 +216,118 @@
             </div>
         </div>
 
+        <div class="settings-card" id="qr-code-settings">
+            <h3>QR Codes</h3>
+            <div class="form-group">
+                <label for="driver_hub_delivery_qr">Hub Delivery QR Code</label>
+                <input type="text" id="driver_hub_delivery_qr" name="driver_hub_delivery_qr" placeholder="DRIVER-DELIVERS-TO-HUB">
+                <small>QR code drivers scan when delivering to hub</small>
+            </div>
+            <div class="form-group">
+                <label for="driver_hub_pickup_qr">Hub Pickup QR Code</label>
+                <input type="text" id="driver_hub_pickup_qr" name="driver_hub_pickup_qr" placeholder="DRIVER-PICKS-UP-FROM-HUB">
+                <small>QR code drivers scan when picking up from hub</small>
+            </div>
+            <div class="form-group">
+                <label for="hub_intake_qr">Hub Intake QR Code</label>
+                <input type="text" id="hub_intake_qr" name="hub_intake_qr" placeholder="HUB-INTAKE-SCAN">
+                <small>QR code for hub intake scanning</small>
+            </div>
+        </div>
+
+        <div class="settings-card" id="machine-capacity-settings">
+            <h3>Machine Capacity & Performance</h3>
+            <div class="machine-section">
+                <h4>Washing Machines</h4>
+                <div class="form-group">
+                    <label for="washing_machine_count">Number of Washing Machines</label>
+                    <input type="number" id="washing_machine_count" name="washing_machine_count" min="1" max="10">
+                </div>
+                <div class="form-group">
+                    <label for="wash_cycle_time_seconds">Target Cycle Time (seconds)</label>
+                    <input type="number" id="wash_cycle_time_seconds" name="wash_cycle_time_seconds" min="60">
+                    <div class="real-time-display">
+                        <span class="current-time-label">Current Avg: </span>
+                        <span id="current-wash-time" class="current-time-value">--</span>
+                        <span class="time-unit">seconds</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="machine-section">
+                <h4>Drying Machines</h4>
+                <div class="form-group">
+                    <label for="drying_machine_count">Number of Drying Machines</label>
+                    <input type="number" id="drying_machine_count" name="drying_machine_count" min="1" max="10">
+                </div>
+                <div class="form-group">
+                    <label for="dry_cycle_time_seconds">Target Cycle Time (seconds)</label>
+                    <input type="number" id="dry_cycle_time_seconds" name="dry_cycle_time_seconds" min="60">
+                    <div class="real-time-display">
+                        <span class="current-time-label">Current Avg: </span>
+                        <span id="current-dry-time" class="current-time-value">--</span>
+                        <span class="time-unit">seconds</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="machine-section">
+                <h4>Folding Machines</h4>
+                <div class="form-group">
+                    <label for="folding_machine_count">Number of Folding Machines</label>
+                    <input type="number" id="folding_machine_count" name="folding_machine_count" min="1" max="10">
+                </div>
+                <div class="form-group">
+                    <label for="fold_cycle_time_seconds">Target Cycle Time (seconds)</label>
+                    <input type="number" id="fold_cycle_time_seconds" name="fold_cycle_time_seconds" min="60">
+                    <div class="real-time-display">
+                        <span class="current-time-label">Current Avg: </span>
+                        <span id="current-fold-time" class="current-time-value">--</span>
+                        <span class="time-unit">seconds</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-card" id="station-capacity-settings">
+            <h3>Station Capacity</h3>
+            <div class="form-group">
+                <label for="imaging_station_capacity">Imaging Station Capacity</label>
+                <input type="number" id="imaging_station_capacity" name="imaging_station_capacity" min="1" max="20">
+                <small>Maximum orders that can be processed simultaneously</small>
+            </div>
+            <div class="form-group">
+                <label for="pretreat_station_capacity">Pretreat Station Capacity</label>
+                <input type="number" id="pretreat_station_capacity" name="pretreat_station_capacity" min="1" max="20">
+            </div>
+            <div class="form-group">
+                <label for="qa_station_capacity">QA Station Capacity</label>
+                <input type="number" id="qa_station_capacity" name="qa_station_capacity" min="1" max="20">
+            </div>
+        </div>
+
         <div class="settings-card" id="kpi-goal-settings">
-            <h3>KPI Goals</h3>
-            <!-- ... existing KPI goal inputs ... -->
+            <h3>KPI Goals & Targets</h3>
+            <div class="form-group">
+                <label for="kpi_goal_turnaround_minutes">Turnaround Time Goal (minutes)</label>
+                <input type="number" id="kpi_goal_turnaround_minutes" name="kpi_goal_turnaround_minutes" min="30" max="480">
+                <small>Target time from pickup to delivery</small>
+            </div>
+            <div class="form-group">
+                <label for="kpi_goal_pickup_minutes">Pickup Time Goal (minutes)</label>
+                <input type="number" id="kpi_goal_pickup_minutes" name="kpi_goal_pickup_minutes" min="5" max="60">
+                <small>Target time for driver to reach customer</small>
+            </div>
+            <div class="form-group">
+                <label for="kpi_goal_delivery_minutes">Delivery Time Goal (minutes)</label>
+                <input type="number" id="kpi_goal_delivery_minutes" name="kpi_goal_delivery_minutes" min="5" max="60">
+                <small>Target time for driver to reach customer for delivery</small>
+            </div>
+            <div class="form-group">
+                <label for="kpi_goal_claim_minutes">Claim Resolution Goal (minutes)</label>
+                <input type="number" id="kpi_goal_claim_minutes" name="kpi_goal_claim_minutes" min="1" max="60">
+                <small>Target time to resolve customer claims</small>
+            </div>
         </div>
     </form>
     

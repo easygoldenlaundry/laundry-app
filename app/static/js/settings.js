@@ -31,8 +31,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     input.value = value;
                 }
             }
+            
+            // Load real-time machine performance data
+            await loadMachinePerformance();
         } catch (error) {
             showStatus(error.message, 'error');
+        }
+    };
+
+    const loadMachinePerformance = async () => {
+        try {
+            const response = await fetch('/api/admin/machine-performance');
+            if (!response.ok) throw new Error('Failed to load machine performance data.');
+            const performance = await response.json();
+            
+            // Update real-time displays
+            document.getElementById('current-wash-time').textContent = 
+                performance.washing?.average_cycle_time || '--';
+            document.getElementById('current-dry-time').textContent = 
+                performance.drying?.average_cycle_time || '--';
+            document.getElementById('current-fold-time').textContent = 
+                performance.folding?.average_cycle_time || '--';
+        } catch (error) {
+            console.warn('Could not load machine performance data:', error);
         }
     };
 
@@ -122,6 +143,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     saveBtn.addEventListener('click', saveSettings);
+
+    // Auto-refresh machine performance data every 30 seconds
+    setInterval(loadMachinePerformance, 30000);
 
     loadSettings();
     loadInventoryItems();
