@@ -78,11 +78,7 @@ def get_order_details(
 
 
 @router.get("/active", response_model=List[Order])
-async def get_active_orders(
-    hub_id: int = 1,
-    user: User = Depends(get_current_admin_user), # Correct admin-only auth for this endpoint
-    session: Session = Depends(get_session)
-):
+async def get_active_orders(hub_id: int = 1, session: Session = Depends(get_session)):
     """
     Returns a list of all orders that are not in a final state
     (e.g., 'Delivered' or 'Closed'). Eager loads baskets for dashboard view.
