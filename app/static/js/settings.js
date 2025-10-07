@@ -62,21 +62,24 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/admin/inventory/summary');
             if (!response.ok) throw new Error('Failed to load inventory items.');
             const items = await response.json();
+            console.log('Loaded inventory items:', items);
             renderInventoryTable(items);
         } catch (error) {
+            console.error('Error loading inventory items:', error);
             showStatus(error.message, 'error');
         }
     };
 
     const renderInventoryTable = (items) => {
+        console.log('Rendering inventory table with items:', items);
         inventoryTableBody.innerHTML = '';
         items.forEach(item => {
             const row = document.createElement('tr');
             row.dataset.sku = item.sku;
             row.innerHTML = `
-                <td><input type="text" class="inv-name" value="${item.name}"></td>
-                <td><input type="text" class="inv-unit" value="${item.unit_of_measurement}"></td>
-                <td><input type="number" class="inv-threshold" step="0.1" value="${item.low_stock_threshold}"></td>
+                <td><input type="text" class="inv-name" value="${item.name || ''}"></td>
+                <td><input type="text" class="inv-unit" value="${item.unit_of_measurement || 'units'}"></td>
+                <td><input type="number" class="inv-threshold" step="0.1" value="${item.low_stock_threshold || 0}"></td>
             `;
             inventoryTableBody.appendChild(row);
         });
@@ -96,8 +99,17 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const items = [{ sku, name, unit: 'units', threshold: 0 }];
-        renderInventoryTable(items);
+        // Add new row to existing table without clearing it
+        const row = document.createElement('tr');
+        row.dataset.sku = sku;
+        row.innerHTML = `
+            <td><input type="text" class="inv-name" value="${name}"></td>
+            <td><input type="text" class="inv-unit" value="units"></td>
+            <td><input type="number" class="inv-threshold" step="0.1" value="0"></td>
+        `;
+        inventoryTableBody.appendChild(row);
+        
+        // Clear input fields
         newInvNameInput.value = '';
         newInvSkuInput.value = '';
     });
@@ -112,13 +124,22 @@ document.addEventListener('DOMContentLoaded', () => {
         // Serialize inventory table data
         const inventoryItems = [];
         inventoryTableBody.querySelectorAll('tr').forEach(row => {
-            inventoryItems.push({
-                sku: row.dataset.sku,
-                name: row.querySelector('.inv-name').value,
-                unit: row.querySelector('.inv-unit').value,
-                threshold: row.querySelector('.inv-threshold').value
-            });
+            const sku = row.dataset.sku;
+            const name = row.querySelector('.inv-name').value;
+            const unit = row.querySelector('.inv-unit').value;
+            const threshold = row.querySelector('.inv-threshold').value;
+            
+            if (sku && name) { // Only include items with valid SKU and name
+                inventoryItems.push({
+                    sku: sku,
+                    name: name,
+                    unit: unit,
+                    threshold: threshold
+                });
+            }
         });
+        
+        console.log('Saving inventory items:', inventoryItems);
         settingsPayload.inventory_items_json = JSON.stringify(inventoryItems);
 
         try {
