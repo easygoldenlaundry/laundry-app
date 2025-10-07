@@ -14,7 +14,7 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import selectinload
 
 from app.db import get_session
-from app.models import User, Customer, Order, Bag, Setting, Event
+from app.models import User, Customer, Order, Bag, Setting, Event, Driver
 from app.auth import get_password_hash, create_access_token, get_current_user, get_current_api_user, get_current_customer_user
 from app.security import signer
 from app.sockets import broadcast_order_update
@@ -193,6 +193,13 @@ async def handle_staff_registration(
     )
     session.add(new_user)
     session.commit()
+    session.refresh(new_user)
+    
+    # Create Driver profile if registering as a driver
+    if role == "driver":
+        driver_profile = Driver(user_id=new_user.id, status="idle")
+        session.add(driver_profile)
+        session.commit()
     
     return templates.TemplateResponse("login.html", {"request": request, "success": "Registration successful! Please wait for an admin to approve your account.", "prefill_username": username})
 

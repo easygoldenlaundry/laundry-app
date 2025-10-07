@@ -13,7 +13,7 @@ from sqlmodel import Session, select
 from pydantic import BaseModel
 
 from app.db import get_session
-from app.models import Bag, Image, Order, User, Setting
+from app.models import Bag, Image, Order, User, Setting, Driver
 from app.auth import get_current_driver_user
 from app.services.state_machine import apply_transition
 from app.services.finance_calculator import create_finance_entries_for_order
@@ -37,12 +37,18 @@ class OrderActionRequest(BaseModel):
 @router.post("/api/drivers/{user_id}/accept", response_model=Order, dependencies=[Depends(get_current_driver_user)])
 async def accept_order(user_id: int, request_data: OrderActionRequest, current_user: User = Depends(get_current_driver_user), session: Session = Depends(get_session)):
     if user_id != current_user.id: raise HTTPException(status_code=403, detail="Forbidden")
+    
+    # Get the Driver record for this user
+    driver = session.exec(select(Driver).where(Driver.user_id == current_user.id)).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver profile not found. Please contact admin.")
+    
     order = session.get(Order, request_data.order_id)
     if not order: raise HTTPException(status_code=404, detail="Order not found")
     if order.assigned_driver_id is not None: raise HTTPException(status_code=409, detail="Order already assigned")
     
     try:
-        order.assigned_driver_id = user_id
+        order.assigned_driver_id = driver.id  # Use driver.id, not user_id
         session.add(order)
         updated_order = apply_transition(session, order, "AssignedToDriver", user_id=user_id)
         return updated_order
@@ -56,12 +62,18 @@ async def accept_order(user_id: int, request_data: OrderActionRequest, current_u
 @router.post("/api/drivers/{user_id}/accept_delivery", response_model=Order, dependencies=[Depends(get_current_driver_user)])
 async def accept_delivery_job(user_id: int, request_data: OrderActionRequest, current_user: User = Depends(get_current_driver_user), session: Session = Depends(get_session)):
     if user_id != current_user.id: raise HTTPException(status_code=403, detail="Forbidden")
+    
+    # Get the Driver record for this user
+    driver = session.exec(select(Driver).where(Driver.user_id == current_user.id)).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver profile not found. Please contact admin.")
+    
     order = session.get(Order, request_data.order_id)
     if not order: raise HTTPException(status_code=404, detail="Order not found")
     if order.status != "OutForDelivery": raise HTTPException(status_code=400, detail="Order is not ready for delivery")
     if order.assigned_driver_id is not None: raise HTTPException(status_code=409, detail="Delivery job already assigned")
     
-    order.assigned_driver_id = user_id
+    order.assigned_driver_id = driver.id  # Use driver.id, not user_id
     session.add(order)
     session.commit()
     session.refresh(order)
@@ -184,6 +196,11 @@ async def get_available_deliveries(session: Session = Depends(get_session)):
 @router.get("/api/drivers/my_jobs", response_model=List[Order], dependencies=[Depends(get_current_driver_user)])
 async def get_my_jobs(current_user: User = Depends(get_current_driver_user), session: Session = Depends(get_session)):
     """Returns all active jobs assigned to the current driver."""
+    # Get the Driver record for this user
+    driver = session.exec(select(Driver).where(Driver.user_id == current_user.id)).first()
+    if not driver:
+        return []  # Return empty list if no driver profile exists
+    
     active_driver_statuses = [
         "AssignedToDriver",
         "PickedUp",
@@ -192,6 +209,6 @@ async def get_my_jobs(current_user: User = Depends(get_current_driver_user), ses
     ]
     my_jobs = session.exec(
         select(Order)
-        .where(Order.assigned_driver_id == current_user.id, Order.status.in_(active_driver_statuses))
+        .where(Order.assigned_driver_id == driver.id, Order.status.in_(active_driver_statuses))
     ).all()
     return my_jobs
