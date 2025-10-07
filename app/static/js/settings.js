@@ -8,9 +8,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const tabBtns = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
     
+    console.log('Found tab buttons:', tabBtns.length);
+    console.log('Found tab contents:', tabContents.length);
+    
     tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
             const targetTab = btn.dataset.tab;
+            console.log('Tab clicked:', targetTab);
             
             // Update button states
             tabBtns.forEach(b => b.classList.remove('active'));
@@ -18,8 +23,10 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Update content visibility
             tabContents.forEach(content => {
+                console.log('Checking content:', content.dataset.tabContent, 'against target:', targetTab);
                 if (content.dataset.tabContent === targetTab) {
                     content.classList.add('active');
+                    console.log('Activating content for:', targetTab);
                 } else {
                     content.classList.remove('active');
                 }
