@@ -40,10 +40,18 @@ async def accept_order(user_id: int, request_data: OrderActionRequest, current_u
     order = session.get(Order, request_data.order_id)
     if not order: raise HTTPException(status_code=404, detail="Order not found")
     if order.assigned_driver_id is not None: raise HTTPException(status_code=409, detail="Order already assigned")
-    order.assigned_driver_id = user_id
-    session.add(order)
-    updated_order = apply_transition(session, order, "AssignedToDriver", user_id=user_id)
-    return updated_order
+    
+    try:
+        order.assigned_driver_id = user_id
+        session.add(order)
+        updated_order = apply_transition(session, order, "AssignedToDriver", user_id=user_id)
+        return updated_order
+    except ValueError as e:
+        session.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
 
 @router.post("/api/drivers/{user_id}/accept_delivery", response_model=Order, dependencies=[Depends(get_current_driver_user)])
 async def accept_delivery_job(user_id: int, request_data: OrderActionRequest, current_user: User = Depends(get_current_driver_user), session: Session = Depends(get_session)):
