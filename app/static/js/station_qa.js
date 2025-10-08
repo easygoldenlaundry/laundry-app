@@ -195,31 +195,33 @@ document.addEventListener('DOMContentLoaded', () => {
     stainedImagesList.addEventListener('change', handleStainStatusChange);
 
     // --- Socket Setup ---
-    // --- THIS IS THE FIX: Use the global socket instance ---
-    function setupSocket() {
-        const socket = window.appSocket;
+    const socket = window.appSocket;
 
-        if (!socket) {
-            console.error('Socket not available. Retrying in 100ms...');
-            setTimeout(setupSocket, 100);
-            return;
-        }
+    if (!socket) {
+        console.error('Socket not available. Retrying in 100ms...');
+        setTimeout(() => {
+            const retrySocket = window.appSocket;
+            if (retrySocket) {
+                setupSocket(retrySocket);
+            } else {
+                console.error('Socket still not available after retry');
+            }
+        }, 100);
+    } else {
+        setupSocket(socket);
+    }
 
+    function setupSocket(socketInstance) {
         function onConnect() {
-            socket.emit('join', { room: `hub:${HUB_ID}` });
+            socketInstance.emit('join', { room: `hub:${HUB_ID}` });
             fetchQueue();
         }
-        
-        socket.on('connect', onConnect);
-        if(socket.connected) {
+        socketInstance.on('connect', onConnect);
+        if(socketInstance.connected) {
             onConnect();
         }
         
-        socket.on('order.updated', () => fetchQueue());
+        socketInstance.on('order.updated', () => fetchQueue());
     }
-
-    setupSocket();
-    // --- END OF FIX ---
-    
     fetchQueue();
 });

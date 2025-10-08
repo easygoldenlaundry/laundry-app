@@ -247,48 +247,42 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- THIS IS THE FIX: Use the global socket instance ---
-    function setupSocket() {
-        const socket = window.appSocket;
-        
-        if (!socket) {
-            console.error('Socket not available. Retrying in 100ms...');
-            setTimeout(setupSocket, 100);
-            return;
-        }
-        
+    // --- Socket Setup ---
+    const socket = window.appSocket;
+
+    if (!socket) {
+        console.error('Socket not available. Retrying in 100ms...');
+        setTimeout(() => {
+            const retrySocket = window.appSocket;
+            if (retrySocket) {
+                setupSocket(retrySocket);
+            } else {
+                console.error('Socket still not available after retry');
+            }
+        }, 100);
+    } else {
+        setupSocket(socket);
+    }
+
+    function setupSocket(socketInstance) {
         function onConnect() {
             console.log(`${STATION_TITLE} socket connected.`);
-            const stationRoom = `station:${HUB_ID}:${STATION_TYPE}`;
-            const hubRoom = `hub:${HUB_ID}`;
-            console.log(`${STATION_TITLE}: Joining rooms: ${stationRoom}, ${hubRoom}`);
-            socket.emit('join', { room: stationRoom });
-            socket.emit('join', { room: hubRoom });
+            socketInstance.emit('join', { room: `station:${HUB_ID}:${STATION_TYPE}` });
+            socketInstance.emit('join', { room: `hub:${HUB_ID}` });
             fetchQueue();
         }
-        
-        socket.on('connect', onConnect);
-        if (socket.connected) {
+        socketInstance.on('connect', onConnect);
+        if (socketInstance.connected) {
             onConnect();
         }
         
-        socket.on('order.updated', () => {
-            console.log(`${STATION_TITLE}: Received order.updated event`);
-            fetchQueue();
-        });
-        socket.on('basket.updated', () => {
-            console.log(`${STATION_TITLE}: Received basket.updated event`);
-            fetchQueue();
-        });
-        socket.on('machine.updated', async () => {
-            console.log(`${STATION_TITLE}: Received machine.updated event`);
+        socketInstance.on('order.updated', () => fetchQueue());
+
+        socketInstance.on('machine.updated', async () => {
             // This is a crucial change: we refetch the whole queue to get the correct active basket
             await fetchQueue();
         });
     }
-    
-    setupSocket();
-    // --- END OF FIX ---
 
     // --- Initialization ---
     stationTitleElement.textContent = STATION_TITLE;
