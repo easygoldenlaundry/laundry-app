@@ -213,38 +213,31 @@ document.addEventListener('DOMContentLoaded', () => {
     completeBtn.addEventListener('click', handleComplete);
 
     // --- Socket Setup ---
-    // --- THIS IS THE FIX: Use the global socket instance ---
-    const socket = window.appSocket;
-
-    if (!socket) {
-        console.error('Socket not available. Retrying in 100ms...');
-        setTimeout(() => {
-            const retrySocket = window.appSocket;
-            if (retrySocket) {
-                setupSocket(retrySocket);
-            } else {
-                console.error('Socket still not available after retry');
-            }
-        }, 100);
-        return;
-    }
-
-    function setupSocket(socketInstance) {
-        function onConnect() {
-            socketInstance.emit('join', { room: `hub:${HUB_ID}` });
-            fetchQueue();
+    // --- THIS IS THE FIX: Wait for socket to be available ---
+    function initializeSocket() {
+        const socket = window.appSocket;
+        if (!socket) {
+            console.log('Socket not ready, retrying in 100ms...');
+            setTimeout(initializeSocket, 100);
+            return;
         }
-        socketInstance.on('connect', onConnect);
-        if(socketInstance.connected) {
-            onConnect();
+
+        function onConnect() {
+            socket.emit('join', { room: `hub:${HUB_ID}` });
+            fetchQueue();
         }
         
-        socketInstance.on('order.updated', () => {
+        socket.on('connect', onConnect);
+        socket.on('order.updated', () => {
             fetchQueue();
         });
+        
+        if(socket.connected) {
+            onConnect();
+        }
     }
-
-    setupSocket(socket);
+    
+    initializeSocket();
     // --- END OF FIX ---
 
     fetchQueue();

@@ -247,27 +247,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- THIS IS THE FIX: Use the global socket instance ---
-    const socket = window.appSocket;
+    // --- THIS IS THE FIX: Wait for socket to be available ---
+    function initializeSocket() {
+        const socket = window.appSocket;
+        if (!socket) {
+            console.log('Socket not ready, retrying in 100ms...');
+            setTimeout(initializeSocket, 100);
+            return;
+        }
+        
+        function onConnect() {
+            console.log(`${STATION_TITLE} socket connected.`);
+            socket.emit('join', { room: `station:${HUB_ID}:${STATION_TYPE}` });
+            socket.emit('join', { room: `hub:${HUB_ID}` });
+            fetchQueue();
+        }
+        
+        socket.on('connect', onConnect);
+        socket.on('order.updated', () => fetchQueue());
+        socket.on('machine.updated', async () => {
+            // This is a crucial change: we refetch the whole queue to get the correct active basket
+            await fetchQueue();
+        });
+        
+        if (socket.connected) {
+            onConnect();
+        }
+    }
     
-    function onConnect() {
-        console.log(`${STATION_TITLE} socket connected.`);
-        socket.emit('join', { room: `station:${HUB_ID}:${STATION_TYPE}` });
-        socket.emit('join', { room: `hub:${HUB_ID}` });
-        fetchQueue();
-    }
-    socket.on('connect', onConnect);
-    if (socket.connected) {
-        onConnect();
-    }
+    initializeSocket();
     // --- END OF FIX ---
-    
-    socket.on('order.updated', () => fetchQueue());
-
-    socket.on('machine.updated', async () => {
-        // This is a crucial change: we refetch the whole queue to get the correct active basket
-        await fetchQueue();
-    });
 
     // --- Initialization ---
     stationTitleElement.textContent = STATION_TITLE;

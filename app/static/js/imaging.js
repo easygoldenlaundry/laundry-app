@@ -251,21 +251,32 @@ document.addEventListener('DOMContentLoaded', () => {
     finalizeBtn.addEventListener('click', completeImaging);
 
     // --- Socket Setup ---
-    const socket = window.appSocket;
+    function initializeSocket() {
+        const socket = window.appSocket;
+        if (!socket) {
+            console.log('Socket not ready, retrying in 100ms...');
+            setTimeout(initializeSocket, 100);
+            return;
+        }
 
-    function onConnect() {
-        document.getElementById('connection-status').textContent = 'Connected';
-        socket.emit('join', { room: `station:${HUB_ID}:Imaging` });
-        socket.emit('join', { room: `hub:${HUB_ID}` });
-        fetchAndSyncQueue();
+        function onConnect() {
+            document.getElementById('connection-status').textContent = 'Connected';
+            socket.emit('join', { room: `station:${HUB_ID}:Imaging` });
+            socket.emit('join', { room: `hub:${HUB_ID}` });
+            fetchAndSyncQueue();
+        }
+
+        socket.on('connect', onConnect);
+        socket.on('order.updated', () => {
+            fetchAndSyncQueue();
+        });
+        
+        if (socket.connected) {
+            onConnect();
+        }
     }
-
-    socket.on('connect', onConnect);
-    if (socket.connected) {
-        onConnect();
-    }
-
-    socket.on('order.updated', () => fetchAndSyncQueue());
+    
+    initializeSocket();
     
     // --- Initialization ---
     startCamera();
