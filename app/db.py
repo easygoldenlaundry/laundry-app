@@ -2,6 +2,7 @@
 import os
 from dotenv import load_dotenv
 from sqlmodel import create_engine, SQLModel, Session
+from app.config import DB_POOL_SIZE, DB_MAX_OVERFLOW, DB_POOL_TIMEOUT, DB_POOL_RECYCLE, IS_PRODUCTION
 
 # Load environment variables from .env file
 load_dotenv()
@@ -11,8 +12,23 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL environment variable not set.")
 
-# For Supabase/PostgreSQL, we don't need 'check_same_thread'
-engine = create_engine(DATABASE_URL)
+# Optimized engine configuration for Supabase/PostgreSQL
+# This configuration helps prevent "max clients reached" errors
+engine = create_engine(
+    DATABASE_URL,
+    # Connection pool settings to prevent connection exhaustion
+    pool_size=DB_POOL_SIZE,           # Environment-aware pool size
+    max_overflow=DB_MAX_OVERFLOW,     # Environment-aware max overflow
+    pool_timeout=DB_POOL_TIMEOUT,     # Seconds to wait for a connection from the pool
+    pool_recycle=DB_POOL_RECYCLE,     # Recycle connections (environment-aware)
+    pool_pre_ping=True,               # Validate connections before use
+    # Additional PostgreSQL optimizations
+    connect_args={
+        "options": "-c timezone=utc"  # Ensure UTC timezone
+    },
+    # Echo SQL queries in development for debugging
+    echo=not IS_PRODUCTION
+)
 
 def get_engine():
     """Returns the global engine instance."""
