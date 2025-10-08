@@ -112,6 +112,7 @@ async def broadcast_basket_update(basket, hub_id: int):
     ]
     
     # Also notify the previous station if applicable
+    # Map basket status (lowercase) to previous station type (lowercase)
     previous_station_map = {
         "washing": "pretreat",
         "drying": "washing", 
@@ -127,7 +128,7 @@ async def broadcast_basket_update(basket, hub_id: int):
     for room in unique_rooms:
         await socketio_server.emit('basket.updated', basket_dict, room=room)
     
-    logging.debug(f"Broadcasted update for basket {basket.id} to rooms: {list(unique_rooms)}")
+    logging.info(f"Broadcasted basket.updated for basket {basket.id} (status: {basket.status}) to rooms: {list(unique_rooms)}")
 
 
 @socketio_server.event

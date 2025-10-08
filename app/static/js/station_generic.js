@@ -269,9 +269,16 @@ document.addEventListener('DOMContentLoaded', () => {
             onConnect();
         }
         
-        socket.on('order.updated', () => fetchQueue());
-        socket.on('basket.updated', () => fetchQueue());
+        socket.on('order.updated', () => {
+            console.log(`${STATION_TITLE}: Received order.updated event`);
+            fetchQueue();
+        });
+        socket.on('basket.updated', () => {
+            console.log(`${STATION_TITLE}: Received basket.updated event`);
+            fetchQueue();
+        });
         socket.on('machine.updated', async () => {
+            console.log(`${STATION_TITLE}: Received machine.updated event`);
             // This is a crucial change: we refetch the whole queue to get the correct active basket
             await fetchQueue();
         });
