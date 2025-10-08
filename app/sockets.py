@@ -27,9 +27,9 @@ async def broadcast_order_update(order):
     PREVIOUS_STATION_MAP = {
         "Imaging": "DeliveredToHub", 
         "Washing": "Pretreat",
-        "Drying": "Washing",
-        "Folding": "Drying",
-        "QA": "Folding",
+        "Drying": "washing",
+        "Folding": "drying",
+        "QA": "folding",
     }
 
     rooms = [
@@ -97,38 +97,6 @@ async def broadcast_driver_location_update(order_id: int, payload: dict):
     room = f"order:{order_id}"
     await socketio_server.emit('driver.location_update', payload, room=room)
     logging.debug(f"Broadcasted location for order {order_id} to room {room}")
-
-async def broadcast_basket_update(basket, hub_id: int):
-    """
-    Emits a 'basket.updated' event to relevant rooms based on basket status.
-    """
-    basket_dict = model_to_dict(basket)
-    status = basket.status.lower()  # Convert to lowercase to match station types
-    
-    rooms = [
-        f"hub:{hub_id}",
-        f"basket:{basket.id}",
-        f"station:{hub_id}:{status}"
-    ]
-    
-    # Also notify the previous station if applicable
-    # Map basket status (lowercase) to previous station type (lowercase)
-    previous_station_map = {
-        "washing": "pretreat",
-        "drying": "washing", 
-        "folding": "drying",
-        "qa": "folding"
-    }
-    
-    previous_station = previous_station_map.get(status)
-    if previous_station:
-        rooms.append(f"station:{hub_id}:{previous_station}")
-    
-    unique_rooms = set(rooms)
-    for room in unique_rooms:
-        await socketio_server.emit('basket.updated', basket_dict, room=room)
-    
-    logging.info(f"Broadcasted basket.updated for basket {basket.id} (status: {basket.status}) to rooms: {list(unique_rooms)}")
 
 
 @socketio_server.event
