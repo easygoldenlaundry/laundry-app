@@ -259,8 +259,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         function onConnect() {
             console.log(`${STATION_TITLE} socket connected.`);
-            socket.emit('join', { room: `station:${HUB_ID}:${STATION_TYPE}` });
-            socket.emit('join', { room: `hub:${HUB_ID}` });
+            const stationRoom = `station:${HUB_ID}:${STATION_TYPE}`;
+            const hubRoom = `hub:${HUB_ID}`;
+            console.log(`${STATION_TITLE}: Joining rooms: ${stationRoom}, ${hubRoom}`);
+            socket.emit('join', { room: stationRoom });
+            socket.emit('join', { room: hubRoom });
             fetchQueue();
         }
         
