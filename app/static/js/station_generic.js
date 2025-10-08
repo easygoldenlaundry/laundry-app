@@ -263,6 +263,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- END OF FIX ---
     
     socket.on('order.updated', () => fetchQueue());
+    
+    socket.on('basket.updated', () => fetchQueue());
 
     socket.on('machine.updated', async () => {
         // This is a crucial change: we refetch the whole queue to get the correct active basket

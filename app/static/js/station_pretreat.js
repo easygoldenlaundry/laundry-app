@@ -242,6 +242,10 @@ document.addEventListener('DOMContentLoaded', () => {
         socketInstance.on('order.updated', () => {
             fetchQueue();
         });
+        
+        socketInstance.on('basket.updated', () => {
+            fetchQueue();
+        });
     }
 
     setupSocket(socket);

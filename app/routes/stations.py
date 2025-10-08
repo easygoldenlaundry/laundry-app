@@ -11,7 +11,7 @@ from app.db import get_session
 from app.models import Order, Machine, Station, Event, Basket, Setting, FinanceEntry
 from app.routes.queues import BasketPublic
 from app.services.state_machine import apply_transition
-from app.sockets import broadcast_machine_update, broadcast_order_update
+from app.sockets import broadcast_machine_update, broadcast_order_update, broadcast_basket_update
 
 router = APIRouter(tags=["Stations"])
 
@@ -216,5 +216,8 @@ async def finish_basket_cycle(basket_id: int, station_type: str, request: CycleR
 
     order = session.get(Order, basket.order_id)
     await broadcast_order_update(order)
+    
+    # Broadcast basket update to notify the next station
+    await broadcast_basket_update(basket, order.hub_id)
 
     return {"message": f"Basket {basket_id} finished at {station_type} and moved to {next_status}."}
