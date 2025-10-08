@@ -213,18 +213,20 @@ document.addEventListener('DOMContentLoaded', () => {
     completeBtn.addEventListener('click', handleComplete);
 
     // --- Socket Setup ---
-    // --- THIS IS THE FIX: Use the global socket instance ---
     const socket = window.appSocket;
 
     function onConnect() {
         socket.emit('join', { room: `hub:${HUB_ID}` });
         fetchQueue();
     }
-    socket.on('connect', onConnect);
-    if(socket.connected) {
+    
+    if (socket && socket.connected) {
         onConnect();
+    } else if (socket) {
+        socket.on('connect', onConnect);
+    } else {
+        console.error("Socket not initialized. Make sure base.html is correct.");
     }
-    // --- END OF FIX ---
     
     socket.on('order.updated', () => {
         fetchQueue();
