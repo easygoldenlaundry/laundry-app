@@ -97,14 +97,12 @@
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', () => {
+        // --- THIS IS THE FIX ---
         // Create a single, globally accessible socket instance.
         // All other page-specific scripts will reuse this instance.
-        const socket = io({
-            transports: ['websocket', 'polling'],
-            upgrade: true,
-            rememberUpgrade: true
-        });
+        const socket = io({ transports: ['websocket'] });
         window.appSocket = socket;
+        // --- END OF FIX ---
 
         const notificationDot = document.getElementById('chat-notification-dot');
 

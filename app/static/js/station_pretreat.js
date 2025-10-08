@@ -213,6 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
     completeBtn.addEventListener('click', handleComplete);
 
     // --- Socket Setup ---
+    // --- THIS IS THE FIX: Use the global socket instance ---
     const socket = window.appSocket;
 
     if (!socket) {
@@ -225,8 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Socket still not available after retry');
             }
         }, 100);
-    } else {
-        setupSocket(socket);
+        return;
     }
 
     function setupSocket(socketInstance) {
@@ -243,6 +243,9 @@ document.addEventListener('DOMContentLoaded', () => {
             fetchQueue();
         });
     }
+
+    setupSocket(socket);
+    // --- END OF FIX ---
 
     fetchQueue();
 });
