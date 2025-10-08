@@ -4,41 +4,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusMessage = document.getElementById('status-message');
     const settingsForm = document.getElementById('settings-form');
     
-    // Tab Management
-    const tabBtns = document.querySelectorAll('.tab-btn');
+    // Tab Navigation Elements
+    const tabButtons = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
-    
-    console.log('Found tab buttons:', tabBtns.length);
-    console.log('Found tab contents:', tabContents.length);
-    
-    tabBtns.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            const targetTab = btn.dataset.tab;
-            console.log('Tab clicked:', targetTab);
-            
-            // Update button states
-            tabBtns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            
-            // Update content visibility
-            tabContents.forEach(content => {
-                console.log('Checking content:', content.dataset.tabContent, 'against target:', targetTab);
-                if (content.dataset.tabContent === targetTab) {
-                    content.classList.add('active');
-                    console.log('Activating content for:', targetTab);
-                } else {
-                    content.classList.remove('active');
-                }
-            });
-        });
-    });
     
     // Inventory Management Elements
     const inventoryTableBody = document.getElementById('inventory-table-body');
     const addInvBtn = document.getElementById('add-inv-btn');
     const newInvNameInput = document.getElementById('new-inv-name');
     const newInvSkuInput = document.getElementById('new-inv-sku');
+
+    // Tab Navigation Handler
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const targetTab = btn.dataset.tab;
+            
+            // Remove active class from all buttons and contents
+            tabButtons.forEach(b => b.classList.remove('active'));
+            tabContents.forEach(c => c.classList.remove('active'));
+            
+            // Add active class to clicked button and corresponding content
+            btn.classList.add('active');
+            document.querySelector(`.tab-content[data-tab="${targetTab}"]`).classList.add('active');
+        });
+    });
 
     const showStatus = (message, type) => {
         statusMessage.textContent = message;

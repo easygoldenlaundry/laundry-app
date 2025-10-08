@@ -1,60 +1,57 @@
 <!-- app/templates/admin/settings.html -->
 {% extends "base.html" %}
 
-{% block title %}Settings{% endblock %}
+{% block title %}⚙️ Settings{% endblock %}
 
 {% block content %}
 <style>
     .container { max-width: 1200px; }
     h1 { 
         text-align: center; 
-        margin-bottom: 1rem;
+        margin-bottom: 2rem;
         color: #2c3e50;
-        font-size: 2.2em;
+        font-size: 2.5em;
     }
     
     /* Tab Navigation */
     .settings-tabs {
         display: flex;
         justify-content: center;
-        gap: 0.5em;
+        gap: 1rem;
         margin-bottom: 2rem;
         flex-wrap: wrap;
         border-bottom: 2px solid #e0e0e0;
-        padding-bottom: 0.5em;
+        padding-bottom: 1rem;
     }
     .tab-btn {
-        padding: 0.8em 1.5em;
+        padding: 0.75rem 1.5rem;
         border: none;
-        background: #f8f9fa;
-        cursor: pointer;
+        background: #f5f5f5;
         border-radius: 8px 8px 0 0;
-        font-size: 1em;
-        transition: all 0.3s;
-        display: flex;
-        align-items: center;
-        gap: 0.5em;
+        cursor: pointer;
+        font-size: 1.1em;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
     }
     .tab-btn:hover {
-        background: #e9ecef;
+        background: #e8e8e8;
+        transform: translateY(-2px);
     }
     .tab-btn.active {
-        background: #007bff;
-        color: white;
+        background: #fff;
+        border: 2px solid #e0e0e0;
+        border-bottom: 2px solid #fff;
         font-weight: 600;
-        box-shadow: 0 -2px 8px rgba(0,123,255,0.3);
-    }
-    .tab-emoji {
-        font-size: 1.2em;
+        color: #2c3e50;
     }
     
     /* Tab Content */
     .tab-content {
         display: none;
+        animation: fadeIn 0.3s ease-in;
     }
     .tab-content.active {
         display: block;
-        animation: fadeIn 0.3s;
     }
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(10px); }
@@ -63,100 +60,87 @@
     
     .settings-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-        gap: 2rem;
+        grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+        gap: 1.5rem;
     }
     .settings-card {
         background: #fff;
-        border: 1px solid #e0e0e0;
+        border: 2px solid #e8e8e8;
         border-radius: 12px;
-        padding: 1.8em;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        transition: transform 0.2s, box-shadow 0.2s;
+        padding: 1.5em;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
     .settings-card:hover {
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
     .settings-card h3 {
         margin-top: 0;
-        border-bottom: 3px solid #007bff;
-        padding-bottom: 0.6em;
-        margin-bottom: 1.2em;
+        border-bottom: 3px solid #3498db;
+        padding-bottom: 0.5em;
+        margin-bottom: 1em;
         color: #2c3e50;
         font-size: 1.3em;
         display: flex;
         align-items: center;
         gap: 0.5em;
     }
-    .card-emoji {
-        font-size: 1.4em;
-    }
-    
     .form-group {
-        margin-bottom: 1.5em;
+        margin-bottom: 1.25em;
         display: flex;
         flex-direction: column;
         align-items: flex-start;
     }
     .form-group label {
         font-weight: 600;
-        margin-bottom: 0.6em;
-        color: #495057;
+        margin-bottom: 0.5em;
+        color: #34495e;
         font-size: 0.95em;
     }
     .form-group input, .form-group select {
         width: 100%;
-        padding: 0.7em;
-        border: 2px solid #dee2e6;
+        padding: 0.6em;
+        border: 2px solid #ddd;
         border-radius: 6px;
         box-sizing: border-box;
         font-size: 1em;
-        transition: border-color 0.2s;
+        transition: border-color 0.3s ease;
     }
     .form-group input:focus, .form-group select:focus {
         outline: none;
-        border-color: #007bff;
+        border-color: #3498db;
     }
-    .form-group small {
-        color: #6c757d;
-        font-size: 0.85em;
-        margin-top: 0.4em;
+    .form-group small { 
+        color: #7f8c8d; 
+        font-size: 0.85em; 
+        margin-top: 0.25em; 
         display: block;
         font-style: italic;
     }
     
-    hr {
-        border: none;
-        border-top: 1px solid #e9ecef;
-        margin: 1.5em 0;
-    }
-    
     .save-btn-container { 
         text-align: center; 
-        margin-top: 2.5em;
+        margin-top: 2em;
         position: sticky;
         bottom: 20px;
         z-index: 100;
     }
     #save-btn {
         padding: 1em 3em;
-        font-size: 1.2em;
+        font-size: 1.3em;
         border: none;
         border-radius: 8px;
         cursor: pointer;
         background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
         color: white;
-        font-weight: 600;
+        font-weight: bold;
         box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
-        transition: transform 0.2s, box-shadow 0.2s;
+        transition: all 0.3s ease;
     }
     #save-btn:hover {
-        transform: translateY(-2px);
+        transform: scale(1.05);
         box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
-    }
-    #save-btn:active {
-        transform: translateY(0);
     }
     #status-message {
         text-align: center;
@@ -164,39 +148,78 @@
         padding: 1em;
         border-radius: 8px;
         display: none;
-        font-weight: 500;
+        font-weight: 600;
     }
     .status-success { 
         background-color: #d4edda; 
         color: #155724;
-        border: 1px solid #c3e6cb;
+        border: 2px solid #c3e6cb;
     }
     .status-error { 
         background-color: #f8d7da; 
         color: #721c24;
-        border: 1px solid #f5c6cb;
+        border: 2px solid #f5c6cb;
     }
 
+    /* Machine sections */
+    .machine-section { 
+        border: 2px solid #e8f4fd; 
+        border-radius: 8px; 
+        padding: 1em; 
+        margin-bottom: 1em; 
+        background: linear-gradient(135deg, #f8fbff 0%, #f0f8ff 100%);
+    }
+    .machine-section h4 { 
+        margin-top: 0; 
+        color: #2c3e50; 
+        border-bottom: 2px solid #3498db; 
+        padding-bottom: 0.5em;
+        font-size: 1.1em;
+    }
+    .real-time-display { 
+        margin-top: 0.5em; 
+        padding: 0.75em; 
+        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+        border-radius: 6px; 
+        font-size: 0.95em;
+        border-left: 4px solid #2196f3;
+    }
+    .current-time-label { 
+        color: #546e7a; 
+        font-weight: 600; 
+    }
+    .current-time-value { 
+        color: #1976d2; 
+        font-weight: bold;
+        font-size: 1.1em;
+    }
+    .time-unit { 
+        color: #78909c; 
+        font-size: 0.9em; 
+    }
+    
     /* Inventory table */
     #inventory-table { 
         width: 100%; 
         border-collapse: collapse; 
-        margin-top: 1em; 
+        margin-top: 1em;
     }
-    #inventory-table th, #inventory-table td { 
-        border: 1px solid #dee2e6; 
-        padding: 0.7em; 
-        text-align: left; 
-    }
-    #inventory-table th {
-        background: #f8f9fa;
+    #inventory-table th { 
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 0.75em;
+        text-align: left;
         font-weight: 600;
-        color: #495057;
+    }
+    #inventory-table td { 
+        border: 1px solid #e0e0e0; 
+        padding: 0.5em; 
+        background: #fafafa;
     }
     #inventory-table input { 
         width: 95%; 
-        padding: 0.5em;
-        border: 1px solid #ced4da;
+        padding: 0.4em;
+        border: 1px solid #ddd;
         border-radius: 4px;
     }
     #add-inventory-form { 
@@ -207,79 +230,35 @@
     }
     #add-inventory-form input {
         flex: 1;
-        min-width: 150px;
+        min-width: 120px;
         padding: 0.6em;
-        border: 2px solid #dee2e6;
+        border: 2px solid #ddd;
         border-radius: 6px;
     }
     #add-inv-btn {
         padding: 0.6em 1.5em;
-        background: #007bff;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         border: none;
         border-radius: 6px;
         cursor: pointer;
         font-weight: 600;
-        transition: background 0.2s;
+        transition: transform 0.2s ease;
     }
     #add-inv-btn:hover {
-        background: #0056b3;
+        transform: scale(1.05);
     }
     
-    /* Machine section */
-    .machine-section { 
-        border: 2px solid #e9ecef; 
-        border-radius: 8px; 
-        padding: 1.2em; 
-        margin-bottom: 1.5em; 
-        background: linear-gradient(to bottom, #f8f9fa 0%, #ffffff 100%);
-    }
-    .machine-section h4 { 
-        margin-top: 0; 
-        color: #495057; 
-        border-bottom: 2px solid #dee2e6; 
-        padding-bottom: 0.6em;
-        font-size: 1.1em;
-    }
-    .real-time-display { 
-        margin-top: 0.6em; 
-        padding: 0.8em; 
-        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-        border-radius: 6px; 
-        font-size: 0.95em;
-        border-left: 4px solid #2196f3;
-    }
-    .current-time-label { 
-        color: #495057; 
-        font-weight: 600; 
-    }
-    .current-time-value { 
-        color: #1976d2; 
-        font-weight: bold;
-        font-size: 1.1em;
-    }
-    .time-unit { 
-        color: #6c757d; 
-        font-size: 0.9em; 
+    /* Section dividers */
+    hr {
+        border: none;
+        border-top: 2px dashed #e0e0e0;
+        margin: 1.5em 0;
     }
     
-    /* Utility cost section */
-    .cost-tier {
-        background: #f8f9fa;
-        padding: 1em;
-        border-radius: 6px;
-        margin-bottom: 1em;
-        border-left: 4px solid #17a2b8;
-    }
-    .cost-tier h5 {
-        margin: 0 0 0.8em 0;
-        color: #17a2b8;
-        font-size: 1em;
-    }
-    .tier-fields {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1em;
+    /* Full-width cards */
+    .full-width {
+        grid-column: 1 / -1;
     }
 </style>
 
@@ -288,64 +267,34 @@
 
     <!-- Tab Navigation -->
     <div class="settings-tabs">
-        <button type="button" class="tab-btn active" data-tab="business">
-            <span class="tab-emoji">💼</span> Business
-        </button>
-        <button type="button" class="tab-btn" data-tab="machines">
-            <span class="tab-emoji">🏭</span> Machines
-        </button>
-        <button type="button" class="tab-btn" data-tab="utilities">
-            <span class="tab-emoji">⚡</span> Utilities
-        </button>
-        <button type="button" class="tab-btn" data-tab="inventory">
-            <span class="tab-emoji">📦</span> Inventory
-        </button>
-        <button type="button" class="tab-btn" data-tab="operations">
-            <span class="tab-emoji">🔧</span> Operations
-        </button>
-        <button type="button" class="tab-btn" data-tab="kpis">
-            <span class="tab-emoji">📊</span> KPI Goals
-        </button>
+        <button class="tab-btn active" data-tab="pricing">💰 Pricing & Finance</button>
+        <button class="tab-btn" data-tab="machines">🏭 Machines & Equipment</button>
+        <button class="tab-btn" data-tab="operations">📋 Operations</button>
+        <button class="tab-btn" data-tab="kpis">📊 KPIs & Goals</button>
+        <button class="tab-btn" data-tab="inventory">📦 Inventory</button>
     </div>
 
     <form id="settings-form">
-        <!-- Business Tab -->
-        <div class="tab-content active" data-tab-content="business">
+        
+        <!-- PRICING & FINANCE TAB -->
+        <div class="tab-content active" data-tab="pricing">
             <div class="settings-grid">
                 <div class="settings-card">
-                    <h3><span class="card-emoji">💰</span> Pricing</h3>
+                    <h3>💵 Customer Pricing</h3>
                     <div class="form-group">
                         <label for="standard_price_per_load">Standard Price per Load (R)</label>
                         <input type="number" step="0.01" id="standard_price_per_load" name="standard_price_per_load">
-                        <small>Regular service pricing</small>
+                        <small>Premium service with fast turnaround</small>
                     </div>
                     <div class="form-group">
                         <label for="wait_and_save_price_per_load">"Wait & Save" Price per Load (R)</label>
                         <input type="number" step="0.01" id="wait_and_save_price_per_load" name="wait_and_save_price_per_load">
-                        <small>Budget option with longer turnaround</small>
+                        <small>Budget option with 48-hour processing</small>
                     </div>
                 </div>
-
+                
                 <div class="settings-card">
-                    <h3><span class="card-emoji">🚗</span> Dispatch</h3>
-                    <div class="form-group">
-                        <label for="default_dispatch_method">Default Dispatch Method</label>
-                        <select id="default_dispatch_method" name="default_dispatch_method">
-                            <option value="inhouse">In-house Driver Fleet</option>
-                            <option value="uber">Uber Direct (Manual Admin)</option>
-                        </select>
-                        <small>How orders are dispatched to drivers</small>
-                    </div>
-                </div>
-
-                <div class="settings-card">
-                    <h3><span class="card-emoji">💼</span> Fixed Costs</h3>
-                    <div class="form-group">
-                        <label for="finance_safety_buffer_percent">Safety Buffer (%)</label>
-                        <input type="number" step="1" id="finance_safety_buffer_percent" name="finance_safety_buffer_percent">
-                        <small>Percentage of revenue to keep as safety reserve</small>
-                    </div>
-                    <hr>
+                    <h3>🏢 Fixed Monthly Costs</h3>
                     <div class="form-group">
                         <label for="cost_rent_monthly">Monthly Rent (R)</label>
                         <input type="number" step="0.01" id="cost_rent_monthly" name="cost_rent_monthly">
@@ -357,217 +306,119 @@
                     <div class="form-group">
                         <label for="cost_base_electricity_monthly">Base Monthly Electricity (R)</label>
                         <input type="number" step="0.01" id="cost_base_electricity_monthly" name="cost_base_electricity_monthly">
-                        <small>Fixed electricity standing charge</small>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Machines Tab -->
-        <div class="tab-content" data-tab-content="machines">
-            <div class="settings-card">
-                <h3><span class="card-emoji">🏭</span> Machine Fleet & Performance</h3>
-                
-                <div class="machine-section">
-                    <h4>🧺 Washing Machines</h4>
-                    <div class="form-group">
-                        <label for="washing_machine_count">Number of Washing Machines</label>
-                        <input type="number" id="washing_machine_count" name="washing_machine_count" min="1" max="20">
-                    </div>
-                    <div class="form-group">
-                        <label for="wash_cycle_time_seconds">Target Cycle Time (seconds)</label>
-                        <input type="number" id="wash_cycle_time_seconds" name="wash_cycle_time_seconds" min="60">
-                        <div class="real-time-display">
-                            <span class="current-time-label">Current Avg: </span>
-                            <span id="current-wash-time" class="current-time-value">--</span>
-                            <span class="time-unit">seconds</span>
-                        </div>
+                        <small>Fixed component, not usage-based</small>
                     </div>
                 </div>
                 
-                <div class="machine-section">
-                    <h4>🌀 Drying Machines</h4>
-                    <div class="form-group">
-                        <label for="drying_machine_count">Number of Drying Machines</label>
-                        <input type="number" id="drying_machine_count" name="drying_machine_count" min="1" max="20">
-                    </div>
-                    <div class="form-group">
-                        <label for="dry_cycle_time_seconds">Target Cycle Time (seconds)</label>
-                        <input type="number" id="dry_cycle_time_seconds" name="dry_cycle_time_seconds" min="60">
-                        <div class="real-time-display">
-                            <span class="current-time-label">Current Avg: </span>
-                            <span id="current-dry-time" class="current-time-value">--</span>
-                            <span class="time-unit">seconds</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="machine-section">
-                    <h4>👔 Folding Machines</h4>
-                    <div class="form-group">
-                        <label for="folding_machine_count">Number of Folding Machines</label>
-                        <input type="number" id="folding_machine_count" name="folding_machine_count" min="1" max="20">
-                    </div>
-                    <div class="form-group">
-                        <label for="fold_cycle_time_seconds">Target Cycle Time (seconds)</label>
-                        <input type="number" id="fold_cycle_time_seconds" name="fold_cycle_time_seconds" min="60">
-                        <div class="real-time-display">
-                            <span class="current-time-label">Current Avg: </span>
-                            <span id="current-fold-time" class="current-time-value">--</span>
-                            <span class="time-unit">seconds</span>
-                        </div>
-                    </div>
-                </div>
-
-                <hr>
-                <div class="form-group">
-                    <label for="cost_maintenance_per_cycle">Maintenance Cost per Machine Cycle (R)</label>
-                    <input type="number" step="0.01" id="cost_maintenance_per_cycle" name="cost_maintenance_per_cycle">
-                    <small>Average maintenance cost per wash/dry cycle</small>
-                </div>
-            </div>
-        </div>
-
-        <!-- Utilities Tab -->
-        <div class="tab-content" data-tab-content="utilities">
-            <div class="settings-grid">
                 <div class="settings-card">
-                    <h3><span class="card-emoji">⚡</span> Electricity</h3>
+                    <h3>💧 Resource Usage Costs</h3>
                     <div class="form-group">
-                        <label for="cost_electricity_kwh">Electricity Rate (R per kWh)</label>
-                        <input type="number" step="0.01" id="cost_electricity_kwh" name="cost_electricity_kwh">
-                        <small>Cost per kilowatt-hour</small>
-                    </div>
-                    <hr>
-                    <div class="form-group">
-                        <label for="usage_kwh_per_wash">Electricity per Wash (kWh)</label>
+                        <label for="usage_kwh_per_wash">⚡ Electricity per Wash (kWh)</label>
                         <input type="number" step="0.1" id="usage_kwh_per_wash" name="usage_kwh_per_wash">
                     </div>
                     <div class="form-group">
-                        <label for="usage_kwh_per_dry">Electricity per Dry (kWh)</label>
+                        <label for="usage_water_kl_per_wash">💧 Water per Wash (kL)</label>
+                        <input type="number" step="0.001" id="usage_water_kl_per_wash" name="usage_water_kl_per_wash">
+                    </div>
+                    <div class="form-group">
+                        <label for="usage_kwh_per_dry">⚡ Electricity per Dry (kWh)</label>
                         <input type="number" step="0.1" id="usage_kwh_per_dry" name="usage_kwh_per_dry">
                     </div>
-                </div>
-
-                <div class="settings-card">
-                    <h3><span class="card-emoji">💧</span> Water</h3>
                     <div class="form-group">
-                        <label for="usage_water_kl_per_wash">Water per Wash (kL)</label>
-                        <input type="number" step="0.001" id="usage_water_kl_per_wash" name="usage_water_kl_per_wash">
-                        <small>Kiloliters (1 kL = 1000 liters)</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="usage_water_kl_per_stain">Water per Stain Treatment (kL)</label>
-                        <input type="number" step="0.0001" id="usage_water_kl_per_stain" name="usage_water_kl_per_stain">
-                    </div>
-                    
-                    <hr>
-                    <h4 style="margin-top: 1.5em; margin-bottom: 1em;">💰 Tiered Water Pricing</h4>
-                    
-                    <div class="cost-tier">
-                        <h5>Tier 1 (Lowest Usage)</h5>
-                        <div class="tier-fields">
-                            <div class="form-group">
-                                <label for="cost_water_kl_tier1_limit">Limit (kL)</label>
-                                <input type="number" step="0.1" id="cost_water_kl_tier1_limit" name="cost_water_kl_tier1_limit">
-                            </div>
-                            <div class="form-group">
-                                <label for="cost_water_kl_tier1_rate">Rate (R/kL)</label>
-                                <input type="number" step="0.01" id="cost_water_kl_tier1_rate" name="cost_water_kl_tier1_rate">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="cost-tier">
-                        <h5>Tier 2</h5>
-                        <div class="tier-fields">
-                            <div class="form-group">
-                                <label for="cost_water_kl_tier2_limit">Limit (kL)</label>
-                                <input type="number" step="0.1" id="cost_water_kl_tier2_limit" name="cost_water_kl_tier2_limit">
-                            </div>
-                            <div class="form-group">
-                                <label for="cost_water_kl_tier2_rate">Rate (R/kL)</label>
-                                <input type="number" step="0.01" id="cost_water_kl_tier2_rate" name="cost_water_kl_tier2_rate">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="cost-tier">
-                        <h5>Tier 3</h5>
-                        <div class="tier-fields">
-                            <div class="form-group">
-                                <label for="cost_water_kl_tier3_limit">Limit (kL)</label>
-                                <input type="number" step="0.1" id="cost_water_kl_tier3_limit" name="cost_water_kl_tier3_limit">
-                            </div>
-                            <div class="form-group">
-                                <label for="cost_water_kl_tier3_rate">Rate (R/kL)</label>
-                                <input type="number" step="0.01" id="cost_water_kl_tier3_rate" name="cost_water_kl_tier3_rate">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="cost-tier">
-                        <h5>Tier 4 (Highest Usage)</h5>
-                        <div class="form-group">
-                            <label for="cost_water_kl_tier4_rate">Rate (R/kL)</label>
-                            <input type="number" step="0.01" id="cost_water_kl_tier4_rate" name="cost_water_kl_tier4_rate">
-                            <small>Applied to all usage above Tier 3</small>
-                        </div>
+                        <label for="cost_maintenance_per_cycle">🔧 Maintenance Cost per Cycle (R)</label>
+                        <input type="number" step="0.01" id="cost_maintenance_per_cycle" name="cost_maintenance_per_cycle">
+                        <small>Average cost per machine cycle</small>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <!-- Inventory Tab -->
-        <div class="tab-content" data-tab-content="inventory">
-            <div class="settings-card">
-                <h3><span class="card-emoji">📦</span> Inventory Management</h3>
                 
-                <h4>Usage per Order</h4>
-                <div class="form-group">
-                    <label for="usage_soap_kg_per_load">Washing Powder per Load (kg)</label>
-                    <input type="number" step="0.01" id="usage_soap_kg_per_load" name="usage_soap_kg_per_load">
-                </div>
-                <div class="form-group">
-                    <label for="usage_softener_l_per_load">Fabric Softener per Load (liters)</label>
-                    <input type="number" step="0.01" id="usage_softener_l_per_load" name="usage_softener_l_per_load">
-                </div>
-                <div class="form-group">
-                    <label for="usage_stainremover_l_per_stain">Stain Remover per Stain (liters)</label>
-                    <input type="number" step="0.001" id="usage_stainremover_l_per_stain" name="usage_stainremover_l_per_stain">
-                </div>
-                <div class="form-group">
-                    <label for="usage_bags_per_order">Bags per Order</label>
-                    <input type="number" step="1" id="usage_bags_per_order" name="usage_bags_per_order">
-                </div>
-
-                <hr>
-                <h4>📋 Tracked Inventory Items</h4>
-                <table id="inventory-table">
-                    <thead>
-                        <tr>
-                            <th>Item Name</th>
-                            <th>Unit</th>
-                            <th>Low Stock Alert</th>
-                        </tr>
-                    </thead>
-                    <tbody id="inventory-table-body">
-                        <!-- JS will populate this -->
-                    </tbody>
-                </table>
-                <div id="add-inventory-form">
-                    <input type="text" id="new-inv-name" placeholder="Item Name">
-                    <input type="text" id="new-inv-sku" placeholder="SKU (e.g., SOAP-001)">
-                    <button type="button" id="add-inv-btn">➕ Add Item</button>
+                <div class="settings-card">
+                    <h3>💰 Financial Buffer</h3>
+                    <div class="form-group">
+                        <label for="finance_safety_buffer_percent">Safety Buffer (%)</label>
+                        <input type="number" step="1" id="finance_safety_buffer_percent" name="finance_safety_buffer_percent">
+                        <small>Recommended buffer for unexpected costs</small>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Operations Tab -->
-        <div class="tab-content" data-tab-content="operations">
+        <!-- MACHINES & EQUIPMENT TAB -->
+        <div class="tab-content" data-tab="machines">
+            <div class="settings-grid">
+                <div class="settings-card full-width">
+                    <h3>🏭 Machine Capacity & Performance</h3>
+                    
+                    <div class="machine-section">
+                        <h4>🌀 Washing Machines</h4>
+                        <div class="form-group">
+                            <label for="washing_machine_count">Number of Washing Machines</label>
+                            <input type="number" id="washing_machine_count" name="washing_machine_count" min="1" max="10">
+                        </div>
+                        <div class="form-group">
+                            <label for="wash_cycle_time_seconds">⏱️ Target Cycle Time (seconds)</label>
+                            <input type="number" id="wash_cycle_time_seconds" name="wash_cycle_time_seconds" min="60">
+                            <div class="real-time-display">
+                                <span class="current-time-label">Current Average: </span>
+                                <span id="current-wash-time" class="current-time-value">--</span>
+                                <span class="time-unit">seconds</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="machine-section">
+                        <h4>🔥 Drying Machines</h4>
+                        <div class="form-group">
+                            <label for="drying_machine_count">Number of Drying Machines</label>
+                            <input type="number" id="drying_machine_count" name="drying_machine_count" min="1" max="10">
+                        </div>
+                        <div class="form-group">
+                            <label for="dry_cycle_time_seconds">⏱️ Target Cycle Time (seconds)</label>
+                            <input type="number" id="dry_cycle_time_seconds" name="dry_cycle_time_seconds" min="60">
+                            <div class="real-time-display">
+                                <span class="current-time-label">Current Average: </span>
+                                <span id="current-dry-time" class="current-time-value">--</span>
+                                <span class="time-unit">seconds</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="machine-section">
+                        <h4>👔 Folding Machines</h4>
+                        <div class="form-group">
+                            <label for="folding_machine_count">Number of Folding Machines</label>
+                            <input type="number" id="folding_machine_count" name="folding_machine_count" min="1" max="10">
+                        </div>
+                        <div class="form-group">
+                            <label for="fold_cycle_time_seconds">⏱️ Target Cycle Time (seconds)</label>
+                            <input type="number" id="fold_cycle_time_seconds" name="fold_cycle_time_seconds" min="60">
+                            <div class="real-time-display">
+                                <span class="current-time-label">Current Average: </span>
+                                <span id="current-fold-time" class="current-time-value">--</span>
+                                <span class="time-unit">seconds</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- OPERATIONS TAB -->
+        <div class="tab-content" data-tab="operations">
             <div class="settings-grid">
                 <div class="settings-card">
-                    <h3><span class="card-emoji">🏢</span> Station Capacity</h3>
+                    <h3>🚚 Dispatch Settings</h3>
+                    <div class="form-group">
+                        <label for="default_dispatch_method">Default Dispatch Method</label>
+                        <select id="default_dispatch_method" name="default_dispatch_method">
+                            <option value="inhouse">In-house Driver Fleet</option>
+                            <option value="uber">Uber Direct (Manual Admin)</option>
+                        </select>
+                        <small>How orders are dispatched to drivers</small>
+                    </div>
+                </div>
+
+                <div class="settings-card">
+                    <h3>📸 Station Capacity</h3>
                     <div class="form-group">
                         <label for="imaging_station_capacity">📸 Imaging Station Capacity</label>
                         <input type="number" id="imaging_station_capacity" name="imaging_station_capacity" min="1" max="20">
@@ -583,70 +434,79 @@
                     </div>
                 </div>
 
-                <div class="settings-card">
-                    <h3><span class="card-emoji">📱</span> QR Codes</h3>
-                    <div class="form-group">
-                        <label for="driver_hub_delivery_qr">Hub Delivery QR Code</label>
-                        <input type="text" id="driver_hub_delivery_qr" name="driver_hub_delivery_qr" placeholder="DRIVER-DELIVERS-TO-HUB">
-                        <small>QR code drivers scan when delivering to hub</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="driver_hub_pickup_qr">Hub Pickup QR Code</label>
-                        <input type="text" id="driver_hub_pickup_qr" name="driver_hub_pickup_qr" placeholder="DRIVER-PICKS-UP-FROM-HUB">
-                        <small>QR code drivers scan when picking up from hub</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="hub_intake_qr">Hub Intake QR Code</label>
-                        <input type="text" id="hub_intake_qr" name="hub_intake_qr" placeholder="HUB-INTAKE-SCAN">
-                        <small>QR code for hub intake scanning</small>
-                    </div>
-                </div>
-
-                <div class="settings-card">
-                    <h3><span class="card-emoji">⏱️</span> Processing Times</h3>
-                    <div class="form-group">
-                        <label for="imaging_time_seconds_per_load">Imaging Time per Load (seconds)</label>
-                        <input type="number" id="imaging_time_seconds_per_load" name="imaging_time_seconds_per_load">
-                        <small>Average time to photograph items</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="qa_time_seconds_per_load">QA Time per Load (seconds)</label>
-                        <input type="number" id="qa_time_seconds_per_load" name="qa_time_seconds_per_load">
-                        <small>Average quality assurance inspection time</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="packaging_time_seconds_per_load">Packaging Time per Load (seconds)</label>
-                        <input type="number" id="packaging_time_seconds_per_load" name="packaging_time_seconds_per_load">
-                        <small>Time to package cleaned items</small>
+                <div class="settings-card full-width">
+                    <h3>📱 QR Code Configuration</h3>
+                    <div class="settings-grid">
+                        <div class="form-group">
+                            <label for="driver_hub_delivery_qr">📥 Hub Delivery QR Code</label>
+                            <input type="text" id="driver_hub_delivery_qr" name="driver_hub_delivery_qr" placeholder="DRIVER-DELIVERS-TO-HUB">
+                            <small>Drivers scan when delivering to hub</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="driver_hub_pickup_qr">📤 Hub Pickup QR Code</label>
+                            <input type="text" id="driver_hub_pickup_qr" name="driver_hub_pickup_qr" placeholder="DRIVER-PICKS-UP-FROM-HUB">
+                            <small>Drivers scan when picking up from hub</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="hub_intake_qr">🏢 Hub Intake QR Code</label>
+                            <input type="text" id="hub_intake_qr" name="hub_intake_qr" placeholder="HUB-INTAKE-SCAN">
+                            <small>Staff scan for hub intake process</small>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- KPIs Tab -->
-        <div class="tab-content" data-tab-content="kpis">
+        <!-- KPIs & GOALS TAB -->
+        <div class="tab-content" data-tab="kpis">
             <div class="settings-grid">
                 <div class="settings-card">
-                    <h3><span class="card-emoji">🎯</span> Performance Goals</h3>
+                    <h3>📊 Performance Goals</h3>
                     <div class="form-group">
-                        <label for="kpi_goal_turnaround_minutes">⏰ Total Turnaround Time Goal (minutes)</label>
+                        <label for="kpi_goal_turnaround_minutes">⏰ Turnaround Time Goal (minutes)</label>
                         <input type="number" id="kpi_goal_turnaround_minutes" name="kpi_goal_turnaround_minutes" min="30" max="480">
                         <small>Target time from pickup to delivery</small>
                     </div>
                     <div class="form-group">
-                        <label for="kpi_goal_pickup_minutes">🚕 Pickup Time Goal (minutes)</label>
+                        <label for="kpi_goal_pickup_minutes">🚗 Pickup Time Goal (minutes)</label>
                         <input type="number" id="kpi_goal_pickup_minutes" name="kpi_goal_pickup_minutes" min="5" max="60">
-                        <small>Target time for driver to reach customer for pickup</small>
+                        <small>Target time for driver to reach customer</small>
                     </div>
                     <div class="form-group">
-                        <label for="kpi_goal_delivery_minutes">🚚 Delivery Time Goal (minutes)</label>
+                        <label for="kpi_goal_delivery_minutes">📦 Delivery Time Goal (minutes)</label>
                         <input type="number" id="kpi_goal_delivery_minutes" name="kpi_goal_delivery_minutes" min="5" max="60">
-                        <small>Target time for driver to reach customer for delivery</small>
+                        <small>Target time for final delivery</small>
                     </div>
                     <div class="form-group">
-                        <label for="kpi_goal_claim_minutes">⚠️ Claim Resolution Goal (minutes)</label>
+                        <label for="kpi_goal_claim_minutes">🛠️ Claim Resolution Goal (minutes)</label>
                         <input type="number" id="kpi_goal_claim_minutes" name="kpi_goal_claim_minutes" min="1" max="60">
-                        <small>Target time to resolve customer complaints</small>
+                        <small>Target time to resolve customer claims</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- INVENTORY TAB -->
+        <div class="tab-content" data-tab="inventory">
+            <div class="settings-grid">
+                <div class="settings-card full-width">
+                    <h3>📦 Tracked Inventory Items</h3>
+                    <table id="inventory-table">
+                        <thead>
+                            <tr>
+                                <th>Item Name</th>
+                                <th>Unit</th>
+                                <th>Low Stock Threshold</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-table-body">
+                            <!-- JS will populate this -->
+                        </tbody>
+                    </table>
+                    <div id="add-inventory-form">
+                        <input type="text" id="new-inv-name" placeholder="Item Name (e.g., Detergent)">
+                        <input type="text" id="new-inv-sku" placeholder="SKU (e.g., SOAP-001)">
+                        <button type="button" id="add-inv-btn">➕ Add Item</button>
                     </div>
                 </div>
             </div>
@@ -654,7 +514,7 @@
     </form>
     
     <div class="save-btn-container">
-        <button id="save-btn">Save All Settings</button>
+        <button id="save-btn">💾 Save All Settings</button>
     </div>
 
     <div id="status-message"></div>
