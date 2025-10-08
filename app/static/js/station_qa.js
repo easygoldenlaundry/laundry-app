@@ -196,18 +196,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Socket Setup ---
     // --- THIS IS THE FIX: Use the global socket instance ---
-    const socket = window.appSocket;
+    function setupSocket() {
+        const socket = window.appSocket;
 
-    function onConnect() {
-        socket.emit('join', { room: `hub:${HUB_ID}` });
-        fetchQueue();
+        if (!socket) {
+            console.error('Socket not available. Retrying in 100ms...');
+            setTimeout(setupSocket, 100);
+            return;
+        }
+
+        function onConnect() {
+            socket.emit('join', { room: `hub:${HUB_ID}` });
+            fetchQueue();
+        }
+        
+        socket.on('connect', onConnect);
+        if(socket.connected) {
+            onConnect();
+        }
+        
+        socket.on('order.updated', () => fetchQueue());
     }
-    socket.on('connect', onConnect);
-    if(socket.connected) {
-        onConnect();
-    }
+
+    setupSocket();
     // --- END OF FIX ---
     
-    socket.on('order.updated', () => fetchQueue());
     fetchQueue();
 });
