@@ -276,6 +276,7 @@ def update_settings(request: Dict[str, str], session: Session = Depends(get_sess
 
     # Broadcast the settings update to all connected clients
     import asyncio
+    print("Broadcasting settings update to connected clients")
     asyncio.create_task(broadcast_settings_update())
 
     return {"message": "Settings updated successfully."}
