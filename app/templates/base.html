@@ -94,15 +94,30 @@
     </div>
 
     {% if request.state.user %}
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js" 
+            onerror="console.error('Failed to load socket.io from CDN, trying fallback...'); 
+                     var script = document.createElement('script'); 
+                     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js'; 
+                     document.head.appendChild(script);"></script>
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         // --- THIS IS THE FIX ---
         // Create a single, globally accessible socket instance.
         // All other page-specific scripts will reuse this instance.
         console.log('Initializing socket for user role:', '{{ request.state.user.role }}');
-        const socket = io({ transports: ['websocket'] });
-        window.appSocket = socket;
+        
+        // Wait a moment for socket.io to load, then initialize
+        setTimeout(() => {
+            if (typeof io !== 'undefined') {
+                const socket = io({ transports: ['websocket'] });
+                window.appSocket = socket;
+                console.log('Socket initialized successfully');
+            } else {
+                console.error('Socket.io library not loaded properly');
+                // Create a dummy socket object to prevent errors
+                window.appSocket = { on: () => {}, emit: () => {}, connected: false };
+            }
+        }, 100);
         // --- END OF FIX ---
 
         const notificationDot = document.getElementById('chat-notification-dot');
