@@ -255,17 +255,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function onConnect() {
         document.getElementById('connection-status').textContent = 'Connected';
-        socket.emit('join', { room: `station:${HUB_ID}:Imaging` });
-        socket.emit('join', { room: `hub:${HUB_ID}` });
-        fetchAndSyncQueue();
+        if (socket) {
+            socket.emit('join', { room: `station:${HUB_ID}:Imaging` });
+            socket.emit('join', { room: `hub:${HUB_ID}` });
+            fetchAndSyncQueue();
+        }
     }
 
-    socket.on('connect', onConnect);
-    if (socket.connected) {
-        onConnect();
-    }
+    if (socket) {
+        socket.on('connect', onConnect);
+        if (socket.connected) {
+            onConnect();
+        }
 
-    socket.on('order.updated', () => fetchAndSyncQueue());
+        socket.on('order.updated', () => fetchAndSyncQueue());
+    } else {
+        console.error("Socket not initialized. Make sure base.html is correct.");
+    }
     
     // --- Initialization ---
     startCamera();

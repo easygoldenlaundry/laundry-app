@@ -56,10 +56,14 @@ def get_station_machines(station_type: str, session: Session = Depends(get_sessi
     machines = session.exec(select(Machine).where(Machine.station_id == station.id)).all()
     return machines
 
-@router.post("/api/baskets/{basket_id}/start_soaking", response_model=Basket)
+@router.post("/api/baskets/{basket_id}/start_soaking", response_model=BasketPublic)
 async def start_soaking(basket_id: int, request: CycleRequest, session: Session = Depends(get_session)):
     """Sets the soaking start time for a basket."""
-    basket = session.get(Basket, basket_id)
+    basket = session.exec(
+        select(Basket)
+        .where(Basket.id == basket_id)
+        .options(selectinload(Basket.order))
+    ).first()
     if not basket:
         raise HTTPException(status_code=404, detail="Basket not found")
 
@@ -70,7 +74,7 @@ async def start_soaking(basket_id: int, request: CycleRequest, session: Session 
 
     order = session.get(Order, basket.order_id)
     await broadcast_order_update(order)
-    return basket
+    return BasketPublic.from_orm(basket)
 
 
 @router.post("/api/baskets/{basket_id}/start_cycle")

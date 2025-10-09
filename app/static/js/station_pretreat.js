@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (images.length > 0) {
                 images.forEach(image => {
                     const imgElement = document.createElement('img');
-                    imgElement.src = `/data/${image.path.replace(/\\/g, '/')}`;
+                    imgElement.src = `/${image.path.replace(/\\/g, '/')}`;
                     imgElement.style.width = '100px';
                     imgElement.style.height = '100px';
                     imgElement.style.objectFit = 'cover';
