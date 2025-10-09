@@ -5,107 +5,485 @@
 
 {% block content %}
 <style>
+    * { box-sizing: border-box; }
+    
+    .account-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2em;
+        border-radius: 12px;
+        margin-bottom: 2em;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .account-header h1 {
+        margin: 0 0 0.5em 0;
+        font-size: 2em;
+    }
+    .account-stats {
+        display: flex;
+        gap: 2em;
+        flex-wrap: wrap;
+    }
+    .stat-item {
+        background: rgba(255,255,255,0.2);
+        padding: 1em 1.5em;
+        border-radius: 8px;
+        backdrop-filter: blur(10px);
+    }
+    .stat-value {
+        font-size: 1.8em;
+        font-weight: bold;
+        margin: 0;
+    }
+    .stat-label {
+        font-size: 0.9em;
+        opacity: 0.9;
+        margin: 0;
+    }
+
     .account-wrapper {
         display: grid;
-        grid-template-columns: 300px 1fr;
+        grid-template-columns: 350px 1fr;
         gap: 2em;
     }
+    
     .details-card, .orders-card {
         background: #fff;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        padding: 1.5em;
-    }
-    .details-card h2, .orders-card h2 {
-        margin-top: 0;
-        border-bottom: 2px solid #eee;
-        padding-bottom: 0.5em;
-    }
-    .form-group { margin-bottom: 1.25em; }
-    label { display: block; font-weight: 500; margin-bottom: 0.5em; }
-    input, textarea {
-        width: 100%; padding: 0.8em; box-sizing: border-box;
-        border: 1px solid #ccc; border-radius: 4px; font-size: 1em;
-    }
-    .btn-save {
-        width: 100%; padding: 1em; background-color: #007bff;
-        color: white; border: none; border-radius: 4px; font-size: 1em; cursor: pointer;
+        border: 1px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 2em;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
     
-    .orders-list { list-style-type: none; padding: 0; }
-    .order-item {
+    .details-card h2, .orders-card h2 {
+        margin-top: 0;
+        margin-bottom: 1.5em;
+        font-size: 1.5em;
+        color: #333;
+        display: flex;
+        align-items: center;
+        gap: 0.5em;
+    }
+    
+    .form-group { 
+        margin-bottom: 1.5em; 
+    }
+    label { 
+        display: block; 
+        font-weight: 600; 
+        margin-bottom: 0.6em;
+        color: #555;
+        font-size: 0.95em;
+    }
+    input, textarea {
+        width: 100%; 
+        padding: 0.9em; 
+        border: 2px solid #e0e0e0; 
+        border-radius: 8px; 
+        font-size: 1em;
+        transition: border-color 0.3s;
+        font-family: inherit;
+    }
+    input:focus, textarea:focus {
+        outline: none;
+        border-color: #667eea;
+    }
+    
+    .btn-save {
+        width: 100%; 
+        padding: 1em; 
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white; 
+        border: none; 
+        border-radius: 8px; 
+        font-size: 1em; 
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn-save:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    /* Order Filters */
+    .order-filters {
+        display: flex;
+        gap: 1em;
+        margin-bottom: 1.5em;
+        flex-wrap: wrap;
+    }
+    .filter-btn {
+        padding: 0.6em 1.2em;
+        border: 2px solid #e0e0e0;
+        background: white;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 0.9em;
+        font-weight: 500;
+        transition: all 0.3s;
+    }
+    .filter-btn:hover {
+        border-color: #667eea;
+        color: #667eea;
+    }
+    .filter-btn.active {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-color: transparent;
+    }
+    
+    /* Orders List */
+    .orders-list { 
+        list-style-type: none; 
+        padding: 0;
+        margin: 0;
+    }
+    
+    .order-card {
+        background: #f8f9fa;
+        border: 1px solid #e0e0e0;
+        border-radius: 12px;
+        padding: 1.5em;
+        margin-bottom: 1em;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .order-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .order-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 1em;
-        border-bottom: 1px solid #eee;
+        margin-bottom: 1em;
+        flex-wrap: wrap;
+        gap: 1em;
     }
-    .order-item:last-child { border-bottom: none; }
-    .order-status {
-        padding: 0.3em 0.8em;
-        border-radius: 15px;
-        font-size: 0.9em;
-        font-weight: 500;
-        color: #fff;
-    }
-    .status-created { background-color: #6c757d; }
-    .status-processing { background-color: #fd7e14; }
-    .status-readyfordelivery { background-color: #0d6efd; }
-    .status-delivered { background-color: #198754; }
-    .status-default { background-color: #adb5bd; }
-
-    .btn-track {
-        padding: 0.5em 1em;
-        text-decoration: none;
-        background-color: #e9ecef;
+    
+    .order-id {
+        font-size: 1.2em;
+        font-weight: 700;
         color: #333;
-        border-radius: 5px;
-        border: 1px solid #ced4da;
+    }
+    
+    .order-status {
+        padding: 0.4em 1em;
+        border-radius: 20px;
+        font-size: 0.85em;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    /* Status Colors */
+    .status-created { background-color: #6c757d; color: white; }
+    .status-assignedtodriver { background-color: #17a2b8; color: white; }
+    .status-pickedup { background-color: #ffc107; color: #333; }
+    .status-athub { background-color: #fd7e14; color: white; }
+    .status-processing { background-color: #fd7e14; color: white; }
+    .status-readyfordelivery { background-color: #0d6efd; color: white; }
+    .status-outfordelivery { background-color: #0dcaf0; color: #333; }
+    .status-delivered { background-color: #198754; color: white; }
+    .status-closed { background-color: #28a745; color: white; }
+    .status-default { background-color: #adb5bd; color: white; }
+    
+    .order-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1em;
+        margin-bottom: 1em;
+    }
+    
+    .detail-item {
+        display: flex;
+        flex-direction: column;
+    }
+    .detail-label {
+        font-size: 0.85em;
+        color: #666;
+        margin-bottom: 0.3em;
+        font-weight: 500;
+    }
+    .detail-value {
+        font-size: 1.1em;
+        font-weight: 600;
+        color: #333;
+    }
+    .detail-value.cost {
+        color: #198754;
+        font-size: 1.3em;
+    }
+    
+    .order-actions {
+        display: flex;
+        gap: 0.8em;
+        margin-top: 1em;
+        flex-wrap: wrap;
+    }
+    
+    .btn-track, .btn-view {
+        padding: 0.7em 1.5em;
+        text-decoration: none;
+        border-radius: 8px;
+        font-size: 0.9em;
+        font-weight: 600;
+        transition: all 0.3s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5em;
+    }
+    .btn-track {
+        background-color: #667eea;
+        color: white;
+        border: none;
+    }
+    .btn-track:hover {
+        background-color: #5568d3;
+        transform: translateY(-2px);
+    }
+    .btn-view {
+        background-color: white;
+        color: #667eea;
+        border: 2px solid #667eea;
+    }
+    .btn-view:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3em 2em;
+        color: #666;
+    }
+    .empty-state i {
+        font-size: 4em;
+        color: #ddd;
+        margin-bottom: 0.5em;
+    }
+    .empty-state h3 {
+        margin: 0.5em 0;
+        color: #333;
+    }
+    .empty-state a {
+        display: inline-block;
+        margin-top: 1em;
+        padding: 0.8em 2em;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 1024px) {
+        .account-wrapper {
+            grid-template-columns: 1fr;
+        }
+        .details-card {
+            order: 2;
+        }
+        .orders-card {
+            order: 1;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .account-header {
+            padding: 1.5em;
+        }
+        .account-header h1 {
+            font-size: 1.5em;
+        }
+        .account-stats {
+            gap: 1em;
+        }
+        .stat-item {
+            padding: 0.8em 1.2em;
+        }
+        .stat-value {
+            font-size: 1.4em;
+        }
+        
+        .details-card, .orders-card {
+            padding: 1.5em;
+        }
+        
+        .order-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .order-details {
+            grid-template-columns: 1fr;
+            gap: 0.8em;
+        }
+        
+        .order-actions {
+            flex-direction: column;
+        }
+        .btn-track, .btn-view {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .container {
+            padding: 0 1em;
+        }
+        .account-header {
+            border-radius: 8px;
+            padding: 1em;
+        }
+        .order-filters {
+            gap: 0.5em;
+        }
+        .filter-btn {
+            padding: 0.5em 1em;
+            font-size: 0.85em;
+        }
     }
 </style>
 
-<h1>My Account</h1>
+<div class="account-header">
+    <h1><i class="fas fa-user-circle"></i> Welcome, {{ customer.full_name }}!</h1>
+    <div class="account-stats">
+        <div class="stat-item">
+            <p class="stat-value">{{ enhanced_orders|length }}</p>
+            <p class="stat-label">Total Orders</p>
+        </div>
+        <div class="stat-item">
+            <p class="stat-value">{{ enhanced_orders|selectattr('order.status', 'ne', 'Delivered')|selectattr('order.status', 'ne', 'Closed')|list|length }}</p>
+            <p class="stat-label">Active Orders</p>
+        </div>
+        <div class="stat-item">
+            <p class="stat-value">R {{ "%.2f"|format(enhanced_orders|sum(attribute='total_cost')) }}</p>
+            <p class="stat-label">Total Spent</p>
+        </div>
+    </div>
+</div>
 
 <div class="account-wrapper">
     <aside class="details-card">
-        <h2>My Details</h2>
+        <h2><i class="fas fa-id-card"></i> My Details</h2>
         <form action="/account/update" method="post">
             <div class="form-group">
-                <label for="full_name">Full Name</label>
+                <label for="full_name"><i class="fas fa-user"></i> Full Name</label>
                 <input type="text" name="full_name" id="full_name" value="{{ customer.full_name }}" required>
             </div>
             <div class="form-group">
-                <label for="phone_number">Phone Number</label>
+                <label for="phone_number"><i class="fas fa-phone"></i> Phone Number</label>
                 <input type="tel" name="phone_number" id="phone_number" value="{{ customer.phone_number }}" required>
             </div>
             <div class="form-group">
-                <label for="address">Default Address</label>
+                <label for="address"><i class="fas fa-map-marker-alt"></i> Default Address</label>
                 <textarea name="address" id="address" rows="4" required>{{ customer.address }}</textarea>
             </div>
-            <button type="submit" class="btn-save">Save Changes</button>
+            <button type="submit" class="btn-save"><i class="fas fa-save"></i> Save Changes</button>
         </form>
     </aside>
 
     <main class="orders-card">
-        <h2>My Orders</h2>
-        {% if orders %}
-        <ul class="orders-list">
-            {% for order in orders %}
-            <li class="order-item">
-                <div>
-                    <strong>Order #{{ order.id }}</strong>
-                    <p style="margin: 0.3em 0; color: #555;">Placed on: {{ order.created_at.strftime('%d %b %Y, %H:%M') }}</p>
+        <h2><i class="fas fa-shopping-bag"></i> My Orders</h2>
+        
+        <div class="order-filters">
+            <button class="filter-btn active" data-filter="all">All Orders</button>
+            <button class="filter-btn" data-filter="active">Active</button>
+            <button class="filter-btn" data-filter="delivered">Completed</button>
+        </div>
+        
+        {% if enhanced_orders %}
+        <ul class="orders-list" id="orders-list">
+            {% for item in enhanced_orders %}
+            {% set order = item.order %}
+            {% set is_active = order.status not in ['Delivered', 'Closed'] %}
+            <li class="order-card" data-status="{{ 'active' if is_active else 'delivered' }}">
+                <div class="order-header">
+                    <span class="order-id">#{{ order.id }}</span>
+                    <span class="order-status status-{{ order.status.lower().replace(' ', '') if order.status else 'default' }}">
+                        {{ order.status.replace('_', ' ') if order.status else 'Unknown' }}
+                    </span>
                 </div>
-                <div>
-                    <span class="order-status status-{{ order.status.lower() if order.status else 'default' }}">{{ order.status.replace('_', ' ') }}</span>
-                    <a href="/track/{{ order.tracking_token }}" class="btn-track">Track</a>
+                
+                <div class="order-details">
+                    <div class="detail-item">
+                        <span class="detail-label"><i class="fas fa-calendar"></i> Date</span>
+                        <span class="detail-value">{{ order.created_at.strftime('%d %b %Y') }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label"><i class="fas fa-box"></i> Loads</span>
+                        <span class="detail-value">{{ item.number_of_loads if item.number_of_loads > 0 else 'TBD' }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label"><i class="fas fa-money-bill-wave"></i> Cost</span>
+                        <span class="detail-value cost">
+                            {% if item.total_cost > 0 %}
+                                R {{ "%.2f"|format(item.total_cost) }}
+                            {% else %}
+                                Pending
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% if item.driver_name %}
+                    <div class="detail-item">
+                        <span class="detail-label"><i class="fas fa-truck"></i> Driver</span>
+                        <span class="detail-value">{{ item.driver_name }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="order-actions">
+                    <a href="/track/{{ order.tracking_token }}" class="btn-track">
+                        <i class="fas fa-map-marked-alt"></i> Track Order
+                    </a>
+                    {% if order.status in ['ReadyForDelivery', 'Delivered', 'Closed'] %}
+                    <a href="/track/{{ order.tracking_token }}" class="btn-view">
+                        <i class="fas fa-eye"></i> View Details
+                    </a>
+                    {% endif %}
                 </div>
             </li>
             {% endfor %}
         </ul>
         {% else %}
-        <p>You haven't placed any orders yet. <a href="/book">Book your first pickup!</a></p>
+        <div class="empty-state">
+            <i class="fas fa-inbox"></i>
+            <h3>No Orders Yet</h3>
+            <p>Start your laundry journey today!</p>
+            <a href="/book"><i class="fas fa-plus-circle"></i> Book Your First Pickup</a>
+        </div>
         {% endif %}
     </main>
 </div>
+
+<script>
+// Order filtering functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const filterBtns = document.querySelectorAll('.filter-btn');
+    const orderCards = document.querySelectorAll('.order-card');
+    
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            // Update active button
+            filterBtns.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            
+            const filter = this.dataset.filter;
+            
+            // Filter orders
+            orderCards.forEach(card => {
+                if (filter === 'all') {
+                    card.style.display = 'block';
+                } else {
+                    const status = card.dataset.status;
+                    card.style.display = status === filter ? 'block' : 'none';
+                }
+            });
+        });
+    });
+});
+</script>
 {% endblock %}

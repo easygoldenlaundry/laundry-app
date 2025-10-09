@@ -259,8 +259,46 @@ async def get_customer_registration_page(request: Request):
 def get_customer_account_page(request: Request, user: User = Depends(get_current_customer_user), session: Session = Depends(get_session)):
     customer = session.exec(select(Customer).where(Customer.user_id == user.id)).first()
     if not customer: raise HTTPException(status_code=404, detail="Customer profile not found")
+    
+    # Get all orders with enhanced information
     orders = session.exec(select(Order).where(Order.customer_id == customer.id).order_by(Order.created_at.desc())).all()
-    return templates.TemplateResponse("account.html", {"request": request, "customer": customer, "orders": orders})
+    
+    # Enhance orders with additional data (cost, loads, driver info)
+    enhanced_orders = []
+    for order in orders:
+        # Calculate total cost from finance entries
+        total_cost = 0.0
+        finance_entries = session.exec(
+            select(FinanceEntry).where(FinanceEntry.order_id == order.id, FinanceEntry.entry_type == 'revenue')
+        ).all()
+        for entry in finance_entries:
+            total_cost += entry.amount
+        
+        # Get driver info if assigned
+        driver_name = None
+        if order.assigned_driver_id:
+            driver = session.exec(select(Driver).where(Driver.id == order.assigned_driver_id)).first()
+            if driver:
+                driver_user = session.get(User, driver.user_id)
+                if driver_user:
+                    driver_name = driver_user.display_name
+        
+        # Use confirmed_load_count if available, otherwise basket_count, otherwise 0
+        number_of_loads = order.confirmed_load_count or order.basket_count or 0
+        
+        enhanced_orders.append({
+            'order': order,
+            'total_cost': total_cost,
+            'number_of_loads': number_of_loads,
+            'driver_name': driver_name
+        })
+    
+    return templates.TemplateResponse("account.html", {
+        "request": request, 
+        "customer": customer, 
+        "orders": orders,
+        "enhanced_orders": enhanced_orders
+    })
 
 @router.post("/account/update")
 def update_customer_details_web(
