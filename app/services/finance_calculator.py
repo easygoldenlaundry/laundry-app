@@ -9,11 +9,38 @@ def _get_settings_dict(session: Session) -> Dict[str, Any]:
     """Helper to fetch all settings and cast them to appropriate types."""
     settings = session.exec(select(Setting)).all()
     settings_dict = {}
+    
+    # --- THIS IS THE FIX ---
+    # Define a set of keys that should be treated as numeric values.
+    # This prevents accidentally converting a string setting that happens to be a number.
+    NUMERIC_KEYS = {
+        "standard_price_per_load", "wait_and_save_price_per_load", "pickup_time_minutes",
+        "insurance_amount", "wash_cycle_time_seconds", "dry_cycle_time_seconds",
+        "fold_cycle_time_seconds", "imaging_time_seconds_per_load", "kpi_goal_turnaround_minutes",
+        "kpi_goal_pickup_minutes", "kpi_goal_delivery_minutes", "kpi_goal_claim_minutes",
+        "qa_time_seconds_per_load", "packaging_time_seconds_per_load",
+        "washing_machine_count", "drying_machine_count", "folding_machine_count",
+        "imaging_station_capacity", "pretreat_station_capacity", "qa_station_capacity",
+        "cost_rent_monthly", "cost_insurance_monthly", "cost_base_electricity_monthly",
+        "finance_safety_buffer_percent", "monthly_tracker_electricity_kwh",
+        "monthly_budget_electricity_kwh", "cost_electricity_kwh", "usage_kwh_per_wash",
+        "usage_kwh_per_dry", "usage_water_kl_per_wash", "usage_water_kl_per_stain",
+        "cost_maintenance_per_cycle", "usage_soap_kg_per_load", "usage_softener_l_per_load",
+        "usage_stainremover_l_per_stain", "usage_bags_per_order",
+        "cost_water_kl_tier1_rate", "cost_water_kl_tier1_limit", "cost_water_kl_tier2_rate",
+        "cost_water_kl_tier2_limit", "cost_water_kl_tier3_rate", "cost_water_kl_tier3_limit",
+        "cost_water_kl_tier4_rate"
+    }
+
     for s in settings:
-        try:
-            settings_dict[s.key] = float(s.value)
-        except (ValueError, TypeError):
+        if s.key in NUMERIC_KEYS:
+            try:
+                settings_dict[s.key] = float(s.value)
+            except (ValueError, TypeError):
+                settings_dict[s.key] = 0.0 # Default to 0.0 if conversion fails for a numeric key
+        else:
             settings_dict[s.key] = s.value
+            
     return settings_dict
 
 def _calculate_water_cost_for_usage(kl_used: float, settings: Dict[str, Any]) -> float:
