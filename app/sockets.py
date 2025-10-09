@@ -98,6 +98,15 @@ async def broadcast_driver_location_update(order_id: int, payload: dict):
     await socketio_server.emit('driver.location_update', payload, room=room)
     logging.debug(f"Broadcasted location for order {order_id} to room {room}")
 
+async def broadcast_settings_update():
+    """
+    Emits a 'settings.updated' event to all connected clients.
+    """
+    # Send to all hubs (for now, just hub 1)
+    room = "hub:1"
+    await socketio_server.emit('settings.updated', {}, room=room)
+    logging.info(f"Broadcasted settings update to room {room}")
+
 
 @socketio_server.event
 async def connect(sid, environ):

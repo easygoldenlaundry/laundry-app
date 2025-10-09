@@ -169,22 +169,32 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const handleStartSoaking = async () => {
         if (!activeBasketId) return;
-        startBtn.disabled = true;
+
+        // Update UI immediately for instant response
+        const basket = basketDataCache.get(activeBasketId);
+        if (basket) {
+            basket.soaking_started_at = new Date().toISOString();
+            basketDataCache.set(activeBasketId, basket);
+            startBtn.disabled = true;
+            renderActiveOrder();
+        }
+
+        // Update server in background
         try {
-            const response = await fetch(`/api/baskets/${activeBasketId}/start_soaking`, {
+            await fetch(`/api/baskets/${activeBasketId}/start_soaking`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id: USER_ID })
             });
-            if (response.ok) {
-                // Update the basket data in cache and re-render
-                const updatedBasket = await response.json();
-                basketDataCache.set(activeBasketId, updatedBasket);
+        } catch (error) {
+            console.error('Failed to sync timer start with server:', error);
+            // Revert UI changes on failure
+            if (basket) {
+                basket.soaking_started_at = null;
+                basketDataCache.set(activeBasketId, basket);
+                startBtn.disabled = false;
                 renderActiveOrder();
             }
-        } catch (error) {
-            alert(`Error starting timer: ${error.message}`);
-            startBtn.disabled = false;
         }
     };
     

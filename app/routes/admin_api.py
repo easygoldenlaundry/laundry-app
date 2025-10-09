@@ -11,7 +11,7 @@ from app.models import User, Station, Machine, Claim, Order, Setting, Message, I
 from app.services.state_machine import apply_transition
 from app.services.finance_calculator import create_finance_entries_for_order
 from app.auth import get_current_admin_user
-from app.sockets import broadcast_admin_notification
+from app.sockets import broadcast_admin_notification, broadcast_settings_update
 
 router = APIRouter(
     prefix="/api/admin", 
@@ -273,6 +273,11 @@ def update_settings(request: Dict[str, str], session: Session = Depends(get_sess
         print(f"Could not update station capacities: {e}")
 
     session.commit()
+
+    # Broadcast the settings update to all connected clients
+    import asyncio
+    asyncio.create_task(broadcast_settings_update())
+
     return {"message": "Settings updated successfully."}
 
 def update_station_capacity(session: Session, station_type: str, new_capacity: int):

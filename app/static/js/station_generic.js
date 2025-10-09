@@ -197,6 +197,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleStartCycle = async () => {
         if (!activeBasketId) return;
         startBtn.disabled = true;
+
+        // Immediately remove the basket from the queue display
+        const queueItems = document.querySelectorAll('#queue-list li[data-basket-id]');
+        queueItems.forEach(item => {
+            if (parseInt(item.dataset.basketId) === activeBasketId) {
+                item.remove();
+            }
+        });
+
+        // Clear active basket since it's now running
+        setActiveBasket(null);
+
         try {
             await fetch(`/api/baskets/${activeBasketId}/start_cycle?station_type=${STATION_TYPE}`, {
                 method: 'POST',
@@ -206,6 +218,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             alert(`Error: ${error.message}`);
             startBtn.disabled = false;
+            // If failed, refetch the queue to restore the basket
+            fetchQueue();
         }
     };
     
@@ -248,32 +262,53 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Socket Setup ---
-    const socket = window.appSocket;
-    
-    function onConnect() {
-        console.log(`${STATION_TITLE} socket connected.`);
+    function initSocket() {
+        const socket = window.appSocket;
+
+        function onConnect() {
+            console.log(`${STATION_TITLE} socket connected.`);
+            if (socket) {
+                socket.emit('join', { room: `station:${HUB_ID}:${STATION_TYPE}` });
+                socket.emit('join', { room: `hub:${HUB_ID}` });
+                fetchQueue();
+            }
+        }
+
+        if (socket && socket.connected) {
+            onConnect();
+        } else if (socket) {
+            socket.on('connect', onConnect);
+        } else {
+            console.error("Socket not initialized. Make sure base.html is correct.");
+        }
+
+        // Listen for socket events
         if (socket) {
-            socket.emit('join', { room: `station:${HUB_ID}:${STATION_TYPE}` });
-            socket.emit('join', { room: `hub:${HUB_ID}` });
-            fetchQueue();
+            socket.on('order.updated', () => fetchQueue());
+            socket.on('machine.updated', async () => {
+                // This is a crucial change: we refetch the whole queue to get the correct active basket
+                await fetchQueue();
+            });
+            socket.on('settings.updated', async () => {
+                // Refresh machine status and queue when settings are updated
+                await fetchQueue();
+            });
         }
     }
 
-    if (socket && socket.connected) {
-        onConnect();
-    } else if (socket) {
-        socket.on('connect', onConnect);
+    // Wait for socket to be ready
+    if (window.appSocket) {
+        initSocket();
     } else {
-        console.error("Socket not initialized. Make sure base.html is correct.");
-    }
-    
-    if (socket) {
-        socket.on('order.updated', () => fetchQueue());
-
-        socket.on('machine.updated', async () => {
-            // This is a crucial change: we refetch the whole queue to get the correct active basket
-            await fetchQueue();
-        });
+        // Listen for socket ready event
+        document.addEventListener('socket:ready', initSocket);
+        // Fallback: try again after a short delay
+        setTimeout(() => {
+            if (window.appSocket && !window.appSocket._initialized) {
+                initSocket();
+                window.appSocket._initialized = true;
+            }
+        }, 200);
     }
 
     // --- Initialization ---
