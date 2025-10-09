@@ -198,8 +198,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const socket = window.appSocket;
 
     function onConnect() {
-        socket.emit('join', { room: `hub:${HUB_ID}` });
-        fetchQueue();
+        if (socket) {
+            socket.emit('join', { room: `hub:${HUB_ID}` });
+            fetchQueue();
+        }
     }
     
     if (socket && socket.connected) {
@@ -210,6 +212,8 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error("Socket not initialized. Make sure base.html is correct.");
     }
     
-    socket.on('order.updated', () => fetchQueue());
+    if (socket) {
+        socket.on('order.updated', () => fetchQueue());
+    }
     fetchQueue();
 });

@@ -252,9 +252,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function onConnect() {
         console.log(`${STATION_TITLE} socket connected.`);
-        socket.emit('join', { room: `station:${HUB_ID}:${STATION_TYPE}` });
-        socket.emit('join', { room: `hub:${HUB_ID}` });
-        fetchQueue();
+        if (socket) {
+            socket.emit('join', { room: `station:${HUB_ID}:${STATION_TYPE}` });
+            socket.emit('join', { room: `hub:${HUB_ID}` });
+            fetchQueue();
+        }
     }
 
     if (socket && socket.connected) {
@@ -265,12 +267,14 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error("Socket not initialized. Make sure base.html is correct.");
     }
     
-    socket.on('order.updated', () => fetchQueue());
+    if (socket) {
+        socket.on('order.updated', () => fetchQueue());
 
-    socket.on('machine.updated', async () => {
-        // This is a crucial change: we refetch the whole queue to get the correct active basket
-        await fetchQueue();
-    });
+        socket.on('machine.updated', async () => {
+            // This is a crucial change: we refetch the whole queue to get the correct active basket
+            await fetchQueue();
+        });
+    }
 
     // --- Initialization ---
     stationTitleElement.textContent = STATION_TITLE;
