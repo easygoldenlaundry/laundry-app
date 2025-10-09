@@ -296,7 +296,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 await fetchQueue();
             });
             socket.on('settings.updated', async () => {
-                console.log('Received settings.updated event, refreshing machine status and queue');
                 // Refresh machine status and queue when settings are updated
                 await fetchQueue();
             });

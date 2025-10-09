@@ -275,7 +275,6 @@ def update_settings(request: Dict[str, str], background_tasks: BackgroundTasks, 
     session.commit()
 
     # Broadcast the settings update to all connected clients
-    print("Broadcasting settings update to connected clients")
     background_tasks.add_task(broadcast_settings_update)
 
     return {"message": "Settings updated successfully."}
