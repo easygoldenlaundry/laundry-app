@@ -112,6 +112,7 @@
                 const socket = io({ transports: ['websocket'] });
                 window.appSocket = socket;
                 console.log('Socket initialized successfully');
+                document.dispatchEvent(new Event('socket:ready'));
             } else {
                 console.error('Socket.io library not loaded properly');
                 // Create a dummy socket object to prevent errors
