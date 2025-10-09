@@ -39,8 +39,31 @@ def get_session():
     with Session(engine) as session:
         yield session
 
-def create_db_and_tables():
+def create_db_and_tables(max_retries=5, retry_delay=5):
     """Creates the database and all tables if they don't exist."""
+    import time
+    import logging
+
+    logger = logging.getLogger(__name__)
+
     # Import models here to prevent circular import issues
     from . import models
-    SQLModel.metadata.create_all(engine)
+
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"Attempting to create database tables (attempt {attempt + 1}/{max_retries})")
+            SQLModel.metadata.create_all(engine)
+            logger.info("Database tables created successfully")
+            return
+        except Exception as e:
+            logger.warning(f"Database connection attempt {attempt + 1} failed: {str(e)}")
+            if attempt < max_retries - 1:
+                logger.info(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+                # Increase delay for next attempt
+                retry_delay = min(retry_delay * 2, 30)  # Exponential backoff, max 30s
+            else:
+                logger.error(f"Failed to create database tables after {max_retries} attempts: {str(e)}")
+                # Don't raise the exception - allow the app to start without tables
+                # Tables will be created on first successful connection
+                logger.warning("Continuing without creating tables - they will be created on first successful database connection")

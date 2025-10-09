@@ -13,10 +13,43 @@ def seed_database():
     Idempotent seed script. Creates tables and populates with sample data
     only if the tables are empty.
     """
+    import time
+    import logging
+
     print("--- Starting database seed ---")
-    engine = get_engine()
-    
-    create_db_and_tables()
+
+    # Try to connect to database with retries
+    max_retries = 10
+    retry_delay = 5
+
+    for attempt in range(max_retries):
+        try:
+            print(f"Testing database connection (attempt {attempt + 1}/{max_retries})")
+            engine = get_engine()
+
+            # Test connection with a simple query
+            from sqlmodel import Session, text
+            with Session(engine) as session:
+                session.exec(text("SELECT 1")).first()
+            print("Database connection successful")
+            break
+        except Exception as e:
+            print(f"Database connection attempt {attempt + 1} failed: {str(e)}")
+            if attempt < max_retries - 1:
+                print(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, 30)  # Exponential backoff
+            else:
+                print("Failed to connect to database after all retries. Skipping seeding.")
+                return
+
+    # Try to create tables with retries
+    try:
+        create_db_and_tables(max_retries=5, retry_delay=5)
+    except Exception as e:
+        print(f"Failed to create database tables: {str(e)}")
+        print("Skipping database seeding due to table creation failure.")
+        return
 
     with Session(engine) as session:
         setting_check = session.exec(select(Setting)).first()

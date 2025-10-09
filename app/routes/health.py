@@ -8,8 +8,16 @@ router = APIRouter()
 @router.get("/health")
 def get_health():
     """Returns the current status and time of the server."""
+    # Try to wake up database by testing connection
+    try:
+        from app.db_health import check_database_health
+        db_status = check_database_health()
+        health_status = "ok" if db_status["status"] == "healthy" else "degraded"
+    except Exception:
+        health_status = "ok"  # Don't fail health check due to DB issues
+
     return {
-        "status": "ok",
+        "status": health_status,
         "time": datetime.now(timezone.utc).isoformat()
     }
 
