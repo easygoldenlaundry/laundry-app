@@ -14,7 +14,7 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import selectinload
 
 from app.db import get_session
-from app.models import User, Customer, Order, Bag, Setting, Event, Driver
+from app.models import User, Customer, Order, Bag, Setting, Event, Driver, FinanceEntry
 from app.auth import get_password_hash, create_access_token, get_current_user, get_current_api_user, get_current_customer_user
 from app.security import signer
 from app.sockets import broadcast_order_update
