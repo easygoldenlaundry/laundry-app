@@ -259,46 +259,89 @@ async def get_customer_registration_page(request: Request):
 def get_customer_account_page(request: Request, user: User = Depends(get_current_customer_user), session: Session = Depends(get_session)):
     customer = session.exec(select(Customer).where(Customer.user_id == user.id)).first()
     if not customer: raise HTTPException(status_code=404, detail="Customer profile not found")
-    
-    # Get all orders with enhanced information
-    orders = session.exec(select(Order).where(Order.customer_id == customer.id).order_by(Order.created_at.desc())).all()
-    
-    # Enhance orders with additional data (cost, loads, driver info)
+
+    # Get all orders for this customer (same logic as API endpoint)
+    orders = session.exec(
+        select(Order)
+        .where(Order.customer_id == customer.id)
+        .order_by(Order.created_at.desc())
+    ).all()
+
+    # Enhance orders with cost and driver info (same as API endpoint)
     enhanced_orders = []
     for order in orders:
         # Calculate total cost from finance entries
         total_cost = 0.0
         finance_entries = session.exec(
-            select(FinanceEntry).where(FinanceEntry.order_id == order.id, FinanceEntry.entry_type == 'revenue')
+            select(FinanceEntry)
+            .where(FinanceEntry.order_id == order.id, FinanceEntry.entry_type == 'revenue')
         ).all()
         for entry in finance_entries:
             total_cost += entry.amount
-        
+
         # Get driver info if assigned
         driver_name = None
+        driver_id = None
         if order.assigned_driver_id:
             driver = session.exec(select(Driver).where(Driver.id == order.assigned_driver_id)).first()
             if driver:
                 driver_user = session.get(User, driver.user_id)
                 if driver_user:
                     driver_name = driver_user.display_name
-        
+                    driver_id = driver.id
+
         # Use confirmed_load_count if available, otherwise basket_count, otherwise 0
         number_of_loads = order.confirmed_load_count or order.basket_count or 0
-        
-        enhanced_orders.append({
-            'order': order,
+
+        # Create enhanced order object
+        enhanced_order = {
+            'id': order.id,
+            'external_id': order.external_id,
+            'tracking_token': order.tracking_token,
+            'customer_name': order.customer_name,
+            'customer_phone': order.customer_phone,
+            'customer_address': order.customer_address,
+            'hub_id': order.hub_id,
+            'status': order.status,
+            'total_items': order.total_items,
+            'sla_deadline': order.sla_deadline,
+            'assigned_driver_id': order.assigned_driver_id,
+            'pickup_pin': order.pickup_pin,
+            'delivery_pin': order.delivery_pin,
+            'basket_count': order.basket_count,
+            'created_at': order.created_at,
+            'updated_at': order.updated_at,
+            'customer_id': order.customer_id,
+            'confirmed_load_count': order.confirmed_load_count,
+            'dispatch_method': order.dispatch_method,
+            'distance_km': order.distance_km,
+            'pickup_cost': order.pickup_cost,
+            'pickup_lat': order.pickup_lat,
+            'pickup_lon': order.pickup_lon,
+            'delivery_lat': order.delivery_lat,
+            'delivery_lon': order.delivery_lon,
+            'initial_driver_lat': order.initial_driver_lat,
+            'initial_driver_lon': order.initial_driver_lon,
+            'picked_up_at': order.picked_up_at,
+            'at_hub_at': order.at_hub_at,
+            'imaging_started_at': order.imaging_started_at,
+            'imaging_completed_at': order.imaging_completed_at,
+            'processing_started_at': order.processing_started_at,
+            'qa_started_at': order.qa_started_at,
+            'ready_for_delivery_at': order.ready_for_delivery_at,
+            'out_for_delivery_at': order.out_for_delivery_at,
+            'delivered_at': order.delivered_at,
+            'closed_at': order.closed_at,
+            'imaged_items_count': order.imaged_items_count,
+            # Enhanced fields
             'total_cost': total_cost,
             'number_of_loads': number_of_loads,
-            'driver_name': driver_name
-        })
-    
-    return templates.TemplateResponse("account.html", {
-        "request": request, 
-        "customer": customer, 
-        "orders": orders,
-        "enhanced_orders": enhanced_orders
-    })
+            'driver_name': driver_name,
+            'driver_id': driver_id
+        }
+        enhanced_orders.append(enhanced_order)
+
+    return templates.TemplateResponse("account.html", {"request": request, "customer": customer, "orders": enhanced_orders})
 
 @router.post("/account/update")
 def update_customer_details_web(

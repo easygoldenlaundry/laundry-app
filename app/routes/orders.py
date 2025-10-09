@@ -17,16 +17,6 @@ import os
 
 router = APIRouter(prefix="/api/orders", tags=["Orders"])
 
-class OrderResponse(BaseModel):
-    id: int
-    customer_id: int
-    status: str
-    total_cost: float
-    number_of_loads: int
-    created_at: datetime
-    driver_name: Optional[str] = None
-    driver_id: Optional[int] = None
-
 # --- NEW ENDPOINT: Get all orders for authenticated user ---
 @router.get("/my-orders", response_model=List[OrderResponse])
 def get_my_orders(
@@ -116,6 +106,16 @@ class MessagePublic(BaseModel):
     message: str
     timestamp: datetime
     read: bool
+
+class OrderResponse(BaseModel):
+    id: int
+    customer_id: int
+    status: str
+    total_cost: float
+    number_of_loads: int
+    created_at: datetime
+    driver_name: Optional[str] = None
+    driver_id: Optional[int] = None
 
 # --- NEW ENDPOINT ---
 @router.get("/{order_id}", response_model=OrderWithDriverResponse)
