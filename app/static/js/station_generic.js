@@ -174,8 +174,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // Set active basket: prefer the first available basket, or first running basket if none available
-            if (availableBaskets.length > 0) {
+            // Set active basket: prefer the current active basket if it's still available or running
+            if (activeBasketId && allBasketsToDisplay.some(b => b.id === activeBasketId)) {
+                idToSetActive = activeBasketId;
+            } else if (availableBaskets.length > 0) {
                 idToSetActive = availableBaskets[0].id;
             } else if (runningBasketIds.size > 0) {
                 // If no available baskets, show the first running basket for monitoring
@@ -216,10 +218,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (response.ok) {
-                // Clear active basket since it's now running and will be removed from queue
-                setActiveBasket(null);
-                // Refresh the queue to reflect the changes
-                await fetchQueue();
+                // Keep the basket active since it's now running
+                // WebSocket will update the queue automatically
             } else {
                 throw new Error(`HTTP ${response.status}`);
             }
