@@ -241,7 +241,7 @@ def update_inventory_items(session: Session, inventory_data_json: str):
         raise HTTPException(status_code=400, detail=f"Invalid inventory data format: {e}")
 
 @router.post("/settings")
-def update_settings(request: Dict[str, str], session: Session = Depends(get_session)):
+def update_settings(request: Dict[str, str], background_tasks: BackgroundTasks, session: Session = Depends(get_session)):
     """Updates multiple settings and reconciles machines and inventory."""
     inventory_data_json = request.pop("inventory_items_json", "[]")
 
@@ -275,9 +275,8 @@ def update_settings(request: Dict[str, str], session: Session = Depends(get_sess
     session.commit()
 
     # Broadcast the settings update to all connected clients
-    import asyncio
     print("Broadcasting settings update to connected clients")
-    asyncio.create_task(broadcast_settings_update())
+    background_tasks.add_task(broadcast_settings_update)
 
     return {"message": "Settings updated successfully."}
 
