@@ -93,7 +93,7 @@
         {% block content %}{% endblock %}
     </div>
 
-    {% if request.state.user and request.state.user.role in ['admin', 'staff'] %}
+    {% if request.state.user %}
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', () => {
