@@ -155,6 +155,7 @@ def complete_imaging_stage(order_id: int, request: ImageCompletionRequest, sessi
     order.basket_count = request.basket_count
     
     session.exec(delete(Basket).where(Basket.order_id == order_id))
+    session.commit()
 
     for i in range(request.basket_count):
         basket = Basket(
