@@ -256,16 +256,52 @@ async def get_customer_registration_page(request: Request):
     return templates.TemplateResponse("register_customer.html", {"request": request, "booking_data": booking_data})
 
 @router.get("/account", response_class=HTMLResponse)
-def get_customer_account_page(request: Request, user: User = Depends(get_current_customer_user), session: Session = Depends(get_session)):
+def get_customer_account_page(
+    request: Request,
+    tab: str = "active",
+    sort: str = "default",
+    user: User = Depends(get_current_customer_user),
+    session: Session = Depends(get_session)
+):
     customer = session.exec(select(Customer).where(Customer.user_id == user.id)).first()
     if not customer: raise HTTPException(status_code=404, detail="Customer profile not found")
 
-    # Get all orders for this customer (same logic as API endpoint)
-    orders = session.exec(
-        select(Order)
-        .where(Order.customer_id == customer.id)
-        .order_by(Order.created_at.desc())
-    ).all()
+    # Define active and completed order statuses
+    active_statuses = ["Created", "PickedUp", "AssignedToDriver", "Processing", "ReadyForDelivery", "OutForDelivery"]
+    completed_statuses = ["Delivered", "Closed"]
+
+    if tab == "active":
+        # Get active orders
+        orders = session.exec(
+            select(Order)
+            .where(Order.customer_id == customer.id, Order.status.in_(active_statuses))
+            .order_by(Order.created_at.desc())
+        ).all()
+    elif tab == "history":
+        # Get completed orders with sorting
+        query = select(Order).where(Order.customer_id == customer.id, Order.status.in_(completed_statuses))
+
+        if sort == "date_newest":
+            query = query.order_by(Order.delivered_at.desc())
+        elif sort == "date_oldest":
+            query = query.order_by(Order.delivered_at.asc())
+        elif sort == "price_high":
+            # We'll sort by price after calculating costs
+            query = query.order_by(Order.id.desc())  # Default fallback
+        elif sort == "price_low":
+            # We'll sort by price after calculating costs
+            query = query.order_by(Order.id.desc())  # Default fallback
+        else:  # default = most recent completion
+            query = query.order_by(Order.delivered_at.desc())
+
+        orders = session.exec(query).all()
+    else:
+        # Default to active orders
+        orders = session.exec(
+            select(Order)
+            .where(Order.customer_id == customer.id, Order.status.in_(active_statuses))
+            .order_by(Order.created_at.desc())
+        ).all()
 
     # Enhance orders with cost and driver info (same as API endpoint)
     enhanced_orders = []
@@ -292,6 +328,17 @@ def get_customer_account_page(request: Request, user: User = Depends(get_current
 
         # Use confirmed_load_count if available, otherwise basket_count, otherwise 0
         number_of_loads = order.confirmed_load_count or order.basket_count or 0
+
+        # Calculate fulfillment time for completed orders
+        fulfillment_time = None
+        if order.delivered_at and order.created_at:
+            duration = order.delivered_at - order.created_at
+            hours = duration.total_seconds() // 3600
+            minutes = (duration.total_seconds() % 3600) // 60
+            if hours > 0:
+                fulfillment_time = f"{int(hours)} hours, {int(minutes)} minutes"
+            else:
+                fulfillment_time = f"{int(minutes)} minutes"
 
         # Create enhanced order object
         enhanced_order = {
@@ -337,11 +384,25 @@ def get_customer_account_page(request: Request, user: User = Depends(get_current
             'total_cost': total_cost,
             'number_of_loads': number_of_loads,
             'driver_name': driver_name,
-            'driver_id': driver_id
+            'driver_id': driver_id,
+            'fulfillment_time': fulfillment_time
         }
         enhanced_orders.append(enhanced_order)
 
-    return templates.TemplateResponse("account.html", {"request": request, "customer": customer, "orders": enhanced_orders})
+    # For history tab with price sorting, sort the enhanced orders by total_cost
+    if tab == "history" and sort in ["price_high", "price_low"]:
+        if sort == "price_high":
+            enhanced_orders.sort(key=lambda x: x['total_cost'], reverse=True)
+        elif sort == "price_low":
+            enhanced_orders.sort(key=lambda x: x['total_cost'])
+
+    return templates.TemplateResponse("account.html", {
+        "request": request,
+        "customer": customer,
+        "orders": enhanced_orders,
+        "current_tab": tab,
+        "current_sort": sort
+    })
 
 @router.post("/account/update")
 def update_customer_details_web(

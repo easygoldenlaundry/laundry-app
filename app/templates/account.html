@@ -48,45 +48,179 @@
         color: white; border: none; border-radius: 4px; font-size: 1em; cursor: pointer;
     }
 
-    .orders-list { list-style-type: none; padding: 0; }
+    /* Tab Switch */
+    .tab-switch {
+        display: flex;
+        background: #f8f9fa;
+        border-radius: 25px;
+        padding: 4px;
+        margin-bottom: 2em;
+        position: relative;
+    }
+
+    .tab-button {
+        flex: 1;
+        padding: 0.8em 1em;
+        border: none;
+        background: transparent;
+        border-radius: 21px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-align: center;
+        position: relative;
+        z-index: 2;
+    }
+
+    .tab-button.active {
+        color: white;
+        font-weight: 600;
+    }
+
+    .tab-slider {
+        position: absolute;
+        top: 4px;
+        bottom: 4px;
+        background: #007bff;
+        border-radius: 21px;
+        transition: transform 0.3s ease;
+        z-index: 1;
+        width: calc(50% - 4px);
+        transform: translateX(0);
+    }
+
+    .tab-switch[data-active="history"] .tab-slider {
+        transform: translateX(100%);
+    }
+
+    /* Sorting Menu */
+    .sort-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5em;
+        padding-bottom: 1em;
+        border-bottom: 1px solid #eee;
+    }
+
+    .sort-dropdown {
+        position: relative;
+        display: inline-block;
+    }
+
+    .sort-button {
+        padding: 0.5em 1em;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.5em;
+        font-size: 0.9em;
+    }
+
+    .sort-dropdown-content {
+        display: none;
+        position: absolute;
+        background: white;
+        min-width: 160px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        border-radius: 6px;
+        z-index: 1000;
+        border: 1px solid #dee2e6;
+        margin-top: 4px;
+    }
+
+    .sort-dropdown-content a {
+        color: #333;
+        padding: 0.75em 1em;
+        text-decoration: none;
+        display: block;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+
+    .sort-dropdown-content a:hover {
+        background: #f8f9fa;
+    }
+
+    .sort-dropdown:hover .sort-dropdown-content {
+        display: block;
+    }
+
+    .order-count {
+        font-size: 0.9em;
+        color: #666;
+    }
+
+    /* Orders */
+    .orders-list { list-style-type: none; padding: 0; margin: 0; }
     .order-item {
+        background: #fff;
+        border: 1px solid #e9ecef;
+        border-radius: 12px;
+        padding: 1.5em;
+        margin-bottom: 1em;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        transition: box-shadow 0.2s;
+    }
+
+    .order-item:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .order-header {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
-        padding: 1em;
-        border-bottom: 1px solid #eee;
-        gap: 1em;
+        margin-bottom: 1em;
     }
 
     @media (max-width: 768px) {
-        .order-item {
+        .order-header {
             flex-direction: column;
-            align-items: stretch;
             gap: 0.5em;
         }
     }
 
-    .order-item:last-child { border-bottom: none; }
+    .order-title {
+        font-size: 1.1em;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
 
-    .order-info {
-        flex: 1;
+    .order-meta {
+        font-size: 0.85em;
+        color: #666;
+        margin: 0;
+    }
+
+    .order-content {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 1.5em;
+        align-items: center;
+    }
+
+    @media (max-width: 768px) {
+        .order-content {
+            grid-template-columns: 1fr;
+            gap: 1em;
+        }
     }
 
     .order-details {
         display: flex;
-        gap: 1em;
-        margin-top: 0.5em;
-        flex-wrap: wrap;
-    }
-
-    @media (max-width: 768px) {
-        .order-details {
-            flex-direction: column;
-            gap: 0.3em;
-        }
+        flex-direction: column;
+        gap: 0.5em;
     }
 
     .order-detail {
+        display: flex;
+        align-items: center;
+        gap: 0.5em;
         font-size: 0.9em;
         color: #666;
     }
@@ -98,9 +232,8 @@
     .order-actions {
         display: flex;
         flex-direction: column;
-        align-items: flex-end;
         gap: 0.5em;
-        min-width: 120px;
+        align-items: flex-end;
     }
 
     @media (max-width: 768px) {
@@ -108,57 +241,154 @@
             flex-direction: row;
             justify-content: space-between;
             align-items: center;
-            min-width: unset;
         }
     }
 
-    .order-status {
-        padding: 0.3em 0.8em;
-        border-radius: 15px;
-        font-size: 0.85em;
-        font-weight: 500;
-        color: #fff;
-        text-align: center;
-        white-space: nowrap;
+    /* Status Visualization */
+    .status-timeline {
+        display: flex;
+        align-items: center;
+        gap: 0.25em;
+        margin: 0.5em 0;
     }
 
+    .status-step {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #e9ecef;
+        position: relative;
+    }
+
+    .status-step.active {
+        background: #007bff;
+        box-shadow: 0 0 0 2px rgba(0,123,255,0.3);
+    }
+
+    .status-step.completed {
+        background: #28a745;
+    }
+
+    .status-current {
+        background: #007bff;
+        color: white;
+        padding: 0.4em 0.8em;
+        border-radius: 20px;
+        font-size: 0.8em;
+        font-weight: 500;
+        white-space: nowrap;
+        margin: 0 0.5em;
+    }
+
+    /* Buttons */
+    .btn-track, .btn-pay, .btn-review {
+        padding: 0.6em 1.2em;
+        text-decoration: none;
+        border-radius: 6px;
+        border: 1px solid #dee2e6;
+        font-size: 0.85em;
+        font-weight: 500;
+        text-align: center;
+        display: inline-block;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-track {
+        background: #f8f9fa;
+        color: #495057;
+    }
+
+    .btn-track:hover {
+        background: #e9ecef;
+    }
+
+    .btn-pay {
+        background: #dc3545;
+        color: white;
+        border-color: #dc3545;
+    }
+
+    .btn-pay:hover {
+        background: #c82333;
+        border-color: #bd2130;
+    }
+
+    .btn-review {
+        background: #28a745;
+        color: white;
+        border-color: #28a745;
+    }
+
+    .btn-review:hover {
+        background: #218838;
+        border-color: #1e7e34;
+    }
+
+    .paid-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25em;
+        background: #d4edda;
+        color: #155724;
+        padding: 0.4em 0.8em;
+        border-radius: 20px;
+        font-size: 0.8em;
+        font-weight: 500;
+    }
+
+    .paid-indicator i {
+        font-size: 0.9em;
+    }
+
+    /* Status colors */
     .status-created { background-color: #6c757d; }
+    .status-pickedup { background-color: #20c997; }
+    .status-assignedtodriver { background-color: #ffc107; color: #212529; }
     .status-processing { background-color: #fd7e14; }
     .status-readyfordelivery { background-color: #0d6efd; }
     .status-outfordelivery { background-color: #0d6efd; }
     .status-delivered { background-color: #198754; }
     .status-closed { background-color: #198754; }
-    .status-pickedup { background-color: #20c997; }
-    .status-assignedtodriver { background-color: #ffc107; }
     .status-default { background-color: #adb5bd; }
 
-    .btn-track {
-        padding: 0.5em 1em;
-        text-decoration: none;
-        background-color: #e9ecef;
-        color: #333;
-        border-radius: 5px;
-        border: 1px solid #ced4da;
+    /* Fulfillment time */
+    .fulfillment-time {
+        font-style: italic;
+        color: #28a745;
         font-size: 0.9em;
-        text-align: center;
-        display: inline-block;
+        margin-top: 0.25em;
     }
 
+    /* Cost display */
     .order-cost {
-        font-size: 1.1em;
+        font-size: 1.2em;
         font-weight: bold;
         color: #198754;
     }
 
+    /* Empty states */
     .no-orders {
         text-align: center;
-        padding: 2em;
+        padding: 3em 2em;
         color: #666;
+    }
+
+    .no-orders .icon {
+        font-size: 3em;
+        margin-bottom: 1em;
+        opacity: 0.5;
+    }
+
+    .no-orders h3 {
+        margin: 0 0 0.5em 0;
+        color: #333;
     }
 
     .no-orders a {
         color: #007bff;
         text-decoration: none;
+        font-weight: 500;
     }
 
     .no-orders a:hover {
@@ -190,40 +420,178 @@
 
     <main class="orders-card">
         <h2>My Orders</h2>
+
+        <!-- Tab Switch -->
+        <div class="tab-switch" data-active="{{ current_tab }}">
+            <button class="tab-button {% if current_tab == 'active' %}active{% endif %}" onclick="switchTab('active')">
+                Active
+            </button>
+            <div class="tab-slider"></div>
+            <button class="tab-button {% if current_tab == 'history' %}active{% endif %}" onclick="switchTab('history')">
+                History
+            </button>
+        </div>
+
+        {% if current_tab == 'history' %}
+        <!-- Sorting Menu for History -->
+        <div class="sort-container">
+            <div class="sort-dropdown">
+                <button class="sort-button">
+                    <i class="fas fa-sort-amount-down"></i>
+                    Sort by
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <div class="sort-dropdown-content">
+                    <a href="?tab=history&sort=default">Most Recent</a>
+                    <a href="?tab=history&sort=date_oldest">Oldest First</a>
+                    <a href="?tab=history&sort=price_high">Price: High to Low</a>
+                    <a href="?tab=history&sort=price_low">Price: Low to High</a>
+                </div>
+            </div>
+            <div class="order-count">
+                {{ orders|length }} order{{ 's' if orders|length != 1 else '' }}
+            </div>
+        </div>
+        {% endif %}
+
         {% if orders %}
         <ul class="orders-list">
             {% for order in orders %}
             <li class="order-item">
-                <div class="order-info">
+                <div class="order-header">
                     <div>
-                        <strong>Order #{{ order.id }}</strong>
-                        <p style="margin: 0.3em 0; color: #555;">Placed on: {{ order.created_at.strftime('%d %b %Y, %H:%M') }}</p>
+                        <h3 class="order-title">Order #{{ order.id }}</h3>
+                        {% if current_tab == 'active' %}
+                        <p class="order-meta">Placed {{ order.created_at.strftime('%d %b %Y, %H:%M') }}</p>
+                        {% else %}
+                        <p class="order-meta">Completed {{ order.delivered_at.strftime('%d %b %Y, %H:%M') if order.delivered_at else order.closed_at.strftime('%d %b %Y, %H:%M') if order.closed_at else 'Recently' }}</p>
+                        {% endif %}
                     </div>
+                    {% if current_tab == 'active' %}
+                    <!-- Status Visualization for Active Orders -->
+                    <div class="status-timeline">
+                        {% set status_order = ['Created', 'PickedUp', 'AssignedToDriver', 'Processing', 'ReadyForDelivery', 'OutForDelivery'] %}
+                        {% set current_index = status_order.index(order.status) if order.status in status_order else 0 %}
+                        {% for i in range(status_order|length) %}
+                            {% if i < current_index %}
+                                <div class="status-step completed"></div>
+                            {% elif i == current_index %}
+                                <div class="status-step active"></div>
+                            {% else %}
+                                <div class="status-step"></div>
+                            {% endif %}
+                        {% endfor %}
+                        <span class="status-current">{{ order.status.replace('_', ' ').title() }}</span>
+                        {% if current_index < status_order|length - 1 %}
+                        <div class="status-step"></div>
+                        <div class="status-step"></div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="order-content">
                     <div class="order-details">
                         {% if order.total_cost > 0 %}
-                        <span class="order-detail order-cost">R{{ "%.2f"|format(order.total_cost) }}</span>
+                        <div class="order-detail">
+                            <i class="fas fa-dollar-sign"></i>
+                            <span class="order-cost">R{{ "%.2f"|format(order.total_cost) }}</span>
+                        </div>
                         {% endif %}
+
                         {% if order.number_of_loads > 0 %}
-                        <span class="order-detail"><strong>{{ order.number_of_loads }}</strong> load{{ 's' if order.number_of_loads != 1 else '' }}</span>
+                        <div class="order-detail">
+                            <i class="fas fa-tshirt"></i>
+                            <strong>{{ order.number_of_loads }}</strong> load{{ 's' if order.number_of_loads != 1 else '' }}
+                        </div>
                         {% endif %}
+
                         {% if order.driver_name %}
-                        <span class="order-detail">Driver: <strong>{{ order.driver_name }}</strong></span>
+                        <div class="order-detail">
+                            <i class="fas fa-truck"></i>
+                            Driver: <strong>{{ order.driver_name }}</strong>
+                        </div>
+                        {% endif %}
+
+                        {% if current_tab == 'history' and order.fulfillment_time %}
+                        <div class="fulfillment-time">
+                            We took care of your laundry in {{ order.fulfillment_time }}
+                        </div>
                         {% endif %}
                     </div>
-                </div>
-                <div class="order-actions">
-                    <span class="order-status status-{{ order.status.lower().replace(' ', '').replace('_', '') if order.status else 'default' }}">{{ order.status.replace('_', ' ').title() }}</span>
-                    <a href="/track/{{ order.tracking_token }}" class="btn-track">Track</a>
+
+                    <div class="order-actions">
+                        {% if current_tab == 'active' %}
+                            <!-- Payment status for active orders -->
+                            {% if order.total_cost > 0 %}
+                                <div class="paid-indicator">
+                                    <i class="fas fa-check-circle"></i>
+                                    Paid
+                                </div>
+                            {% else %}
+                                <button class="btn-pay" onclick="alert('Payment integration coming soon!')">
+                                    <i class="fas fa-credit-card"></i> Pay Now
+                                </button>
+                            {% endif %}
+                            <a href="/track/{{ order.tracking_token }}" class="btn-track">
+                                <i class="fas fa-map-marker-alt"></i> Track
+                            </a>
+                        {% else %}
+                            <!-- Review button for history -->
+                            <button class="btn-review" onclick="alert('Review feature coming soon!')">
+                                <i class="fas fa-star"></i> Review
+                            </button>
+                            <a href="/track/{{ order.tracking_token }}" class="btn-track">
+                                <i class="fas fa-eye"></i> View Details
+                            </a>
+                        {% endif %}
+                    </div>
                 </div>
             </li>
             {% endfor %}
         </ul>
         {% else %}
         <div class="no-orders">
-            <p>You haven't placed any orders yet.</p>
+            <div class="icon">
+                <i class="fas fa-shopping-cart"></i>
+            </div>
+            <h3>
+                {% if current_tab == 'active' %}
+                No Active Orders
+                {% else %}
+                No Order History
+                {% endif %}
+            </h3>
+            <p>
+                {% if current_tab == 'active' %}
+                You don't have any orders in progress.
+                {% else %}
+                Your completed orders will appear here.
+                {% endif %}
+            </p>
             <p><a href="/book">Book your first pickup!</a></p>
         </div>
         {% endif %}
     </main>
 </div>
+
+<script>
+function switchTab(tabName) {
+    // Update URL without page reload
+    const url = new URL(window.location);
+    url.searchParams.set('tab', tabName);
+    url.searchParams.delete('sort'); // Reset sort when switching tabs
+    window.location.href = url.toString();
+}
+
+// Initialize tab switch on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const tabSwitch = document.querySelector('.tab-switch');
+    const currentTab = '{{ current_tab }}';
+
+    // Update tab switch visual state
+    tabSwitch.setAttribute('data-active', currentTab);
+});
+</script>
+
 {% endblock %}
