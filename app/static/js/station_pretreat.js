@@ -84,7 +84,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (images.length > 0) {
                 images.forEach(image => {
                     const imgElement = document.createElement('img');
-                    imgElement.src = `/${image.path.replace(/\\/g, '/')}`;
+                    imgElement.src = `/data/${image.path.replace(/\\/g, '/')}`;
+                    imgElement.style.width = '100px';
+                    imgElement.style.height = '100px';
+                    imgElement.style.objectFit = 'cover';
+                    imgElement.style.margin = '5px';
+                    imgElement.style.border = '1px solid #ccc';
                     stainedItemsGrid.appendChild(imgElement);
                 });
             } else {
@@ -161,11 +166,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!activeBasketId) return;
         startBtn.disabled = true;
         try {
-            await fetch(`/api/baskets/${activeBasketId}/start_soaking`, {
+            const response = await fetch(`/api/baskets/${activeBasketId}/start_soaking`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id: USER_ID })
             });
+            if (response.ok) {
+                // Update the basket data in cache and re-render
+                const updatedBasket = await response.json();
+                basketDataCache.set(activeBasketId, updatedBasket);
+                renderActiveOrder();
+            }
         } catch (error) {
             alert(`Error starting timer: ${error.message}`);
             startBtn.disabled = false;
