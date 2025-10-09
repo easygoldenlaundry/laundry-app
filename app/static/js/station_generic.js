@@ -146,30 +146,40 @@ document.addEventListener('DOMContentLoaded', () => {
             await fetchAndRenderMachineStatus();
             const response = await fetch(`/api/queues/${HUB_ID}/${STATION_TYPE}`);
             if (!response.ok) throw new Error("Failed to fetch queue.");
-            
-            const basketsInQueue = await response.json();
-            let allBasketsToDisplay = [...basketsInQueue];
-            let idToSetActive = null;
 
-            let runningBasketId = null;
+            const basketsInQueue = await response.json();
+
+            // Get IDs of baskets currently running in machines
+            const runningBasketIds = new Set();
             for (const machine of machineStates.values()) {
                 if (machine.state === 'running' && machine.current_basket_id) {
-                    runningBasketId = machine.current_basket_id;
-                    break;
+                    runningBasketIds.add(machine.current_basket_id);
                 }
             }
 
-            if (runningBasketId) {
-                idToSetActive = runningBasketId;
-                if (!allBasketsToDisplay.some(b => b.id === runningBasketId)) {
-                    const basketRes = await fetch(`/api/baskets/${runningBasketId}`);
+            // Filter out baskets that are already running in machines
+            const availableBaskets = basketsInQueue.filter(b => !runningBasketIds.has(b.id));
+
+            let allBasketsToDisplay = [...availableBaskets];
+            let idToSetActive = null;
+
+            // If there are running baskets, show them at the top for monitoring
+            if (runningBasketIds.size > 0) {
+                for (const runningId of runningBasketIds) {
+                    const basketRes = await fetch(`/api/baskets/${runningId}`);
                     if (basketRes.ok) {
                         const runningBasketData = await basketRes.json();
                         allBasketsToDisplay.unshift(runningBasketData);
                     }
                 }
-            } else if (basketsInQueue.length > 0) {
-                idToSetActive = basketsInQueue[0].id;
+            }
+
+            // Set active basket: prefer the first available basket, or first running basket if none available
+            if (availableBaskets.length > 0) {
+                idToSetActive = availableBaskets[0].id;
+            } else if (runningBasketIds.size > 0) {
+                // If no available baskets, show the first running basket for monitoring
+                idToSetActive = Array.from(runningBasketIds)[0];
             }
 
             renderQueue(allBasketsToDisplay);
@@ -198,28 +208,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!activeBasketId) return;
         startBtn.disabled = true;
 
-        // Immediately remove the basket from the queue display
-        const queueItems = document.querySelectorAll('#queue-list li[data-basket-id]');
-        queueItems.forEach(item => {
-            if (parseInt(item.dataset.basketId) === activeBasketId) {
-                item.remove();
-            }
-        });
-
-        // Clear active basket since it's now running
-        setActiveBasket(null);
-
         try {
-            await fetch(`/api/baskets/${activeBasketId}/start_cycle?station_type=${STATION_TYPE}`, {
+            const response = await fetch(`/api/baskets/${activeBasketId}/start_cycle?station_type=${STATION_TYPE}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id: USER_ID })
             });
+
+            if (response.ok) {
+                // Clear active basket since it's now running and will be removed from queue
+                setActiveBasket(null);
+                // Refresh the queue to reflect the changes
+                await fetchQueue();
+            } else {
+                throw new Error(`HTTP ${response.status}`);
+            }
         } catch (error) {
-            alert(`Error: ${error.message}`);
+            alert(`Error starting cycle: ${error.message}`);
             startBtn.disabled = false;
-            // If failed, refetch the queue to restore the basket
-            fetchQueue();
         }
     };
     

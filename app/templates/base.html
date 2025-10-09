@@ -147,20 +147,23 @@
         updateAdminNotificationDot();
 
         // Use the global socket for base template features
-        socket.on('connect', () => {
-            socket.emit('join', { room: 'hub:1' });
-        });
+        const socket = window.appSocket;
+        if (socket) {
+            socket.on('connect', () => {
+                socket.emit('join', { room: 'hub:1' });
+            });
 
-        // Event from backend when a customer sends a new message
-        socket.on('new_customer_message', () => {
-            updateAdminNotificationDot();
-        });
-        
-        // Event from backend after an admin resolves a chat
-        // This ensures the dot disappears immediately without a full page reload.
-        socket.on('unread_count_updated', () => {
-            updateAdminNotificationDot();
-        });
+            // Event from backend when a customer sends a new message
+            socket.on('new_customer_message', () => {
+                updateAdminNotificationDot();
+            });
+
+            // Event from backend after an admin resolves a chat
+            // This ensures the dot disappears immediately without a full page reload.
+            socket.on('unread_count_updated', () => {
+                updateAdminNotificationDot();
+            });
+        }
     });
     </script>
     {% endif %}
