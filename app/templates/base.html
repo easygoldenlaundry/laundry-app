@@ -100,27 +100,29 @@
                      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js'; 
                      document.head.appendChild(script);"></script>
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // --- THIS IS THE FIX ---
-        // Create a single, globally accessible socket instance.
-        // All other page-specific scripts will reuse this instance.
+    // Initialize socket immediately when script loads
+    (function() {
         console.log('Initializing socket for user role:', '{{ request.state.user.role }}');
-        
-        // Wait a moment for socket.io to load, then initialize
-        setTimeout(() => {
+
+        function initSocket() {
             if (typeof io !== 'undefined') {
                 const socket = io({ transports: ['websocket'] });
                 window.appSocket = socket;
                 console.log('Socket initialized successfully');
                 document.dispatchEvent(new Event('socket:ready'));
-            } else {
-                console.error('Socket.io library not loaded properly');
-                // Create a dummy socket object to prevent errors
-                window.appSocket = { on: () => {}, emit: () => {}, connected: false };
+                return true;
             }
-        }, 100);
-        // --- END OF FIX ---
+            return false;
+        }
 
+        // Try to initialize immediately
+        if (!initSocket()) {
+            // If not ready, wait a bit and try again
+            setTimeout(initSocket, 100);
+        }
+    })();
+
+    document.addEventListener('DOMContentLoaded', () => {
         const notificationDot = document.getElementById('chat-notification-dot');
 
         const updateAdminNotificationDot = async () => {

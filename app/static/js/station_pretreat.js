@@ -84,7 +84,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (images.length > 0) {
                 images.forEach(image => {
                     const imgElement = document.createElement('img');
-                    imgElement.src = `/${image.path.replace(/\\/g, '/')}`;
+                    // Handle both old and new path formats
+                    let imagePath = image.path.replace(/\\/g, '/');
+                    if (!imagePath.startsWith('data/') && !imagePath.startsWith('orders/')) {
+                        imagePath = 'data/' + imagePath;
+                    }
+                    imgElement.src = `/${imagePath}`;
                     imgElement.style.width = '100px';
                     imgElement.style.height = '100px';
                     imgElement.style.objectFit = 'cover';
