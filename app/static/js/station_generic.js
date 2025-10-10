@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Validate that we have a valid start time
         if (!runningMachine.cycle_started_at) {
-            console.warn('Cannot start timer: cycle_started_at is not set');
+            console.warn('Cannot start timer: cycle_started_at is not set', runningMachine);
             return;
         }
 
@@ -117,12 +117,36 @@ document.addEventListener('DOMContentLoaded', () => {
             startTimeStr += 'Z';
         }
         const startTime = new Date(startTimeStr);
-
-        // Validate that the start time is reasonable (not in the future)
         const now = new Date();
-        if (startTime > now) {
-            console.warn('Cannot start timer: start time is in the future');
+
+        // More robust validation with logging
+        const timeDiff = startTime.getTime() - now.getTime();
+        const timeDiffMinutes = timeDiff / (1000 * 60);
+
+        if (isNaN(startTime.getTime())) {
+            console.error('Invalid start time format:', startTimeStr, 'parsed as:', startTime);
             return;
+        }
+
+        if (Math.abs(timeDiffMinutes) > 60) { // More than 1 hour difference
+            console.warn('Timer start time is unreasonable:', {
+                startTime: startTime.toISOString(),
+                now: now.toISOString(),
+                diffMinutes: timeDiffMinutes,
+                machine: runningMachine
+            });
+
+            // If start time is more than 10 minutes in the future, don't start timer
+            if (timeDiffMinutes > 10) {
+                console.warn('Start time too far in future, skipping timer');
+                return;
+            }
+
+            // If start time is more than 10 minutes in the past, use current time instead
+            if (timeDiffMinutes < -10) {
+                console.warn('Start time too far in past, using current time for timer');
+                startTime.setTime(now.getTime());
+            }
         }
 
         const targetDuration = runningMachine.cycle_time_seconds;
