@@ -11,8 +11,16 @@ socketio_server = socketio.AsyncServer(
 )
 
 def model_to_dict(model_instance: SQLModel) -> dict:
-    """Converts a SQLModel instance to a dictionary."""
-    return json.loads(model_instance.json())
+    """
+    Converts a SQLModel instance to a dictionary.
+    Excludes relationships to avoid triggering lazy loading (N+1 queries).
+    """
+    # Define relationships to exclude for common models
+    exclude_relations = {
+        'claims', 'events', 'images', 'messages', 'finance_entries',
+        'customer', 'bags', 'baskets', 'order'
+    }
+    return json.loads(model_instance.json(exclude=exclude_relations))
 
 
 async def broadcast_order_update(order):

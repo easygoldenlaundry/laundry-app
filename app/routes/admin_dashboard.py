@@ -62,13 +62,19 @@ async def get_all_orders_data(
     """Fetches all orders for the detailed historical table."""
     orders = session.exec(dashboard_queries.get_all_orders(session)).all()
     
+    # Exclude relationships that cause N+1 queries, but keep the ones we need
+    exclude_relations = {
+        'claims', 'messages', 'finance_entries', 'bags'
+    }
+
     serialized_orders = []
     for order in orders:
-        order_dict = order.dict()
+        order_dict = json.loads(order.json(exclude=exclude_relations))
         order_dict['customer_name'] = order.customer.full_name if order.customer else 'N/A'
-        order_dict['events'] = [e.dict() for e in order.events]
-        order_dict['baskets'] = [b.dict() for b in order.baskets]
-        order_dict['images'] = [i.dict() for i in order.images]
+        # Use eager-loaded relationships to avoid N+1 queries
+        order_dict['events'] = [json.loads(e.json()) for e in order.events]
+        order_dict['baskets'] = [json.loads(b.json()) for b in order.baskets]
+        order_dict['images'] = [json.loads(i.json()) for i in order.images]
         serialized_orders.append(order_dict)
     return serialized_orders
 
