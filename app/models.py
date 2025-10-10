@@ -73,6 +73,7 @@ class Order(SQLModel, table=True):
     dispatch_method: Optional[str] = Field(default="inhouse")
     distance_km: Optional[float] = Field(default=None)
     pickup_cost: Optional[float] = Field(default=None)
+    processing_option: Optional[str] = Field(default="standard")
     
     # --- NEW FIELDS FOR DRIVER TRACKING ---
     pickup_lat: Optional[float] = None

@@ -33,6 +33,7 @@ class OrderResponse(BaseModel):
     created_at: datetime
     driver_name: Optional[str] = None
     driver_id: Optional[int] = None
+    processing_option: Optional[str] = None
 
 # --- NEW ENDPOINT: Get all orders for authenticated user ---
 @router.get("/my-orders")
@@ -87,7 +88,8 @@ async def get_user_orders(request: Request, user: User = Depends(get_current_api
                 number_of_loads=number_of_loads,
                 created_at=order.created_at,
                 driver_name=driver_name,
-                driver_id=driver_id
+                driver_id=driver_id,
+                processing_option=order.processing_option
             ))
 
         # Return JSON for mobile app, HTML for browser

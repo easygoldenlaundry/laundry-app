@@ -13,6 +13,8 @@ from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from app.db import get_session
+
+logger = logging.getLogger(__name__)
 from app.models import Order, Event, Bag, Setting, User, Customer
 from app.sockets import broadcast_order_update
 from app.auth import get_current_user, get_current_api_user
@@ -55,13 +57,22 @@ async def create_booking_api(
     if not customer:
         raise HTTPException(status_code=404, detail="Customer profile not found for the authenticated user.")
 
-    slots_data = capacity_planner.generate_availability_slots(session)
-    if processing_option == 'standard':
-        if not slots_data.get("slot"):
-             raise HTTPException(status_code=503, detail="Standard processing is currently unavailable. Please try again later.")
-        sla_deadline = datetime.fromisoformat(slots_data['slot']['timestamp'])
-    else: # wait_and_save
-        sla_deadline = datetime.now(timezone.utc) + timedelta(hours=48)
+    try:
+        slots_data = capacity_planner.generate_availability_slots(session)
+        if processing_option == 'standard':
+            if not slots_data.get("slot"):
+                 raise HTTPException(status_code=503, detail="Standard processing is currently unavailable. Please try again later.")
+            sla_deadline = datetime.fromisoformat(slots_data['slot']['timestamp'])
+        else: # wait_and_save
+            sla_deadline = datetime.now(timezone.utc) + timedelta(hours=48)
+    except Exception as e:
+        # If capacity planning fails (e.g., database issues), provide fallback behavior
+        logger.warning(f"Capacity planning failed: {str(e)}. Using fallback SLA.")
+        if processing_option == 'standard':
+            # For standard processing, if capacity planning fails, use a reasonable default
+            sla_deadline = datetime.now(timezone.utc) + timedelta(hours=24)  # 24 hours default
+        else: # wait_and_save
+            sla_deadline = datetime.now(timezone.utc) + timedelta(hours=48)
     
     customer.address = pickup_address
     customer.latitude = pickup_latitude
@@ -81,6 +92,7 @@ async def create_booking_api(
         distance_km=distance_km,
         pickup_cost=pickup_cost,
         dispatch_method="inhouse",
+        processing_option=processing_option,
         # --- POPULATE NEW FIELDS ---
         pickup_lat=pickup_latitude,
         pickup_lon=pickup_longitude,
