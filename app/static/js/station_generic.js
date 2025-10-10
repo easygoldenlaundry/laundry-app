@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
             startBtn.disabled = true;
             finishBtn.disabled = false;
             claimBtn.disabled = true;
-            startTimer(runningMachine);
+            startTimer(runningMachine); // Use accurate server-provided timer
         } else {
             startBtn.disabled = false;
             finishBtn.disabled = true;
@@ -86,20 +86,51 @@ document.addEventListener('DOMContentLoaded', () => {
         return defaults[STATION_TYPE] || 1800;
     };
 
+    const startTimerOptimistic = (targetDuration) => {
+        clearInterval(countdownInterval);
+
+        // Start timer immediately with current time as start time
+        const startTime = new Date();
+
+        const update = () => {
+            const now = new Date();
+            const elapsedSeconds = (now.getTime() - startTime.getTime()) / 1000;
+
+            timerDisplay.textContent = `${formatTime(elapsedSeconds)} / ${formatTime(targetDuration)}`;
+        };
+
+        update();
+        countdownInterval = setInterval(update, 1000);
+    };
+
     const startTimer = (runningMachine) => {
         clearInterval(countdownInterval);
-        
+
+        // Validate that we have a valid start time
+        if (!runningMachine.cycle_started_at) {
+            console.warn('Cannot start timer: cycle_started_at is not set');
+            return;
+        }
+
         let startTimeStr = runningMachine.cycle_started_at;
         if (!startTimeStr.endsWith('Z')) {
             startTimeStr += 'Z';
         }
         const startTime = new Date(startTimeStr);
+
+        // Validate that the start time is reasonable (not in the future)
+        const now = new Date();
+        if (startTime > now) {
+            console.warn('Cannot start timer: start time is in the future');
+            return;
+        }
+
         const targetDuration = runningMachine.cycle_time_seconds;
 
         const update = () => {
             const now = new Date();
-            const elapsedSeconds = (now.getTime() - startTime.getTime()) / 1000;
-            
+            const elapsedSeconds = Math.max(0, (now.getTime() - startTime.getTime()) / 1000);
+
             timerDisplay.textContent = `${formatTime(elapsedSeconds)} / ${formatTime(targetDuration)}`;
         };
 
@@ -210,6 +241,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!activeBasketId) return;
         startBtn.disabled = true;
 
+        // OPTIMISTIC UPDATE: Immediately start the timer and update UI
+        const cycleTime = getCycleTime();
+        startTimerOptimistic(cycleTime);
+
         try {
             const response = await fetch(`/api/baskets/${activeBasketId}/start_cycle?station_type=${STATION_TYPE}`, {
                 method: 'POST',
@@ -218,14 +253,17 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (response.ok) {
-                // Keep the basket active since it's now running
                 // WebSocket will update the queue automatically
+                // The optimistic timer will be replaced with real data when machine status updates
             } else {
                 throw new Error(`HTTP ${response.status}`);
             }
         } catch (error) {
             alert(`Error starting cycle: ${error.message}`);
             startBtn.disabled = false;
+            // Revert optimistic timer on error
+            clearInterval(countdownInterval);
+            renderActiveOrder();
         }
     };
     
