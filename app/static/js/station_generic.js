@@ -113,10 +113,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let startTimeStr = runningMachine.cycle_started_at;
+        // Ensure the timestamp is treated as UTC
         if (!startTimeStr.endsWith('Z')) {
             startTimeStr += 'Z';
         }
-        const startTime = new Date(startTimeStr);
+
+        // Use Date.parse() to ensure UTC interpretation, then create Date object
+        // This is more reliable than new Date(string) for UTC timestamps
+        const parsedTime = Date.parse(startTimeStr);
+        const startTime = new Date(parsedTime);
         const now = new Date();
 
         // More robust validation with logging
