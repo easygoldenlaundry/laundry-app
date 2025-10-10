@@ -1,7 +1,5 @@
 # app/routes/orders.py
-from fastapi import APIRouter, Depends, HTTPException, Form, UploadFile, File, Request
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
+from fastapi import APIRouter, Depends, HTTPException, Form, UploadFile, File
 from sqlmodel import Session, select, delete, update
 from typing import List, Optional
 from pydantic import BaseModel
@@ -18,11 +16,6 @@ import aiofiles
 import os
 
 router = APIRouter(prefix="/api/orders", tags=["Orders"])
-templates = Jinja2Templates(directory="app/templates")
-
-def wants_json(request) -> bool:
-    """Check if client wants JSON (mobile app) vs HTML (browser)"""
-    return "application/json" in request.headers.get("accept", "").lower()
 
 class OrderResponse(BaseModel):
     id: int
@@ -33,78 +26,66 @@ class OrderResponse(BaseModel):
     created_at: datetime
     driver_name: Optional[str] = None
     driver_id: Optional[int] = None
-    processing_option: Optional[str] = None
 
 # --- NEW ENDPOINT: Get all orders for authenticated user ---
-@router.get("/my-orders")
-async def get_user_orders(request: Request, user: User = Depends(get_current_api_user), session: Session = Depends(get_session)):
-    try:
-        # Get customer profile for the authenticated user
-        customer_profile = session.exec(select(Customer).where(Customer.user_id == user.id)).first()
-        if not customer_profile:
-            # Return empty list for both JSON and HTML
-            if wants_json(request):
-                return []
-            else:
-                return templates.TemplateResponse("orders.html", {"request": request, "orders": []})
+@router.get("/my-orders", response_model=List[OrderResponse])
+def get_my_orders(
+    user: User = Depends(get_current_api_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Gets all orders for the currently authenticated customer.
+    Returns orders in descending chronological order (newest first).
+    """
+    # Get customer profile for the authenticated user
+    customer_profile = session.exec(select(Customer).where(Customer.user_id == user.id)).first()
+    if not customer_profile:
+        return []
 
-        # Get all orders for this customer
-        orders = session.exec(
-            select(Order)
-            .where(Order.customer_id == customer_profile.id)
-            .order_by(Order.created_at.desc())
+    # Get all orders for this customer
+    orders = session.exec(
+        select(Order)
+        .where(Order.customer_id == customer_profile.id)
+        .order_by(Order.created_at.desc())
+    ).all()
+
+    response_orders = []
+    for order in orders:
+        # Calculate total cost from finance entries
+        total_cost = 0.0
+        finance_entries = session.exec(
+            select(FinanceEntry)
+            .where(FinanceEntry.order_id == order.id, FinanceEntry.entry_type == 'revenue')
         ).all()
+        for entry in finance_entries:
+            total_cost += entry.amount
 
-        response_orders = []
-        for order in orders:
-            # Calculate total cost from finance entries
-            total_cost = 0.0
-            finance_entries = session.exec(
-                select(FinanceEntry)
-                .where(FinanceEntry.order_id == order.id, FinanceEntry.entry_type == 'revenue')
-            ).all()
-            for entry in finance_entries:
-                total_cost += entry.amount
+        # Get driver info if assigned
+        driver_name = None
+        driver_id = None
+        if order.assigned_driver_id:
+            driver = session.exec(select(Driver).where(Driver.id == order.assigned_driver_id)).first()
+            if driver:
+                driver_user = session.get(User, driver.user_id)
+                if driver_user:
+                    driver_name = driver_user.display_name
+                    driver_id = driver.id
 
-            # Get driver info if assigned
-            driver_name = None
-            driver_id = None
-            if order.assigned_driver_id:
-                driver = session.exec(select(Driver).where(Driver.id == order.assigned_driver_id)).first()
-                if driver:
-                    driver_user = session.get(User, driver.user_id)
-                    if driver_user:
-                        driver_name = driver_user.display_name
-                        driver_id = driver.id
+        # Use confirmed_load_count if available, otherwise basket_count, otherwise 0
+        number_of_loads = order.confirmed_load_count or order.basket_count or 0
 
-            # Use confirmed_load_count if available, otherwise basket_count, otherwise 0
-            number_of_loads = order.confirmed_load_count or order.basket_count or 0
+        response_orders.append(OrderResponse(
+            id=order.id,
+            customer_id=order.customer_id,
+            status=order.status,
+            total_cost=total_cost,
+            number_of_loads=number_of_loads,
+            created_at=order.created_at,
+            driver_name=driver_name,
+            driver_id=driver_id
+        ))
 
-            response_orders.append(OrderResponse(
-                id=order.id,
-                customer_id=order.customer_id,
-                status=order.status,
-                total_cost=total_cost,
-                number_of_loads=number_of_loads,
-                created_at=order.created_at,
-                driver_name=driver_name,
-                driver_id=driver_id,
-                processing_option=order.processing_option
-            ))
-
-        # Return JSON for mobile app, HTML for browser
-        if wants_json(request):
-            return response_orders  # JSON array
-        else:
-            # Return HTML page for web browser
-            return templates.TemplateResponse("orders.html", {"request": request, "orders": response_orders})
-
-    except Exception as e:
-        print(f"Error fetching orders: {str(e)}")
-        if wants_json(request):
-            raise HTTPException(status_code=500, detail="Failed to fetch orders")
-        else:
-            return HTMLResponse(f"Error: {str(e)}", status_code=500)
+    return response_orders
 
 # --- NEW Pydantic Models for Response ---
 class DriverPublic(BaseModel):
