@@ -43,7 +43,9 @@ async def get_dashboard_kpis(session: Session = Depends(get_session)):
 @router.get("/api/dashboard/orders")
 async def get_dashboard_orders_table(session: Session = Depends(get_session)):
     """Fetches the detailed data for the real-time orders table."""
-    return dashboard_queries.get_active_inflight_orders(session)
+    orders = dashboard_queries.get_active_inflight_orders(session)
+    # Exclude unnecessary relationships to avoid N+1 queries during serialization
+    return [order.dict(exclude={'claims', 'events', 'images', 'messages', 'finance_entries', 'customer', 'bags'}) for order in orders]
 
 @router.get("/api/dashboard/station-metrics")
 async def get_all_station_metrics(session: Session = Depends(get_session)):
@@ -64,7 +66,8 @@ async def get_all_orders_data(
     
     serialized_orders = []
     for order in orders:
-        order_dict = order.dict()
+        # Only include the fields we actually need - avoid serializing unused relationships
+        order_dict = order.dict(exclude={'claims', 'messages', 'finance_entries', 'bags'})
         order_dict['customer_name'] = order.customer.full_name if order.customer else 'N/A'
         order_dict['events'] = [e.dict() for e in order.events]
         order_dict['baskets'] = [b.dict() for b in order.baskets]

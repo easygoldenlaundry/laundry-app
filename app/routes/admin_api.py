@@ -117,7 +117,8 @@ async def get_active_orders(hub_id: int = 1, session: Session = Depends(get_sess
     ).options(selectinload(Order.baskets)).order_by(Order.created_at.desc())
     results = session.exec(statement).all()
     
-    return [order.dict() for order in results]
+    # Exclude relationships that aren't needed to avoid N+1 queries
+    return [order.dict(exclude={'claims', 'events', 'images', 'messages', 'finance_entries', 'customer', 'bags'}) for order in results]
 
 @router.get("/unread-count")
 def get_total_unread_message_count(session: Session = Depends(get_session)):
