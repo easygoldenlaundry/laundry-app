@@ -11,30 +11,8 @@ socketio_server = socketio.AsyncServer(
 )
 
 def model_to_dict(model_instance: SQLModel) -> dict:
-    """
-    Converts a SQLModel instance to a dictionary.
-    Excludes relationships to avoid triggering lazy loading (N+1 queries).
-    Ensures datetime fields are properly serialized as ISO strings with timezone.
-    """
-    # Define relationships to exclude for common models
-    exclude_relations = {
-        'claims', 'events', 'images', 'messages', 'finance_entries',
-        'customer', 'bags', 'baskets', 'order'
-    }
-
-    # Get the dict with exclusions
-    result = json.loads(model_instance.json(exclude=exclude_relations))
-
-    # Ensure datetime fields are properly formatted as ISO strings with timezone
-    for key, value in result.items():
-        if isinstance(value, str) and len(value) >= 19:  # Potential datetime string
-            # Check if it looks like a datetime (YYYY-MM-DDTHH:MM:SS)
-            if value[4] == '-' and value[7] == '-' and value[10] == 'T' and value[13] == ':' and value[16] == ':':
-                # Ensure it ends with Z for UTC
-                if not value.endswith('Z'):
-                    result[key] = value + 'Z'
-
-    return result
+    """Converts a SQLModel instance to a dictionary."""
+    return json.loads(model_instance.json())
 
 
 async def broadcast_order_update(order):

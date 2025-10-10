@@ -106,30 +106,9 @@
 
         function initSocket() {
             if (typeof io !== 'undefined') {
-                const socket = io({
-                    transports: ['websocket', 'polling'], // Fallback to polling
-                    timeout: 20000, // 20 second timeout
-                    reconnection: true,
-                    reconnectionAttempts: 5,
-                    reconnectionDelay: 1000,
-                    forceNew: false
-                });
+                const socket = io({ transports: ['websocket'] });
                 window.appSocket = socket;
                 console.log('Socket initialized successfully');
-
-                // Add connection event handlers
-                socket.on('connect', () => {
-                    console.log('WebSocket connected successfully');
-                });
-
-                socket.on('connect_error', (error) => {
-                    console.error('WebSocket connection error:', error);
-                });
-
-                socket.on('disconnect', (reason) => {
-                    console.log('WebSocket disconnected:', reason);
-                });
-
                 document.dispatchEvent(new Event('socket:ready'));
                 return true;
             }

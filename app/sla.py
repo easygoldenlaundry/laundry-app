@@ -49,18 +49,6 @@ async def check_slas_periodically():
                     )
                 ).all()
 
-                # Fetch ALL delay claims at once to avoid N+1 queries
-                order_ids = [o.id for o in orders_to_check]
-                existing_delay_claims = {}
-                if order_ids:
-                    delay_claims = session.exec(
-                        select(Claim).where(
-                            Claim.order_id.in_(order_ids),
-                            Claim.claim_type == "delay"
-                        )
-                    ).all()
-                    existing_delay_claims = {claim.order_id: claim for claim in delay_claims}
-
                 for order in orders_to_check:
                     # Ensure the deadline from the DB is timezone-aware before comparison
                     sla_deadline_aware = order.sla_deadline
@@ -78,8 +66,12 @@ async def check_slas_periodically():
                         
                         # Auto-Compensation: if breached by more than the threshold
                         if now > (sla_deadline_aware + timedelta(minutes=SLA_AUTO_COMPENSATE_MINUTES)):
-                            # Check in-memory dictionary instead of querying database
-                            existing_claim = existing_delay_claims.get(order.id)
+                            existing_claim = session.exec(
+                                select(Claim).where(
+                                    Claim.order_id == order.id,
+                                    Claim.claim_type == "delay"
+                                )
+                            ).first()
                             
                             if not existing_claim:
                                 logging.warning(f"Order {order.id} breached SLA by >{SLA_AUTO_COMPENSATE_MINUTES}m. Auto-compensating.")
@@ -101,9 +93,6 @@ async def check_slas_periodically():
                                 )
                                 session.add(event)
                                 session.commit()
-                                
-                                # Update in-memory dictionary to avoid duplicate claims
-                                existing_delay_claims[order.id] = new_claim
 
         except Exception as e:
             logging.error(f"Error in SLA checker loop: {e}", exc_info=True)

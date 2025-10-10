@@ -1,5 +1,5 @@
 # app/routes/stations.py
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select, update
 from pydantic import BaseModel
 from sqlalchemy.orm import selectinload 
@@ -78,7 +78,7 @@ async def start_soaking(basket_id: int, request: CycleRequest, session: Session 
 
 
 @router.post("/api/baskets/{basket_id}/start_cycle")
-async def start_basket_cycle(basket_id: int, request: CycleRequest, station_type: str = Query(...), session: Session = Depends(get_session)):
+async def start_basket_cycle(basket_id: int, station_type: str, request: CycleRequest, session: Session = Depends(get_session)):
     """
     Assigns a basket to an available machine at a given station.
     """
@@ -122,7 +122,7 @@ async def start_basket_cycle(basket_id: int, request: CycleRequest, station_type
 
 
 @router.post("/api/baskets/{basket_id}/finish_cycle")
-async def finish_basket_cycle(basket_id: int, request: CycleRequest, station_type: str = Query(...), session: Session = Depends(get_session)):
+async def finish_basket_cycle(basket_id: int, station_type: str, request: CycleRequest, session: Session = Depends(get_session)):
     """
     Finishes a basket's cycle, releases the machine, moves the basket to the
     next state, and checks if the parent order can be moved to QA.
