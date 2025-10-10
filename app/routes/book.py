@@ -81,6 +81,7 @@ async def create_booking_api(
         distance_km=distance_km,
         pickup_cost=pickup_cost,
         dispatch_method="inhouse",
+        processing_option=processing_option,  # Store the processing option
         # --- POPULATE NEW FIELDS ---
         pickup_lat=pickup_latitude,
         pickup_lon=pickup_longitude,
@@ -149,11 +150,13 @@ async def create_order_from_booking_web(
 
     customer_profile = session.exec(select(Customer).where(Customer.user_id == user.id)).first()
     sla_deadline = datetime.now(timezone.utc) + timedelta(hours=48) if is_wait_and_save else datetime.fromisoformat(selected_slot_timestamp)
+    processing_opt = "wait_and_save" if is_wait_and_save else "standard"
     
     new_order = Order(
         external_id=external_id, tracking_token=f"trk_{secrets.token_urlsafe(12)}", customer_name=customer_name,
         customer_phone=customer_phone, customer_address=customer_address, hub_id=hub_id, status="Created",
-        sla_deadline=sla_deadline, notes_for_driver=notes_for_driver, customer_id=customer_profile.id if customer_profile else None
+        sla_deadline=sla_deadline, notes_for_driver=notes_for_driver, customer_id=customer_profile.id if customer_profile else None,
+        processing_option=processing_opt  # Store the processing option
         # Note: Lat/Lon are not captured by the web form currently. This is okay.
     )
     session.add(new_order)

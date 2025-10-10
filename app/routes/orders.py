@@ -26,6 +26,7 @@ class OrderResponse(BaseModel):
     created_at: datetime
     driver_name: Optional[str] = None
     driver_id: Optional[int] = None
+    processing_option: Optional[str] = None  # "standard" or "wait_and_save"
 
 # --- NEW ENDPOINT: Get all orders for authenticated user ---
 @router.get("/my-orders", response_model=List[OrderResponse])
@@ -82,7 +83,8 @@ def get_my_orders(
             number_of_loads=number_of_loads,
             created_at=order.created_at,
             driver_name=driver_name,
-            driver_id=driver_id
+            driver_id=driver_id,
+            processing_option=order.processing_option
         ))
 
     return response_orders
