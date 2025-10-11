@@ -1,5 +1,13 @@
 # 🚀 Deployment Guide - Database Connection Optimization
 
+## ⚡ Critical: Health Check Timeout Fix
+
+**FIXED**: The app no longer runs the database seeder on startup, which was causing Render health checks to timeout.
+
+- The seeder has been removed from `start.sh` to allow the server to start immediately
+- Run `seed_only.sh` as a **one-time manual job** after deployment to initialize the database
+- This prevents the 5-second health check timeout issue
+
 ## 🔧 Database Connection Issues Fixed
 
 The "MaxClientsInSessionMode: max clients reached" error has been resolved with optimized database connection pooling.
@@ -126,9 +134,33 @@ curl https://your-app.com/health/database
 
 ## 🔄 Deployment Steps
 
-1. **Set environment variables** in your deployment platform
-2. **Deploy the updated code**
-3. **Monitor the health endpoint** for connection status
-4. **Check logs** for any remaining connection issues
+### Initial Deployment
 
-The optimized configuration should resolve the "max clients reached" error while maintaining good performance.
+1. **Set environment variables** in your deployment platform (Render/Heroku)
+2. **Deploy the updated code**
+3. **Run the database seeder as a one-time job**:
+   - On Render: Create a manual job with command: `bash seed_only.sh`
+   - Or use Shell: Connect to your instance and run `python -m app.seed_db`
+4. **Monitor the health endpoint** for connection status
+5. **Check logs** for any remaining connection issues
+
+### On Render Specifically
+
+**Important**: The seeder is NO LONGER run automatically on startup to prevent health check timeouts.
+
+To initialize the database after deploying:
+1. Go to your Render service dashboard
+2. Click **Shell** (in the top right)
+3. Run: `python -m app.seed_db`
+4. Wait for completion (should take 10-30 seconds)
+5. Your app is now ready!
+
+**Note**: The seeder is idempotent - it only creates data if it doesn't exist, so it's safe to run multiple times.
+
+### Health Check Configuration
+
+Make sure your Render service has:
+- **Health Check Path**: `/health`
+- **Health Check Grace Period**: 60 seconds (to allow server startup)
+
+The optimized configuration should resolve both the "max clients reached" error and health check timeout issues.
