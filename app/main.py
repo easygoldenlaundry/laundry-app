@@ -49,23 +49,30 @@ fastapi_app = FastAPI()
 @fastapi_app.on_event("startup")
 async def on_startup():
     root_logger.info("--- Application Starting Up ---")
-    # Create database tables asynchronously to prevent blocking
-    try:
-        create_db_and_tables()
-        root_logger.info("--- Database tables created ---")
-    except Exception as e:
-        root_logger.warning(f"Database initialization failed: {e}")
+    
+    # Start database initialization in background to prevent blocking
+    async def init_database():
+        try:
+            create_db_and_tables()
+            root_logger.info("--- Database tables created ---")
+        except Exception as e:
+            root_logger.warning(f"Database initialization failed: {e}")
     
     # Start background tasks asynchronously
-    try:
-        asyncio.create_task(check_slas_periodically())
-        asyncio.create_task(delete_old_messages_periodically())
-        asyncio.create_task(reset_monthly_trackers())
-        root_logger.info("--- Background tasks started ---")
-    except Exception as e:
-        root_logger.warning(f"Background task initialization failed: {e}")
+    async def start_background_tasks():
+        try:
+            asyncio.create_task(check_slas_periodically())
+            asyncio.create_task(delete_old_messages_periodically())
+            asyncio.create_task(reset_monthly_trackers())
+            root_logger.info("--- Background tasks started ---")
+        except Exception as e:
+            root_logger.warning(f"Background task initialization failed: {e}")
     
-    root_logger.info("--- Application startup complete ---")
+    # Start both initialization tasks in parallel without blocking
+    asyncio.create_task(init_database())
+    asyncio.create_task(start_background_tasks())
+    
+    root_logger.info("--- Application startup complete (non-blocking) ---")
 
 # 3. Mount static files and include all routers on the FastAPI instance
 fastapi_app.mount("/static", StaticFiles(directory="app/static"), name="static")
@@ -98,9 +105,21 @@ fastapi_app.include_router(qa.router)
 from app.auth import set_user_on_request_state
 @fastapi_app.middleware("http")
 async def add_user_to_state(request: Request, call_next):
-    from app.db import Session, engine
-    with Session(engine) as session:
-        await set_user_on_request_state(request, session)
+    # Skip database operations for health checks and static files
+    if request.url.path in ["/", "/health", "/health/database"] or request.url.path.startswith("/static/"):
+        response = await call_next(request)
+        return response
+    
+    # Only run database operations for actual application requests
+    try:
+        from app.db import Session, engine
+        with Session(engine) as session:
+            await set_user_on_request_state(request, session)
+            response = await call_next(request)
+            return response
+    except Exception as e:
+        # If database fails, still allow the request to proceed
+        root_logger.warning(f"Database middleware failed: {e}")
         response = await call_next(request)
         return response
 

@@ -10,6 +10,11 @@ def root_health():
     """Simple root health check for Render.com"""
     return {"status": "ok", "message": "Server is running"}
 
+@router.get("/ready")
+def readiness_check():
+    """Readiness check for Render.com - indicates app is fully initialized"""
+    return {"status": "ready", "message": "Application is ready to serve requests"}
+
 @router.get("/health")
 def get_health():
     """Returns the current status and time of the server."""
