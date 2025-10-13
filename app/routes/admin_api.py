@@ -102,7 +102,11 @@ def get_uber_dispatch_orders(session: Session = Depends(get_session)):
     return response_orders
 
 @router.get("/orders/active", response_model=List[Order])
-async def get_active_orders(hub_id: int = 1, session: Session = Depends(get_session)):
+async def get_active_orders(
+    hub_id: int = 1, 
+    session: Session = Depends(get_session),
+    admin_user: User = Depends(get_current_admin_user)
+):
     """
     Returns a list of all orders that are not in a final state
     (e.g., 'Delivered' or 'Closed'). Eager loads baskets for dashboard view.
@@ -125,7 +129,10 @@ async def get_active_orders(hub_id: int = 1, session: Session = Depends(get_sess
     return [json.loads(order.json(exclude=exclude_relations)) for order in results]
 
 @router.get("/unread-count")
-def get_total_unread_message_count(session: Session = Depends(get_session)):
+def get_total_unread_message_count(
+    session: Session = Depends(get_session),
+    admin_user: User = Depends(get_current_admin_user)
+):
     """Gets the total count of unread messages from customers across all orders."""
     unread_count = session.exec(
         select(func.count(Message.id))

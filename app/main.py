@@ -120,11 +120,12 @@ fastapi_app.add_middleware(DatabaseConnectionMiddleware, log_interval=120)  # Lo
 from app.auth import set_user_on_request_state
 @fastapi_app.middleware("http")
 async def add_user_to_state(request: Request, call_next):
-    # Skip database operations for health checks, static files, and API endpoints
+    # Skip database operations for health checks, static files, and mobile API endpoints
     skip_paths = ["/", "/health", "/health/database", "/ready", "/api/auth/token", "/api/auth/token/mobile"]
+    # Allow database operations for admin API endpoints (they need authentication)
     if (request.url.path in skip_paths or 
         request.url.path.startswith("/static/") or 
-        request.url.path.startswith("/api/")):
+        (request.url.path.startswith("/api/") and not request.url.path.startswith("/api/admin/"))):
         response = await call_next(request)
         return response
     
