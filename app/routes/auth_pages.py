@@ -90,6 +90,8 @@ async def login_for_access_token_mobile(
         "address": customer.address if customer else None,
         "latitude": customer.latitude if customer else None,
         "longitude": customer.longitude if customer else None,
+        "staysoft_preference": customer.staysoft_preference if customer else None,
+        "additional_notes": customer.additional_notes if customer else None,
         "role": user.role,
         "created_at": user.created_at
     }

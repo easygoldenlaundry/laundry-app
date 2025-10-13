@@ -36,6 +36,8 @@ class UserProfile(BaseModel):
     address: Optional[str]
     latitude: Optional[float]
     longitude: Optional[float]
+    staysoft_preference: Optional[str]
+    additional_notes: Optional[str]
     role: str
     created_at: Optional[datetime]
 
@@ -57,12 +59,16 @@ class CustomerRegistrationRequest(BaseModel):
     phone_number: str
     address: str
     whatsapp_number: Optional[str] = None
+    staysoft_preference: Optional[str] = None
+    additional_notes: Optional[str] = None
 
 class ProfileUpdateRequest(BaseModel):
     full_name: str
     phone_number: str
     address: str
     whatsapp_number: Optional[str] = None
+    staysoft_preference: Optional[str] = None
+    additional_notes: Optional[str] = None
 
 
 # --- NEW: Mobile App API Endpoints (JSON only) ---
@@ -101,7 +107,8 @@ async def register_customer_api(
 
     new_customer = Customer(
         user_id=new_user.id, full_name=request_data.full_name, phone_number=request_data.phone_number,
-        address=request_data.address, whatsapp_number=request_data.whatsapp_number
+        address=request_data.address, whatsapp_number=request_data.whatsapp_number,
+        staysoft_preference=request_data.staysoft_preference, additional_notes=request_data.additional_notes
     )
     session.add(new_customer)
     session.commit(); session.refresh(new_customer)
@@ -111,6 +118,7 @@ async def register_customer_api(
         id=new_user.id, name=new_customer.full_name, email=new_user.email,
         phone=new_customer.phone_number, whatsapp=new_customer.whatsapp_number,
         address=new_customer.address, latitude=new_customer.latitude, longitude=new_customer.longitude,
+        staysoft_preference=new_customer.staysoft_preference, additional_notes=new_customer.additional_notes,
         role=new_user.role, created_at=new_user.created_at
     )
     return TokenResponse(access_token=access_token, user=user_profile)
@@ -129,7 +137,8 @@ def get_current_user_profile(
         id=user.id, name=customer.full_name, email=user.email,
         phone=customer.phone_number, whatsapp=customer.whatsapp_number,
         address=customer.address, latitude=customer.latitude,
-        longitude=customer.longitude, role=user.role, created_at=user.created_at
+        longitude=customer.longitude, staysoft_preference=customer.staysoft_preference,
+        additional_notes=customer.additional_notes, role=user.role, created_at=user.created_at
     )
 
 @api_router.post("/me/update", response_model=UserProfile)
@@ -147,6 +156,8 @@ def update_current_user_profile(
     customer.phone_number = request_data.phone_number
     customer.address = request_data.address
     customer.whatsapp_number = request_data.whatsapp_number
+    customer.staysoft_preference = request_data.staysoft_preference
+    customer.additional_notes = request_data.additional_notes
     session.add(customer)
     session.commit()
     session.refresh(customer)
@@ -155,7 +166,8 @@ def update_current_user_profile(
         id=user.id, name=customer.full_name, email=user.email,
         phone=customer.phone_number, whatsapp=customer.whatsapp_number,
         address=customer.address, latitude=customer.latitude,
-        longitude=customer.longitude, role=user.role, created_at=user.created_at
+        longitude=customer.longitude, staysoft_preference=customer.staysoft_preference,
+        additional_notes=customer.additional_notes, role=user.role, created_at=user.created_at
     )
 
 @api_router.get("/me/orders/active", response_model=List[Order])
@@ -207,6 +219,7 @@ async def handle_staff_registration(
 async def handle_customer_registration_web(
     request: Request, full_name: str = Form(...), email: str = Form(...), password: str = Form(...),
     phone_number: str = Form(...), address: str = Form(...), whatsapp_number: Optional[str] = Form(None),
+    staysoft_preference: Optional[str] = Form(None), additional_notes: Optional[str] = Form(None),
     pending_booking: Optional[str] = Form(None), session: Session = Depends(get_session)
 ):
     """Endpoint for web customers to register. They are active immediately and logged in."""
@@ -218,7 +231,7 @@ async def handle_customer_registration_web(
     session.add(new_user)
     session.commit(); session.refresh(new_user)
 
-    new_customer = Customer(user_id=new_user.id, full_name=full_name, phone_number=phone_number, address=address, whatsapp_number=whatsapp_number)
+    new_customer = Customer(user_id=new_user.id, full_name=full_name, phone_number=phone_number, address=address, whatsapp_number=whatsapp_number, staysoft_preference=staysoft_preference, additional_notes=additional_notes)
     session.add(new_customer)
     session.commit(); session.refresh(new_customer)
     
@@ -407,7 +420,8 @@ def get_customer_account_page(
 @router.post("/account/update")
 def update_customer_details_web(
     request: Request, full_name: str = Form(...), phone_number: str = Form(...), address: str = Form(...),
-    whatsapp_number: Optional[str] = Form(None), user: User = Depends(get_current_customer_user), session: Session = Depends(get_session)
+    whatsapp_number: Optional[str] = Form(None), staysoft_preference: Optional[str] = Form(None), 
+    additional_notes: Optional[str] = Form(None), user: User = Depends(get_current_customer_user), session: Session = Depends(get_session)
 ):
     customer = session.exec(select(Customer).where(Customer.user_id == user.id)).first()
     if not customer: raise HTTPException(status_code=404, detail="Customer profile not found")
@@ -416,6 +430,8 @@ def update_customer_details_web(
     customer.phone_number = phone_number
     customer.address = address
     customer.whatsapp_number = whatsapp_number
+    customer.staysoft_preference = staysoft_preference
+    customer.additional_notes = additional_notes
     session.add(customer)
     session.commit()
     return RedirectResponse(url="/account", status_code=303)

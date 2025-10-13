@@ -159,6 +159,9 @@ class Customer(SQLModel, table=True):
     whatsapp_number: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    # --- NEW FIELDS FOR STAYSOFT PREFERENCE AND NOTES ---
+    staysoft_preference: Optional[str] = None  # "NO_STAYSOFT", "LAVENDER", "SPRING_FRESH", "JASMINE_CASHMERE"
+    additional_notes: Optional[str] = Field(default=None, sa_column=Column(TEXT))
     
     orders: List["Order"] = Relationship(back_populates="customer")
 
