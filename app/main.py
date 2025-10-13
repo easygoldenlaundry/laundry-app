@@ -78,6 +78,12 @@ async def on_startup():
 @fastapi_app.on_event("shutdown")
 async def on_shutdown():
     root_logger.info("--- Application Shutting Down ---")
+    try:
+        from app.db import cleanup_connections
+        cleanup_connections()
+        root_logger.info("--- Database connections cleaned up ---")
+    except Exception as e:
+        root_logger.warning(f"Failed to cleanup database connections: {e}")
 
 # 3. Mount static files and include all routers on the FastAPI instance
 fastapi_app.mount("/static", StaticFiles(directory="app/static"), name="static")
@@ -106,16 +112,23 @@ fastapi_app.include_router(admin_api.router)
 fastapi_app.include_router(qa.router)
 
 
-# 4. Define middleware on the FastAPI instance
+# 4. Add database connection monitoring middleware
+from app.middleware import DatabaseConnectionMiddleware
+fastapi_app.add_middleware(DatabaseConnectionMiddleware, log_interval=120)  # Log every 2 minutes
+
+# 5. Define middleware on the FastAPI instance (optimized to reduce database connections)
 from app.auth import set_user_on_request_state
 @fastapi_app.middleware("http")
 async def add_user_to_state(request: Request, call_next):
-    # Skip database operations for health checks and static files
-    if request.url.path in ["/", "/health", "/health/database", "/ready"] or request.url.path.startswith("/static/"):
+    # Skip database operations for health checks, static files, and API endpoints
+    skip_paths = ["/", "/health", "/health/database", "/ready", "/api/auth/token", "/api/auth/token/mobile"]
+    if (request.url.path in skip_paths or 
+        request.url.path.startswith("/static/") or 
+        request.url.path.startswith("/api/")):
         response = await call_next(request)
         return response
     
-    # Only run database operations for actual application requests
+    # Only run database operations for web application requests that need user state
     try:
         from app.db import Session, engine
         with Session(engine) as session:

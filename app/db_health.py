@@ -25,8 +25,7 @@ def check_database_health() -> dict:
                 "size": pool.size(),
                 "checked_in": pool.checkedin(),
                 "checked_out": pool.checkedout(),
-                "overflow": pool.overflow(),
-                "invalid": pool.invalid()
+                "overflow": pool.overflow()
             }
             
             return {
@@ -55,7 +54,6 @@ def get_connection_pool_info() -> dict:
             "checked_in_connections": pool.checkedin(),
             "checked_out_connections": pool.checkedout(),
             "overflow_connections": pool.overflow(),
-            "invalid_connections": pool.invalid(),
             "total_connections": pool.checkedin() + pool.checkedout(),
             "available_connections": pool.checkedin(),
             "utilization_percent": round((pool.checkedout() / pool.size()) * 100, 2) if pool.size() > 0 else 0
