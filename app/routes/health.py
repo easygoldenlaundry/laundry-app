@@ -5,19 +5,17 @@ from app.db_health import check_database_health, get_connection_pool_info
 
 router = APIRouter()
 
+@router.get("/")
+def root_health():
+    """Simple root health check for Render.com"""
+    return {"status": "ok", "message": "Server is running"}
+
 @router.get("/health")
 def get_health():
     """Returns the current status and time of the server."""
-    # Try to wake up database by testing connection
-    try:
-        from app.db_health import check_database_health
-        db_status = check_database_health()
-        health_status = "ok" if db_status["status"] == "healthy" else "degraded"
-    except Exception:
-        health_status = "ok"  # Don't fail health check due to DB issues
-
+    # Simple health check without database operations to prevent timeouts
     return {
-        "status": health_status,
+        "status": "ok",
         "time": datetime.now(timezone.utc).isoformat()
     }
 

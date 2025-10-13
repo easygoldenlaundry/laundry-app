@@ -8,6 +8,10 @@ from sqlmodel import SQLModel
 socketio_server = socketio.AsyncServer(
     async_mode="asgi",
     cors_allowed_origins="*",
+    # Add timeout configurations to prevent connection issues
+    ping_timeout=60,
+    ping_interval=25,
+    max_http_buffer_size=1000000,
 )
 
 def model_to_dict(model_instance: SQLModel) -> dict:

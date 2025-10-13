@@ -47,14 +47,25 @@ fastapi_app = FastAPI()
 
 # 2. Define startup events on the FastAPI instance
 @fastapi_app.on_event("startup")
-def on_startup():
+async def on_startup():
     root_logger.info("--- Application Starting Up ---")
-    create_db_and_tables()
-    # Start background tasks
-    asyncio.create_task(check_slas_periodically())
-    asyncio.create_task(delete_old_messages_periodically())
-    asyncio.create_task(reset_monthly_trackers())
-    root_logger.info("--- Database and background tasks initialized ---")
+    # Create database tables asynchronously to prevent blocking
+    try:
+        create_db_and_tables()
+        root_logger.info("--- Database tables created ---")
+    except Exception as e:
+        root_logger.warning(f"Database initialization failed: {e}")
+    
+    # Start background tasks asynchronously
+    try:
+        asyncio.create_task(check_slas_periodically())
+        asyncio.create_task(delete_old_messages_periodically())
+        asyncio.create_task(reset_monthly_trackers())
+        root_logger.info("--- Background tasks started ---")
+    except Exception as e:
+        root_logger.warning(f"Background task initialization failed: {e}")
+    
+    root_logger.info("--- Application startup complete ---")
 
 # 3. Mount static files and include all routers on the FastAPI instance
 fastapi_app.mount("/static", StaticFiles(directory="app/static"), name="static")
