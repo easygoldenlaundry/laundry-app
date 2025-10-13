@@ -122,11 +122,28 @@ async def broadcast_settings_update():
 
 @socketio_server.event
 async def connect(sid, environ):
-    logging.info(f"Socket connected: {sid}")
+    try:
+        logging.info(f"Socket connected: {sid}")
+    except Exception as e:
+        logging.error(f"Error in socket connect: {e}")
 
 @socketio_server.event
 async def disconnect(sid):
-    logging.info(f"Socket disconnected: {sid}")
+    try:
+        logging.info(f"Socket disconnected: {sid}")
+    except Exception as e:
+        logging.error(f"Error in socket disconnect: {e}")
+
+@socketio_server.event
+async def join(sid, data):
+    """Handle room joining with error handling"""
+    try:
+        room = data.get('room')
+        if room:
+            await socketio_server.enter_room(sid, room)
+            logging.info(f"Socket {sid} joined room: {room}")
+    except Exception as e:
+        logging.error(f"Error joining room: {e}")
 
 @socketio_server.on('join')
 async def on_join(sid, data):

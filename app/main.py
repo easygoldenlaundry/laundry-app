@@ -74,16 +74,21 @@ async def on_startup():
     
     root_logger.info("--- Application startup complete (non-blocking) ---")
 
+# Add shutdown event for graceful cleanup
+@fastapi_app.on_event("shutdown")
+async def on_shutdown():
+    root_logger.info("--- Application Shutting Down ---")
+
 # 3. Mount static files and include all routers on the FastAPI instance
 fastapi_app.mount("/static", StaticFiles(directory="app/static"), name="static")
 fastapi_app.mount("/data", StaticFiles(directory="data"), name="data")
 
-fastapi_app.include_router(health.router)
+fastapi_app.include_router(book.router) # Web routes - MUST be first for root redirect
+fastapi_app.include_router(book.api_router) # Mobile API routes for booking
+fastapi_app.include_router(health.router) # Health checks
 fastapi_app.include_router(auth_pages.router)
 fastapi_app.include_router(users.router) # Web routes
 fastapi_app.include_router(users.api_router) # Mobile API routes for users
-fastapi_app.include_router(book.router) # Web routes
-fastapi_app.include_router(book.api_router) # Mobile API routes for booking
 fastapi_app.include_router(track.router)
 fastapi_app.include_router(claims.router)
 fastapi_app.include_router(driver.router)
@@ -106,7 +111,7 @@ from app.auth import set_user_on_request_state
 @fastapi_app.middleware("http")
 async def add_user_to_state(request: Request, call_next):
     # Skip database operations for health checks and static files
-    if request.url.path in ["/", "/health", "/health/database"] or request.url.path.startswith("/static/"):
+    if request.url.path in ["/", "/health", "/health/database", "/ready"] or request.url.path.startswith("/static/"):
         response = await call_next(request)
         return response
     
