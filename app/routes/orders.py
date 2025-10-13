@@ -10,7 +10,7 @@ from app.db import get_session
 from app.models import Order, Bag, Image, Item, Basket, User, Message, Customer, Driver, FinanceEntry
 from app.services.state_machine import apply_transition
 from app.auth import get_current_admin_user, get_current_api_user # Use the working admin auth
-from app.sockets import broadcast_message_update, broadcast_admin_notification
+from app.sockets import broadcast_message_update, broadcast_admin_notification, broadcast_order_update
 from app.config import DATA_ROOT
 import aiofiles
 import os
@@ -381,3 +381,104 @@ def mark_messages_as_read(
     session.exec(statement)
     session.commit()
     return
+
+@router.post("/{order_id}/cancel", response_model=OrderResponse)
+def cancel_order(
+    order_id: int,
+    user: User = Depends(get_current_api_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Cancels an order. Only the customer who owns the order or an admin can cancel it.
+    Orders can only be cancelled if they haven't been picked up yet.
+    """
+    order = session.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Security check: User must be an admin or the customer who owns the order
+    if user.role != "admin":
+        customer = session.exec(select(Customer).where(Customer.user_id == user.id)).first()
+        if not customer or customer.id != order.customer_id:
+            raise HTTPException(status_code=403, detail="Not authorized to cancel this order")
+
+    # Business logic: Only allow cancellation if order hasn't been picked up
+    if order.status in ["PickedUp", "AssignedToDriver", "Processing", "ReadyForDelivery", "OutForDelivery", "Delivered", "Closed"]:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot cancel order. Order status is '{order.status}'. Orders can only be cancelled before pickup."
+        )
+
+    # Update order status to cancelled
+    order.status = "Cancelled"
+    order.updated_at = datetime.now(timezone.utc)
+    session.add(order)
+    session.commit()
+    session.refresh(order)
+
+    # Create a finance entry to record the cancellation (if there were any charges)
+    # This helps with accounting and refunds
+    existing_revenue = session.exec(
+        select(FinanceEntry)
+        .where(FinanceEntry.order_id == order.id, FinanceEntry.entry_type == 'revenue')
+    ).all()
+    
+    if existing_revenue:
+        # Create a negative revenue entry to offset the original charges
+        total_revenue = sum(entry.amount for entry in existing_revenue)
+        if total_revenue > 0:
+            cancellation_entry = FinanceEntry(
+                order_id=order.id,
+                entry_type='revenue',
+                amount=-total_revenue,  # Negative amount to offset
+                description=f"Order cancellation - refund for order #{order.external_id}",
+                timestamp=datetime.now(timezone.utc)
+            )
+            session.add(cancellation_entry)
+            session.commit()
+
+    # Calculate total cost for response (should be 0 after cancellation)
+    total_cost = 0.0
+    finance_entries = session.exec(
+        select(FinanceEntry)
+        .where(FinanceEntry.order_id == order.id, FinanceEntry.entry_type == 'revenue')
+    ).all()
+    for entry in finance_entries:
+        total_cost += entry.amount
+
+    # Get driver info if assigned
+    driver_name = None
+    driver_id = None
+    if order.assigned_driver_id:
+        driver = session.exec(select(Driver).where(Driver.id == order.assigned_driver_id)).first()
+        if driver:
+            driver_user = session.get(User, driver.user_id)
+            if driver_user:
+                driver_name = driver_user.display_name
+                driver_id = driver.id
+
+    # Use confirmed_load_count if available, otherwise basket_count, otherwise 0
+    number_of_loads = order.confirmed_load_count or order.basket_count or 0
+
+    # Broadcast order update to admin dashboard
+    broadcast_order_update({
+        "order_id": order.id,
+        "status": order.status,
+        "action": "cancelled",
+        "customer_id": order.customer_id
+    })
+
+    # Notify admin about the cancellation
+    broadcast_admin_notification("order_cancelled")
+
+    return OrderResponse(
+        id=order.id,
+        customer_id=order.customer_id,
+        status=order.status,
+        total_cost=total_cost,
+        number_of_loads=number_of_loads,
+        created_at=order.created_at,
+        driver_name=driver_name,
+        driver_id=driver_id,
+        processing_option=order.processing_option
+    )
