@@ -28,14 +28,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const orders = await response.json();
             renderOrders(orders);
         } catch (error) {
-            ordersTableBody.innerHTML = `<tr><td colspan="6" style="color:red; text-align:center;">Error: ${error.message}</td></tr>`;
+            ordersTableBody.innerHTML = `<tr><td colspan="7" style="color:red; text-align:center;">Error: ${error.message}</td></tr>`;
         }
     };
 
     const renderOrders = (orders) => {
         ordersTableBody.innerHTML = '';
         if (orders.length === 0) {
-            ordersTableBody.innerHTML = `<tr><td colspan="6" style="text-align:center;">No active Uber dispatch orders found.</td></tr>`;
+            ordersTableBody.innerHTML = `<tr><td colspan="7" style="text-align:center;">No active chats found.</td></tr>`;
             return;
         }
         orders.forEach(order => {
@@ -67,6 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td><a href="/track/${order.tracking_token}" target="_blank">${order.id}</a></td>
                 <td>${order.customer_name}</td>
                 <td>${order.status}</td>
+                <td>${order.dispatch_method || 'In-house'}</td>
                 <td class="unread-cell">${unreadBadge}</td>
                 <td><a class="phone-link" href="tel:${order.customer_phone}">${order.customer_phone}</a></td>
                 <td class="actions">

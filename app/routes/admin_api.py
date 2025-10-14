@@ -59,33 +59,47 @@ class UberOrderPublic(Order):
     unread_message_count: int
 
 @router.get("/uber-orders", response_model=List[UberOrderPublic])
-def get_uber_dispatch_orders(session: Session = Depends(get_session)):
+def get_active_chat_orders(session: Session = Depends(get_session)):
     """
-    Gets all active Uber orders, plus any completed orders that have unread messages.
+    Gets all orders with active chats - any order that has unread customer messages
+    or is currently active and has had any chat activity.
     """
     TERMINAL_STATUSES = ["Delivered", "Closed"]
     
+    # Get all active orders (regardless of dispatch method)
     active_orders = session.exec(
         select(Order)
-        .where(Order.dispatch_method == "uber", Order.status.notin_(TERMINAL_STATUSES))
+        .where(Order.status.notin_(TERMINAL_STATUSES))
     ).all()
     
+    # Get completed orders that have unread customer messages
     completed_with_unread = session.exec(
         select(Order).join(Message).where(
-            Order.dispatch_method == "uber",
             Order.status.in_(TERMINAL_STATUSES),
             Message.sender_role == 'customer',
             Message.is_read == False
         ).distinct()
     ).all()
     
+    # Get any orders that have had chat activity (even if completed and all read)
+    # This ensures we don't lose chat history for recently completed orders
+    orders_with_chat_activity = session.exec(
+        select(Order).join(Message).where(
+            Message.sender_role == 'customer'
+        ).distinct()
+    ).all()
+    
+    # Combine all orders, prioritizing active ones and those with unread messages
     all_orders_map = {o.id: o for o in active_orders}
     for order in completed_with_unread:
         if order.id not in all_orders_map:
             all_orders_map[order.id] = order
+    for order in orders_with_chat_activity:
+        if order.id not in all_orders_map:
+            all_orders_map[order.id] = order
 
     response_orders = []
-    sorted_orders = sorted(all_orders_map.values(), key=lambda o: o.created_at)
+    sorted_orders = sorted(all_orders_map.values(), key=lambda o: o.created_at, reverse=True)
 
     for order in sorted_orders:
         unread_count = session.exec(

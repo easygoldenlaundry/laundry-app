@@ -1,7 +1,7 @@
 <!-- app/templates/admin/uber_dispatch.html -->
 {% extends "base.html" %}
 
-{% block title %}Uber Dispatch Management{% endblock %}
+{% block title %}Chat Management{% endblock %}
 
 {% block content %}
 <style>
@@ -42,8 +42,8 @@
 </style>
 
 <div class="container">
-    <h1>Manual Uber Dispatch</h1>
-    <p style="text-align: center; margin-bottom: 2em;">Manage the status of orders dispatched via Uber. The in-house driver app will not see these orders.</p>
+    <h1>Chat Management</h1>
+    <p style="text-align: center; margin-bottom: 2em;">Manage customer support chats from all orders. View and respond to customer messages from mobile app and web interface.</p>
 
     <div id="status-message"></div>
 
@@ -54,13 +54,14 @@
                     <th>Order ID</th>
                     <th>Customer</th>
                     <th>Status</th>
+                    <th>Dispatch</th>
                     <th>Unread</th>
                     <th>Phone</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody id="orders-table-body">
-                <tr><td colspan="6" style="text-align:center;">Loading Uber orders...</td></tr>
+                <tr><td colspan="7" style="text-align:center;">Loading active chats...</td></tr>
             </tbody>
         </table>
     </div>
