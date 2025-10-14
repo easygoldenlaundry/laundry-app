@@ -94,8 +94,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const timestamp = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         messageDiv.innerHTML = `
-            <p>${msg.content}</p>
-            <div class="meta">${timestamp}</div>
+            <p>${msg.message}</p>
+            <div class="meta">${msg.sender_name} - ${timestamp}</div>
         `;
         chatHistory.appendChild(messageDiv);
         chatHistory.scrollTop = chatHistory.scrollHeight;

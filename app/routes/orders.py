@@ -1,5 +1,5 @@
 # app/routes/orders.py
-from fastapi import APIRouter, Depends, HTTPException, Form, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Form, UploadFile, File, Request
 from sqlmodel import Session, select, delete, update
 from typing import List, Optional
 from pydantic import BaseModel
@@ -320,11 +320,21 @@ class MessageCreate(BaseModel):
 async def send_message(
     order_id: int,
     message_data: MessageCreate,
-    user: User = Depends(get_current_api_user),
+    request: Request,
     session: Session = Depends(get_session)
 ):
     order = session.get(Order, order_id)
     if not order: raise HTTPException(404, "Order not found")
+    
+    # Get user from request state (web interface) or try API auth
+    user = getattr(request.state, "user", None)
+    if not user:
+        # Try API authentication as fallback
+        try:
+            from app.auth import get_current_api_user
+            user = get_current_api_user(request, session)
+        except:
+            raise HTTPException(status_code=401, detail="Authentication required")
     
     sender_role = "unknown"
     if user.role in ["admin", "staff"]: sender_role = "admin"
@@ -348,7 +358,13 @@ async def send_message(
         "timestamp": new_message.timestamp.isoformat(), "read": new_message.is_read
     }
 
-    socket_msg = { "order_id": new_message.order_id, "sender_role": new_message.sender_role, "content": new_message.content, "timestamp": new_message.timestamp.isoformat() }
+    socket_msg = { 
+        "order_id": new_message.order_id, 
+        "sender_role": new_message.sender_role, 
+        "message": new_message.content,  # Use 'message' to match API response
+        "sender_name": sender_name,  # Add sender name for display
+        "timestamp": new_message.timestamp.isoformat() 
+    }
     await broadcast_message_update(socket_msg)
     
     if sender_role == "customer":
@@ -359,9 +375,19 @@ async def send_message(
 @router.post("/{order_id}/messages/mark-read", status_code=204)
 def mark_messages_as_read(
     order_id: int,
-    user: User = Depends(get_current_api_user),
+    request: Request,
     session: Session = Depends(get_session)
 ):
+    # Get user from request state (web interface) or try API auth
+    user = getattr(request.state, "user", None)
+    if not user:
+        # Try API authentication as fallback
+        try:
+            from app.auth import get_current_api_user
+            user = get_current_api_user(request, session)
+        except:
+            raise HTTPException(status_code=401, detail="Authentication required")
+    
     if user.role == "customer":
         sender_to_mark = 'admin'
     elif user.role in ["admin", "staff"]:
