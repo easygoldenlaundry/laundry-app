@@ -14,12 +14,12 @@ IS_PRODUCTION = ENVIRONMENT == "production"
 # --- Database Configuration ---
 # Optimized for Supabase connection limits and mobile app usage
 if IS_PRODUCTION:
-    # Production settings - conservative for Supabase Session mode
-    # Supabase Session mode has strict connection limits
-    DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "1"))  # Very conservative
-    DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "2"))  # Total max: 3 connections
-    DB_POOL_TIMEOUT = int(os.getenv("DB_POOL_TIMEOUT", "30"))  # Longer timeout
-    DB_POOL_RECYCLE = int(os.getenv("DB_POOL_RECYCLE", "900"))  # 15 minutes - shorter recycle
+    # OPTIMIZED FOR SUPABASE + RENDER.COM + INSTANT UPDATES
+    # Increased pool size for better performance while staying within Supabase limits
+    DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "5"))      # Increase from 1 to 5
+    DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "10")) # Increase from 2 to 10 (total: 15 max)
+    DB_POOL_TIMEOUT = int(os.getenv("DB_POOL_TIMEOUT", "10")) # Reduce from 30 to 10 for faster timeouts
+    DB_POOL_RECYCLE = int(os.getenv("DB_POOL_RECYCLE", "600")) # Reduce from 900 to 600 (10 minutes)
     DB_POOL_RESET_ON_RETURN = "commit"  # Reset connections on return
 else:
     # Development settings - more permissive

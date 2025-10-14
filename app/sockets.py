@@ -8,10 +8,13 @@ from sqlmodel import SQLModel
 socketio_server = socketio.AsyncServer(
     async_mode="asgi",
     cors_allowed_origins="*",
-    # Add timeout configurations to prevent connection issues
-    ping_timeout=60,
-    ping_interval=25,
+    # OPTIMIZED FOR RENDER.COM + INSTANT UPDATES
+    ping_timeout=10,        # Reduce from 60 to 10 for faster detection
+    ping_interval=5,        # Reduce from 25 to 5 for instant updates
     max_http_buffer_size=1000000,
+    # Add these for instant updates
+    always_connect=True,
+    transports=['websocket', 'polling']
 )
 
 def model_to_dict(model_instance: SQLModel) -> dict:
