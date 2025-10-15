@@ -61,10 +61,12 @@ async def on_startup():
     # Start background tasks asynchronously
     async def start_background_tasks():
         try:
+            from app.db import monitor_connection_pool
             asyncio.create_task(check_slas_periodically())
             asyncio.create_task(delete_old_messages_periodically())
             asyncio.create_task(reset_monthly_trackers())
-            root_logger.info("--- Background tasks started ---")
+            asyncio.create_task(monitor_connection_pool())
+            root_logger.info("--- Background tasks started (including pool monitor) ---")
         except Exception as e:
             root_logger.warning(f"Background task initialization failed: {e}")
     
@@ -122,12 +124,13 @@ from app.auth import set_user_on_request_state
 async def add_user_to_state(request: Request, call_next):
     # Skip database operations for health checks, static files, and mobile API endpoints
     skip_paths = ["/", "/health", "/health/database", "/ready", "/api/auth/token", "/api/auth/token/mobile"]
-    # Allow database operations for admin and driver API endpoints (they need authentication)
-    if (request.url.path in skip_paths or 
-        request.url.path.startswith("/static/") or 
-        (request.url.path.startswith("/api/") and 
-         not request.url.path.startswith("/api/admin/") and 
-         not request.url.path.startswith("/api/drivers/"))):
+    # Allow database operations for web app routes and authenticated API endpoints
+    if (request.url.path in skip_paths or
+        request.url.path.startswith("/static/") or
+        (request.url.path.startswith("/api/") and
+         not request.url.path.startswith("/api/admin/") and
+         not request.url.path.startswith("/api/drivers/") and
+         not request.url.path.startswith("/api/orders/"))):
         response = await call_next(request)
         return response
     
