@@ -486,7 +486,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const messageDiv = document.createElement('div');
         messageDiv.className = `chat-message ${msg.sender_role}`;
         const timestamp = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        messageDiv.innerHTML = `<p>${msg.content.replace(/\n/g, '<br>')}</p><div class="meta">${timestamp}</div>`;
+        messageDiv.innerHTML = `<p>${msg.message.replace(/\n/g, '<br>')}</p><div class="meta">${timestamp}</div>`;
         chatHistory.appendChild(messageDiv);
         chatHistory.scrollTop = chatHistory.scrollHeight;
     };
@@ -494,7 +494,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const showNotification = (message) => {
         if (!notificationsPermitted || document.hasFocus()) return;
         new Notification(`New Message for Order #${orderId}`, {
-            body: message.content,
+            body: message.message,
             icon: "/static/images/favicon.ico"
         });
     };
@@ -540,7 +540,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await fetch(`/api/orders/${orderId}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content })
+                body: JSON.stringify({ message: content })
             });
             chatInput.value = ''; // Message appears via WebSocket echo
         } catch (error) {
