@@ -80,12 +80,16 @@ def get_my_orders(
         
         # Get price_per_load based on processing_option
         price_per_load = None
-        if order.processing_option == "wait_and_save":
-            price_setting = session.get(Setting, "wait_and_save_price_per_load")
-            price_per_load = float(price_setting.value) if price_setting else 150.0
-        else:  # standard or None defaults to standard
-            price_setting = session.get(Setting, "standard_price_per_load")
-            price_per_load = float(price_setting.value) if price_setting else 210.0
+        try:
+            if order.processing_option == "wait_and_save":
+                price_setting = session.get(Setting, "wait_and_save_price_per_load")
+                price_per_load = float(price_setting.value) if price_setting else 150.0
+            else:  # standard or None defaults to standard
+                price_setting = session.get(Setting, "standard_price_per_load")
+                price_per_load = float(price_setting.value) if price_setting else 210.0
+        except Exception:
+            # Fallback if settings not available
+            price_per_load = 210.0 if not order.processing_option or order.processing_option == "standard" else 150.0
 
         response_orders.append(OrderResponse(
             id=order.id,
@@ -99,7 +103,7 @@ def get_my_orders(
             processing_option=order.processing_option,
             price_per_load=price_per_load,
             pickup_cost=order.pickup_cost,
-            delivery_cost=order.delivery_cost
+            delivery_cost=getattr(order, 'delivery_cost', None)
         ))
 
     return response_orders
@@ -268,11 +272,14 @@ def request_delivery(order_id: int, delivery_request: DeliveryRequest, session: 
     if order.status != "ReadyForDelivery":
         raise HTTPException(status_code=400, detail="Order is not ready for delivery request.")
 
-    # Update order with delivery cost and distance
-    if delivery_request.delivery_cost is not None:
-        order.delivery_cost = delivery_request.delivery_cost
-    if delivery_request.distance_km is not None:
-        order.delivery_distance_km = delivery_request.distance_km
+    # Update order with delivery cost and distance (if fields exist in schema)
+    try:
+        if delivery_request.delivery_cost is not None and hasattr(order, 'delivery_cost'):
+            order.delivery_cost = delivery_request.delivery_cost
+        if delivery_request.distance_km is not None and hasattr(order, 'delivery_distance_km'):
+            order.delivery_distance_km = delivery_request.distance_km
+    except Exception:
+        pass  # Gracefully handle if new fields don't exist yet
     
     # Update delivery location
     order.delivery_lat = delivery_request.delivery_latitude

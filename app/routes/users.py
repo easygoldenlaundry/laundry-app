@@ -344,12 +344,16 @@ def get_customer_account_page(
         
         # Get price_per_load based on processing_option
         price_per_load = None
-        if order.processing_option == "wait_and_save":
-            price_setting = session.get(Setting, "wait_and_save_price_per_load")
-            price_per_load = float(price_setting.value) if price_setting else 150.0
-        else:  # standard or None defaults to standard
-            price_setting = session.get(Setting, "standard_price_per_load")
-            price_per_load = float(price_setting.value) if price_setting else 210.0
+        try:
+            if order.processing_option == "wait_and_save":
+                price_setting = session.get(Setting, "wait_and_save_price_per_load")
+                price_per_load = float(price_setting.value) if price_setting else 150.0
+            else:  # standard or None defaults to standard
+                price_setting = session.get(Setting, "standard_price_per_load")
+                price_per_load = float(price_setting.value) if price_setting else 210.0
+        except Exception:
+            # Fallback if settings not available
+            price_per_load = 210.0 if not order.processing_option or order.processing_option == "standard" else 150.0
 
         # Calculate fulfillment time for completed orders
         fulfillment_time = None
@@ -385,8 +389,8 @@ def get_customer_account_page(
             'dispatch_method': order.dispatch_method,
             'distance_km': order.distance_km,
             'pickup_cost': order.pickup_cost,
-            'delivery_cost': order.delivery_cost,
-            'delivery_distance_km': order.delivery_distance_km,
+            'delivery_cost': getattr(order, 'delivery_cost', None),
+            'delivery_distance_km': getattr(order, 'delivery_distance_km', None),
             'pickup_lat': order.pickup_lat,
             'pickup_lon': order.pickup_lon,
             'delivery_lat': order.delivery_lat,
