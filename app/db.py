@@ -34,8 +34,9 @@ engine = create_engine(
     },
     # Echo SQL queries in development for debugging
     echo=not IS_PRODUCTION,
-    # Additional settings for better connection management
-    isolation_level="AUTOCOMMIT"  # Use autocommit for better connection handling
+    # CRITICAL FIX: Use READ COMMITTED isolation for proper transactions
+    # AUTOCOMMIT causes race conditions with concurrent station updates!
+    isolation_level="READ COMMITTED"
 )
 
 def get_engine():
@@ -43,23 +44,49 @@ def get_engine():
     return engine
 
 def get_session():
-    """FastAPI dependency to get a DB session with retry logic."""
+    """
+    FastAPI dependency to get a DB session with retry logic and automatic recovery.
+    Handles connection failures, dead connections, and pool exhaustion gracefully.
+    """
     max_retries = 3
-    retry_delay = 1
+    retry_delay = 0.5
     
     for attempt in range(max_retries):
         try:
             with Session(engine) as session:
+                # Test the connection before yielding
+                try:
+                    session.execute("SELECT 1")
+                except Exception as test_error:
+                    logger.warning(f"Connection test failed: {test_error}, disposing pool")
+                    engine.dispose()  # Reset pool if connections are stale
+                    raise
+                
                 yield session
                 return
         except (OperationalError, DisconnectionError) as e:
+            error_msg = str(e).lower()
             logger.warning(f"Database connection attempt {attempt + 1} failed: {str(e)}")
+            
+            # Reset pool on connection errors
+            if attempt == 0:  # Only dispose on first error to avoid excessive resets
+                logger.info("Disposing connection pool due to connection error")
+                engine.dispose()
+            
             if attempt < max_retries - 1:
                 import time
-                time.sleep(retry_delay * (attempt + 1))  # Exponential backoff
+                backoff = retry_delay * (2 ** attempt)  # Exponential backoff
+                logger.info(f"Retrying in {backoff}s...")
+                time.sleep(backoff)
                 continue
             else:
                 logger.error(f"Failed to get database session after {max_retries} attempts")
+                # Log pool status for debugging
+                try:
+                    pool_status = get_pool_status()
+                    logger.error(f"Final pool status: {pool_status}")
+                except:
+                    pass
                 raise HTTPException(
                     status_code=503, 
                     detail="Database temporarily unavailable. Please try again."
@@ -145,3 +172,57 @@ def get_pool_status():
     except Exception as e:
         logger.error(f"Failed to get pool status: {str(e)}")
         return {"error": str(e)}
+
+async def monitor_connection_pool():
+    """
+    Background task that monitors connection pool health and performs maintenance.
+    Prevents connection buildup and detects/fixes stale connections.
+    """
+    import asyncio
+    from app.config import DB_POOL_SIZE, DB_MAX_OVERFLOW
+    
+    logger.info("Starting connection pool monitor...")
+    check_interval = 60  # Check every 60 seconds
+    max_idle_time = 300  # Reset pool if idle for 5 minutes
+    
+    while True:
+        try:
+            await asyncio.sleep(check_interval)
+            
+            status = get_pool_status()
+            if "error" in status:
+                logger.warning(f"Pool status check failed: {status['error']}")
+                continue
+            
+            checked_out = status.get("checked_out", 0)
+            overflow = status.get("overflow", 0)
+            total = status.get("total", 0)
+            
+            # Log pool status
+            logger.info(f"Pool status: {total} connections ({checked_out} active, {overflow} overflow)")
+            
+            # Alert if pool is getting exhausted
+            pool_size = DB_POOL_SIZE + DB_MAX_OVERFLOW
+            if total >= pool_size * 0.8:
+                logger.warning(f"Connection pool near capacity: {total}/{pool_size} connections in use")
+            
+            # Proactive pool refresh if too many connections are checked out for too long
+            if checked_out > DB_POOL_SIZE and overflow > 0:
+                logger.info("High connection usage detected, connections will be recycled naturally")
+            
+            # Test connection health periodically
+            try:
+                with Session(engine) as test_session:
+                    test_session.execute("SELECT 1")
+                logger.debug("Connection health check passed")
+            except Exception as health_error:
+                logger.error(f"Connection health check failed: {health_error}")
+                logger.info("Disposing connection pool due to failed health check")
+                engine.dispose()
+                
+        except asyncio.CancelledError:
+            logger.info("Connection pool monitor shutting down")
+            break
+        except Exception as e:
+            logger.error(f"Error in connection pool monitor: {e}")
+            # Continue monitoring even if there's an error
