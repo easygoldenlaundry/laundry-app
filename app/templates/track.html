@@ -457,7 +457,6 @@
     </form>
 </div>
 
-<script src="/static/vendor/socket.io.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const trackContainer = document.getElementById('track-container');
@@ -624,32 +623,43 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Real-Time Update Logic ---
     const orderIdInt = parseInt(orderId);
     
-    const socket = io({ transports: ['websocket'] });
+    const socket = window.appSocket;
 
-    socket.on('connect', () => {
+    function onConnect() {
         console.log('Socket connected for tracking.');
-        socket.emit('join', { room: `order:${orderId}` });
-    });
-
-    socket.on('order.updated', (updatedOrder) => {
-        if (updatedOrder.id === orderIdInt) {
-            console.log(`Update received for this order. Reloading page.`);
-            window.location.reload();
+        if (socket) {
+            socket.emit('join', { room: `order:${orderId}` });
         }
-    });
-    
-    socket.on('message.new', (message) => {
-        if (message.order_id === orderIdInt) {
-            appendMessageToChat(message);
-            if (message.sender_role === 'admin' && !chatWidget.classList.contains('open')) {
-                unreadCount++;
-                updateUnreadBadge();
-                showNotification(message);
+    }
+
+    if (socket && socket.connected) {
+        onConnect();
+    }
+    if (socket) {
+        socket.on('connect', onConnect);
+    }
+
+    if (socket) {
+        socket.on('order.updated', (updatedOrder) => {
+            if (updatedOrder.id === orderIdInt) {
+                console.log(`Update received for this order. Reloading page.`);
+                window.location.reload();
             }
-        }
-    });
+        });
 
-    socket.on('disconnect', () => console.log('Socket disconnected.'));
+        socket.on('message.new', (message) => {
+            if (message.order_id === orderIdInt) {
+                appendMessageToChat(message);
+                if (message.sender_role === 'admin' && !chatWidget.classList.contains('open')) {
+                    unreadCount++;
+                    updateUnreadBadge();
+                    showNotification(message);
+                }
+            }
+        });
+
+        socket.on('disconnect', () => console.log('Socket disconnected.'));
+    }
     
     // --- INIT ---
     if (Notification.permission === 'granted') notificationsPermitted = true;
