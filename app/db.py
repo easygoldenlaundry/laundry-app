@@ -72,6 +72,7 @@ def create_db_and_tables(max_retries=5, retry_delay=5):
     """Creates the database and all tables if they don't exist."""
     import time
     import logging
+    from sqlalchemy import text, inspect
 
     logger = logging.getLogger(__name__)
 
@@ -83,6 +84,26 @@ def create_db_and_tables(max_retries=5, retry_delay=5):
             logger.info(f"Attempting to create database tables (attempt {attempt + 1}/{max_retries})")
             SQLModel.metadata.create_all(engine)
             logger.info("Database tables created successfully")
+            
+            # Add missing columns for delivery cost tracking (migration)
+            try:
+                with engine.connect() as conn:
+                    inspector = inspect(engine)
+                    columns = [col['name'] for col in inspector.get_columns('order')]
+                    
+                    if 'delivery_cost' not in columns:
+                        logger.info("Adding delivery_cost column...")
+                        conn.execute(text('ALTER TABLE "order" ADD COLUMN delivery_cost FLOAT NULL'))
+                        conn.commit()
+                        logger.info("✅ delivery_cost column added")
+                    
+                    if 'delivery_distance_km' not in columns:
+                        logger.info("Adding delivery_distance_km column...")
+                        conn.execute(text('ALTER TABLE "order" ADD COLUMN delivery_distance_km FLOAT NULL'))
+                        conn.commit()
+                        logger.info("✅ delivery_distance_km column added")
+            except Exception as e:
+                logger.warning(f"Column migration check failed (may already exist): {e}")
             
             # Log initial pool status
             pool = engine.pool

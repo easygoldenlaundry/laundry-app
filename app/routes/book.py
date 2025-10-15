@@ -100,7 +100,27 @@ async def create_booking_api(
     
     background_tasks.add_task(broadcast_order_update, new_order)
 
-    return JSONResponse(content={"order": json.loads(new_order.json()), "message": "Booking created successfully"})
+    # Safely serialize order - handle new fields that might not exist in DB yet
+    try:
+        order_dict = json.loads(new_order.json())
+    except Exception:
+        # Fallback: manually create dict with safe field access
+        order_dict = {
+            "id": new_order.id,
+            "external_id": new_order.external_id,
+            "tracking_token": new_order.tracking_token,
+            "customer_name": new_order.customer_name,
+            "customer_phone": new_order.customer_phone,
+            "customer_address": new_order.customer_address,
+            "status": new_order.status,
+            "created_at": new_order.created_at.isoformat() if new_order.created_at else None,
+            "sla_deadline": new_order.sla_deadline.isoformat() if new_order.sla_deadline else None,
+            "processing_option": new_order.processing_option,
+            "pickup_cost": new_order.pickup_cost,
+            "distance_km": new_order.distance_km
+        }
+    
+    return JSONResponse(content={"order": order_dict, "message": "Booking created successfully"})
 
 
 # --- Existing Web Endpoints (HTML only) ---
