@@ -2,12 +2,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Form, UploadFile, File, Request
 from sqlmodel import Session, select, delete, update
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import selectinload
 from datetime import datetime, timezone
 
 from app.db import get_session
-from app.models import Order, Bag, Image, Item, Basket, User, Message, Customer, Driver, FinanceEntry, Setting
+from app.models import Order, Bag, Image, Item, Basket, User, Message, Customer, Driver, FinanceEntry, Setting, Review
 from app.services.state_machine import apply_transition
 from app.auth import get_current_admin_user, get_current_api_user # Use the working admin auth
 from app.sockets import broadcast_message_update, broadcast_admin_notification, broadcast_order_update
@@ -30,6 +30,12 @@ class OrderResponse(BaseModel):
     price_per_load: Optional[float] = None
     pickup_cost: Optional[float] = None
     delivery_cost: Optional[float] = None
+    # Review fields
+    has_review: bool = False
+    pickup_delivery_rating: Optional[int] = None
+    laundry_quality_rating: Optional[int] = None
+    feedback_text: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
 
 # --- NEW ENDPOINT: Get all orders for authenticated user ---
 @router.get("/my-orders", response_model=List[OrderResponse])
@@ -91,6 +97,14 @@ def get_my_orders(
             # Fallback if settings not available
             price_per_load = 210.0 if not order.processing_option or order.processing_option == "standard" else 150.0
 
+        # Get review data if exists
+        review = session.exec(select(Review).where(Review.order_id == order.id)).first()
+        has_review = review is not None
+        pickup_delivery_rating = review.pickup_delivery_rating if review else None
+        laundry_quality_rating = review.laundry_quality_rating if review else None
+        feedback_text = review.feedback_text if review else None
+        reviewed_at = review.created_at if review else None
+
         response_orders.append(OrderResponse(
             id=order.id,
             customer_id=order.customer_id,
@@ -103,7 +117,12 @@ def get_my_orders(
             processing_option=order.processing_option,
             price_per_load=price_per_load,
             pickup_cost=order.pickup_cost,
-            delivery_cost=getattr(order, 'delivery_cost', None)
+            delivery_cost=getattr(order, 'delivery_cost', None),
+            has_review=has_review,
+            pickup_delivery_rating=pickup_delivery_rating,
+            laundry_quality_rating=laundry_quality_rating,
+            feedback_text=feedback_text,
+            reviewed_at=reviewed_at
         ))
 
     return response_orders
@@ -299,6 +318,72 @@ def request_delivery(order_id: int, delivery_request: DeliveryRequest, session: 
 
     updated_order = apply_transition(session, order, "OutForDelivery", meta={"customer_triggered": True})
     return updated_order
+
+class ReviewRequest(BaseModel):
+    pickup_delivery_rating: int = Field(..., ge=1, le=5, description="Rating 1-5 for pickup/delivery service")
+    laundry_quality_rating: int = Field(..., ge=1, le=5, description="Rating 1-5 for laundry quality")
+    feedback_text: Optional[str] = Field(None, max_length=500, description="Optional feedback")
+
+@router.post("/{order_id}/submit-review")
+def submit_review(
+    order_id: int,
+    review_data: ReviewRequest,
+    user: User = Depends(get_current_api_user),
+    session: Session = Depends(get_session)
+):
+    """Submit customer ratings and feedback for a completed order."""
+    # Get customer profile for the authenticated user
+    customer = session.exec(select(Customer).where(Customer.user_id == user.id)).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer profile not found")
+    
+    # Verify order exists and belongs to user
+    order = session.exec(
+        select(Order)
+        .where(Order.id == order_id, Order.customer_id == customer.id)
+    ).first()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # Verify order is completed (Delivered or Closed)
+    if order.status not in ["Delivered", "Closed"]:
+        raise HTTPException(
+            status_code=400, 
+            detail="Can only review completed orders (status must be Delivered or Closed)"
+        )
+    
+    # Check if review already exists
+    existing_review = session.exec(
+        select(Review).where(Review.order_id == order_id)
+    ).first()
+    
+    if existing_review:
+        raise HTTPException(
+            status_code=409, 
+            detail="Review already submitted for this order"
+        )
+    
+    # Create review
+    new_review = Review(
+        order_id=order_id,
+        customer_id=customer.id,
+        pickup_delivery_rating=review_data.pickup_delivery_rating,
+        laundry_quality_rating=review_data.laundry_quality_rating,
+        feedback_text=review_data.feedback_text,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc)
+    )
+    
+    session.add(new_review)
+    session.commit()
+    session.refresh(new_review)
+    
+    return {
+        "message": "Thank you for your feedback!",
+        "review_id": new_review.id,
+        "order_id": order_id
+    }
 
 @router.get("/{order_id}/stained-images", response_model=List[Image])
 def get_stained_images(order_id: int, session: Session = Depends(get_session)):

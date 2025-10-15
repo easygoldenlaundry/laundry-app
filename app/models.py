@@ -107,6 +107,7 @@ class Order(SQLModel, table=True):
     images: List["Image"] = Relationship(back_populates="order")
     messages: List["Message"] = Relationship(back_populates="order")
     finance_entries: List["FinanceEntry"] = Relationship(back_populates="order")
+    review: Optional["Review"] = Relationship(back_populates="order")
 
 class Basket(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -166,6 +167,7 @@ class Customer(SQLModel, table=True):
     additional_notes: Optional[str] = Field(default=None, sa_column=Column(TEXT))
     
     orders: List["Order"] = Relationship(back_populates="customer")
+    reviews: List["Review"] = Relationship(back_populates="customer")
 
 class Driver(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -230,3 +232,16 @@ class Claim(SQLModel, table=True):
     notes: Optional[str] = Field(default=None, sa_column=Column(TEXT))
 
     order: Optional["Order"] = Relationship(back_populates="claims")
+
+class Review(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    order_id: int = Field(foreign_key="order.id", unique=True)
+    customer_id: int = Field(foreign_key="customer.id")
+    pickup_delivery_rating: int = Field(ge=1, le=5)  # 1-5 stars
+    laundry_quality_rating: int = Field(ge=1, le=5)  # 1-5 stars
+    feedback_text: Optional[str] = Field(default=None, max_length=500, sa_column=Column(TEXT))
+    created_at: datetime = Field(default_factory=now_utc)
+    updated_at: datetime = Field(default_factory=now_utc)
+    
+    order: Optional["Order"] = Relationship(back_populates="review")
+    customer: Optional["Customer"] = Relationship(back_populates="reviews")
