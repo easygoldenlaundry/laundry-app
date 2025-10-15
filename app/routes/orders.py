@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 from datetime import datetime, timezone
 
 from app.db import get_session
-from app.models import Order, Bag, Image, Item, Basket, User, Message, Customer, Driver, FinanceEntry
+from app.models import Order, Bag, Image, Item, Basket, User, Message, Customer, Driver, FinanceEntry, Setting
 from app.services.state_machine import apply_transition
 from app.auth import get_current_admin_user, get_current_api_user # Use the working admin auth
 from app.sockets import broadcast_message_update, broadcast_admin_notification, broadcast_order_update
@@ -27,6 +27,9 @@ class OrderResponse(BaseModel):
     driver_name: Optional[str] = None
     driver_id: Optional[int] = None
     processing_option: Optional[str] = None  # "standard" or "wait_and_save"
+    price_per_load: Optional[float] = None
+    pickup_cost: Optional[float] = None
+    delivery_cost: Optional[float] = None
 
 # --- NEW ENDPOINT: Get all orders for authenticated user ---
 @router.get("/my-orders", response_model=List[OrderResponse])
@@ -74,6 +77,15 @@ def get_my_orders(
 
         # Use confirmed_load_count if available, otherwise basket_count, otherwise 0
         number_of_loads = order.confirmed_load_count or order.basket_count or 0
+        
+        # Get price_per_load based on processing_option
+        price_per_load = None
+        if order.processing_option == "wait_and_save":
+            price_setting = session.get(Setting, "wait_and_save_price_per_load")
+            price_per_load = float(price_setting.value) if price_setting else 150.0
+        else:  # standard or None defaults to standard
+            price_setting = session.get(Setting, "standard_price_per_load")
+            price_per_load = float(price_setting.value) if price_setting else 210.0
 
         response_orders.append(OrderResponse(
             id=order.id,
@@ -84,7 +96,10 @@ def get_my_orders(
             created_at=order.created_at,
             driver_name=driver_name,
             driver_id=driver_id,
-            processing_option=order.processing_option
+            processing_option=order.processing_option,
+            price_per_load=price_per_load,
+            pickup_cost=order.pickup_cost,
+            delivery_cost=order.delivery_cost
         ))
 
     return response_orders
@@ -253,6 +268,19 @@ def request_delivery(order_id: int, delivery_request: DeliveryRequest, session: 
     if order.status != "ReadyForDelivery":
         raise HTTPException(status_code=400, detail="Order is not ready for delivery request.")
 
+    # Update order with delivery cost and distance
+    if delivery_request.delivery_cost is not None:
+        order.delivery_cost = delivery_request.delivery_cost
+    if delivery_request.distance_km is not None:
+        order.delivery_distance_km = delivery_request.distance_km
+    
+    # Update delivery location
+    order.delivery_lat = delivery_request.delivery_latitude
+    order.delivery_lon = delivery_request.delivery_longitude
+    order.customer_address = delivery_request.delivery_address
+    order.customer_phone = delivery_request.phone
+    session.add(order)
+
     # Update customer profile with new delivery details
     customer = session.get(Customer, order.customer_id)
     if customer:
@@ -261,11 +289,6 @@ def request_delivery(order_id: int, delivery_request: DeliveryRequest, session: 
         customer.longitude = delivery_request.delivery_longitude
         customer.phone_number = delivery_request.phone
         session.add(customer)
-
-    # Save delivery cost and distance to order
-    order.delivery_cost = delivery_request.delivery_cost
-    order.delivery_distance_km = delivery_request.distance_km
-    session.add(order)
 
     updated_order = apply_transition(session, order, "OutForDelivery", meta={"customer_triggered": True})
     return updated_order

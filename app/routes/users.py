@@ -316,10 +316,6 @@ def get_customer_account_page(
             .order_by(Order.created_at.desc())
         ).all()
 
-    # Get price per load setting
-    price_setting = session.get(Setting, "standard_price_per_load")
-    price_per_load = float(price_setting.value) if price_setting else 210.0
-
     # Enhance orders with cost and driver info (same as API endpoint)
     enhanced_orders = []
     for order in orders:
@@ -345,6 +341,15 @@ def get_customer_account_page(
 
         # Use confirmed_load_count if available, otherwise basket_count, otherwise 0
         number_of_loads = order.confirmed_load_count or order.basket_count or 0
+        
+        # Get price_per_load based on processing_option
+        price_per_load = None
+        if order.processing_option == "wait_and_save":
+            price_setting = session.get(Setting, "wait_and_save_price_per_load")
+            price_per_load = float(price_setting.value) if price_setting else 150.0
+        else:  # standard or None defaults to standard
+            price_setting = session.get(Setting, "standard_price_per_load")
+            price_per_load = float(price_setting.value) if price_setting else 210.0
 
         # Calculate fulfillment time for completed orders
         fulfillment_time = None
