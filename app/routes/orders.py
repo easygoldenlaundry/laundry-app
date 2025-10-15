@@ -108,6 +108,8 @@ class DeliveryRequest(BaseModel):
     delivery_latitude: float
     delivery_longitude: float
     phone: str
+    delivery_cost: Optional[float] = None
+    distance_km: Optional[float] = None
 
 class MessagePublic(BaseModel):
     id: int
@@ -259,6 +261,11 @@ def request_delivery(order_id: int, delivery_request: DeliveryRequest, session: 
         customer.longitude = delivery_request.delivery_longitude
         customer.phone_number = delivery_request.phone
         session.add(customer)
+
+    # Save delivery cost and distance to order
+    order.delivery_cost = delivery_request.delivery_cost
+    order.delivery_distance_km = delivery_request.distance_km
+    session.add(order)
 
     updated_order = apply_transition(session, order, "OutForDelivery", meta={"customer_triggered": True})
     return updated_order

@@ -316,6 +316,10 @@ def get_customer_account_page(
             .order_by(Order.created_at.desc())
         ).all()
 
+    # Get price per load setting
+    price_setting = session.get(Setting, "standard_price_per_load")
+    price_per_load = float(price_setting.value) if price_setting else 210.0
+
     # Enhance orders with cost and driver info (same as API endpoint)
     enhanced_orders = []
     for order in orders:
@@ -376,6 +380,8 @@ def get_customer_account_page(
             'dispatch_method': order.dispatch_method,
             'distance_km': order.distance_km,
             'pickup_cost': order.pickup_cost,
+            'delivery_cost': order.delivery_cost,
+            'delivery_distance_km': order.delivery_distance_km,
             'pickup_lat': order.pickup_lat,
             'pickup_lon': order.pickup_lon,
             'delivery_lat': order.delivery_lat,
@@ -396,6 +402,7 @@ def get_customer_account_page(
             # Enhanced fields
             'total_cost': total_cost,
             'number_of_loads': number_of_loads,
+            'price_per_load': price_per_load,
             'driver_name': driver_name,
             'driver_id': driver_id,
             'fulfillment_time': fulfillment_time
