@@ -1,0 +1,319 @@
+<!-- app/templates/admin/reviews.html -->
+{% extends "base.html" %}
+
+{% block title %}Customer Reviews & Feedback{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<style>
+    body {
+        background-color: #f4f7f9;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+    
+    h1 {
+        color: #2c3e50;
+        margin: 0;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 12px;
+        padding: 1.5rem;
+        color: white;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .stat-card.delivery {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    
+    .stat-card.quality {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    
+    .stat-card.feedback {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+    
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin: 0.5rem 0;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    .star-rating {
+        color: #ffd700;
+        font-size: 1.2rem;
+    }
+    
+    .filters {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    
+    .filters label {
+        font-weight: 600;
+        margin-right: 0.5rem;
+    }
+    
+    .filters select, .filters input {
+        padding: 0.5rem 1rem;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 0.9rem;
+    }
+    
+    .reviews-container {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+    
+    .review-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        border-left: 4px solid #667eea;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .review-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    }
+    
+    .review-card.low-rating {
+        border-left-color: #f5576c;
+    }
+    
+    .review-card.high-rating {
+        border-left-color: #43e97b;
+    }
+    
+    .review-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    
+    .review-info {
+        flex: 1;
+    }
+    
+    .order-id {
+        font-weight: bold;
+        color: #667eea;
+        font-size: 1.1rem;
+        margin-bottom: 0.25rem;
+    }
+    
+    .customer-name {
+        color: #666;
+        font-size: 0.9rem;
+    }
+    
+    .review-date {
+        color: #999;
+        font-size: 0.85rem;
+    }
+    
+    .ratings-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin: 1rem 0;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+    
+    .rating-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .rating-label {
+        font-size: 0.85rem;
+        color: #666;
+        font-weight: 600;
+    }
+    
+    .rating-stars {
+        color: #ffd700;
+    }
+    
+    .rating-value {
+        font-weight: bold;
+        color: #333;
+        margin-left: 0.25rem;
+    }
+    
+    .feedback-text {
+        background: #fff;
+        border-left: 3px solid #667eea;
+        padding: 1rem;
+        margin-top: 1rem;
+        border-radius: 6px;
+        color: #444;
+        line-height: 1.6;
+    }
+    
+    .no-feedback {
+        color: #999;
+        font-style: italic;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #999;
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+    
+    .driver-badge {
+        display: inline-block;
+        background: #e3f2fd;
+        color: #1976d2;
+        padding: 0.25rem 0.75rem;
+        border-radius: 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+    
+    .export-btn {
+        background: #667eea;
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background 0.2s ease;
+    }
+    
+    .export-btn:hover {
+        background: #5568d3;
+    }
+</style>
+
+<div class="page-header">
+    <h1><i class="fas fa-star"></i> Customer Reviews & Feedback</h1>
+    <button class="export-btn" onclick="exportReviews()">
+        <i class="fas fa-download"></i> Export Reviews
+    </button>
+</div>
+
+<!-- Statistics Cards -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Total Reviews</div>
+        <div class="stat-value" id="total-reviews">-</div>
+        <div style="margin-top: 0.5rem; font-size: 0.9rem;">Overall Feedback</div>
+    </div>
+    
+    <div class="stat-card delivery">
+        <div class="stat-label">Pickup/Delivery Rating</div>
+        <div class="stat-value" id="avg-delivery-rating">-</div>
+        <div class="star-rating" id="delivery-stars"></div>
+    </div>
+    
+    <div class="stat-card quality">
+        <div class="stat-label">Laundry Quality Rating</div>
+        <div class="stat-value" id="avg-quality-rating">-</div>
+        <div class="star-rating" id="quality-stars"></div>
+    </div>
+    
+    <div class="stat-card feedback">
+        <div class="stat-label">With Feedback</div>
+        <div class="stat-value" id="feedback-count">-</div>
+        <div style="margin-top: 0.5rem; font-size: 0.9rem;">Written Comments</div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="filters">
+    <div>
+        <label for="rating-filter">Filter by Rating:</label>
+        <select id="rating-filter" onchange="filterReviews()">
+            <option value="all">All Ratings</option>
+            <option value="5">5 Stars</option>
+            <option value="4">4 Stars</option>
+            <option value="3">3 Stars</option>
+            <option value="2">2 Stars</option>
+            <option value="1">1 Star</option>
+            <option value="low">Low Ratings (≤2)</option>
+        </select>
+    </div>
+    
+    <div>
+        <label for="feedback-filter">Feedback:</label>
+        <select id="feedback-filter" onchange="filterReviews()">
+            <option value="all">All Reviews</option>
+            <option value="with">With Feedback</option>
+            <option value="without">Without Feedback</option>
+        </select>
+    </div>
+    
+    <div>
+        <label for="sort-by">Sort by:</label>
+        <select id="sort-by" onchange="filterReviews()">
+            <option value="recent">Most Recent</option>
+            <option value="oldest">Oldest First</option>
+            <option value="highest">Highest Rated</option>
+            <option value="lowest">Lowest Rated</option>
+        </select>
+    </div>
+</div>
+
+<!-- Reviews Container -->
+<div id="reviews-container" class="reviews-container">
+    <div class="empty-state">
+        <i class="fas fa-spinner fa-spin"></i>
+        <p>Loading reviews...</p>
+    </div>
+</div>
+
+<script src="/static/js/admin_reviews.js"></script>
+
+{% endblock %}
+

@@ -7,6 +7,8 @@ from app.auth import get_current_admin_user
 from app.queries import dashboard_queries
 from fastapi.templating import Jinja2Templates
 from typing import List, Dict, Any, Optional
+from sqlmodel import select, func
+from app.models import Review, Order, Customer, Driver, User
 import json
 
 router = APIRouter(
@@ -94,3 +96,74 @@ async def get_aggregated_statistics_data(
     days = timeframe_map.get(timeframe, 7) # Default to 7 days
     stats = dashboard_queries.get_aggregated_stats(session, days)
     return stats
+
+# --- Reviews Management ---
+
+@router.get("/reviews", response_class=HTMLResponse)
+async def get_reviews_page(request: Request):
+    """Serves the customer reviews and feedback page."""
+    return templates.TemplateResponse("admin/reviews.html", {"request": request})
+
+@router.get("/api/reviews")
+async def get_all_reviews(session: Session = Depends(get_session)):
+    """Fetches all customer reviews with order and customer details."""
+    # Query reviews with related data
+    reviews = session.exec(
+        select(Review)
+        .order_by(Review.created_at.desc())
+    ).all()
+    
+    # Build response with all needed data
+    reviews_data = []
+    for review in reviews:
+        # Get order details
+        order = session.get(Order, review.order_id)
+        if not order:
+            continue
+            
+        # Get customer details
+        customer = session.get(Customer, review.customer_id)
+        customer_name = customer.full_name if customer else "Unknown Customer"
+        
+        # Get driver details if assigned
+        driver_name = None
+        if order.assigned_driver_id:
+            driver = session.get(Driver, order.assigned_driver_id)
+            if driver:
+                driver_user = session.get(User, driver.user_id)
+                if driver_user:
+                    driver_name = driver_user.display_name
+        
+        reviews_data.append({
+            "id": review.id,
+            "order_id": review.order_id,
+            "customer_id": review.customer_id,
+            "customer_name": customer_name,
+            "driver_name": driver_name,
+            "pickup_delivery_rating": review.pickup_delivery_rating,
+            "laundry_quality_rating": review.laundry_quality_rating,
+            "feedback_text": review.feedback_text,
+            "created_at": review.created_at.isoformat() if review.created_at else None,
+        })
+    
+    # Calculate statistics
+    if reviews_data:
+        total_reviews = len(reviews_data)
+        avg_delivery = sum(r["pickup_delivery_rating"] for r in reviews_data) / total_reviews
+        avg_quality = sum(r["laundry_quality_rating"] for r in reviews_data) / total_reviews
+        feedback_count = sum(1 for r in reviews_data if r["feedback_text"])
+    else:
+        total_reviews = 0
+        avg_delivery = 0
+        avg_quality = 0
+        feedback_count = 0
+    
+    return {
+        "reviews": reviews_data,
+        "statistics": {
+            "total_reviews": total_reviews,
+            "avg_delivery_rating": avg_delivery,
+            "avg_quality_rating": avg_quality,
+            "feedback_count": feedback_count
+        }
+    }

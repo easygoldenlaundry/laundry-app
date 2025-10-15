@@ -78,6 +78,7 @@
                 {# --- Admin-Only Links --- #}
                 {% if request.state.user.role == 'admin' %}
                     <a href="/admin/dashboard">Admin Dashboard</a>
+                    <a href="/admin/reviews">Reviews</a>
                     <div class="nav-link-wrapper">
                         <a href="/admin/uber-dispatch" id="uber-chat-link">Chat Management</a>
                         <span class="notification-dot" id="chat-notification-dot"></span>
