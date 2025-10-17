@@ -48,6 +48,41 @@
         color: white; border: none; border-radius: 4px; font-size: 1em; cursor: pointer;
     }
 
+    .btn-save:hover {
+        background-color: #0056b3;
+    }
+
+    .delete-account-section {
+        margin-top: 2em;
+        padding-top: 2em;
+        border-top: 1px solid #dee2e6;
+    }
+
+    .btn-delete {
+        width: 100%; padding: 1em; background-color: #dc3545;
+        color: white; border: none; border-radius: 4px; font-size: 1em; cursor: pointer;
+        margin-bottom: 1em;
+    }
+
+    .btn-delete:hover {
+        background-color: #c82333;
+    }
+
+    .delete-warning {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        border-radius: 4px;
+        padding: 1em;
+        color: #721c24;
+        font-size: 0.9em;
+        margin-bottom: 1em;
+    }
+
+    .delete-warning strong {
+        display: block;
+        margin-bottom: 0.5em;
+    }
+
     /* Tab Switch */
     .tab-switch {
         display: flex;
@@ -416,6 +451,26 @@
             </div>
             <button type="submit" class="btn-save">Save Changes</button>
         </form>
+
+        <div class="delete-account-section">
+            <h3>Danger Zone</h3>
+
+            <div class="delete-warning">
+                <strong>⚠️ Warning: Account Deletion is Permanent</strong>
+                Deleting your account cannot be undone. All your personal data will be permanently removed.
+            </div>
+
+            <form action="/account/delete" method="post" onsubmit="return confirmDeleteAccount()">
+                <button type="submit" class="btn-delete">
+                    <i class="fas fa-trash-alt"></i> Delete My Account
+                </button>
+            </form>
+
+            <p style="font-size: 0.9em; color: #666; margin-top: 1em;">
+                Need help? Contact us at <a href="tel:+27689912257">+27689912257</a> or
+                <a href="mailto:easygoldenlaundry@gmail.com">easygoldenlaundry@gmail.com</a>
+            </p>
+        </div>
     </aside>
 
     <main class="orders-card">
@@ -582,6 +637,22 @@ function switchTab(tabName) {
     url.searchParams.set('tab', tabName);
     url.searchParams.delete('sort'); // Reset sort when switching tabs
     window.location.href = url.toString();
+}
+
+function confirmDeleteAccount() {
+    return confirm(
+        '⚠️ WARNING: Account Deletion is Permanent!\n\n' +
+        'Are you absolutely sure you want to delete your account?\n\n' +
+        'This will:\n' +
+        '• Delete all your personal information\n' +
+        '• Remove your profile completely\n' +
+        '• Anonymize your order history\n' +
+        '• Cannot be undone!\n\n' +
+        'If you have questions, please contact us first:\n' +
+        '+27689912257 or easygoldenlaundry@gmail.com\n\n' +
+        'Click OK to permanently delete your account.\n' +
+        'Click Cancel to keep your account.'
+    );
 }
 
 // Initialize tab switch on page load
