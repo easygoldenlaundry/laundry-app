@@ -186,6 +186,65 @@ def get_my_active_orders(
     ).all()
     return active_orders
 
+@api_router.delete("/me/delete-account")
+def delete_account_api(
+    user: User = Depends(get_current_api_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Deletes the currently authenticated user's account and all personal data.
+    
+    This endpoint:
+    1. Immediately deactivates the account
+    2. Deletes personal information from User and Customer tables
+    3. Anonymizes order data (removes customer link but keeps orders for legal/accounting)
+    4. Returns success confirmation
+    
+    WARNING: This action is permanent and cannot be undone!
+    """
+    # Only allow customers to delete their own accounts
+    if user.role != "customer":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Only customer accounts can be deleted through this endpoint"
+        )
+    
+    try:
+        # Get customer profile
+        customer_profile = session.exec(select(Customer).where(Customer.user_id == user.id)).first()
+        
+        # Anonymize all orders (keep for legal/accounting but remove personal data)
+        if customer_profile:
+            orders = session.exec(select(Order).where(Order.customer_id == customer_profile.id)).all()
+            for order in orders:
+                order.customer_name = "DELETED USER"
+                order.customer_phone = "DELETED"
+                order.customer_address = "DELETED"
+                order.customer_id = None  # Remove link to customer
+                order.notes_for_driver = None  # Remove any personal notes
+                session.add(order)
+            
+            # Delete customer profile
+            session.delete(customer_profile)
+        
+        # Delete user account
+        session.delete(user)
+        
+        # Commit all changes
+        session.commit()
+        
+        return {
+            "success": True,
+            "message": "Your account has been permanently deleted. All personal data has been removed."
+        }
+        
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete account: {str(e)}"
+        )
+
 
 # --- Existing Web Endpoints (HTML only) ---
 
@@ -451,3 +510,55 @@ def update_customer_details_web(
     session.add(customer)
     session.commit()
     return RedirectResponse(url="/account", status_code=303)
+
+@router.post("/account/delete")
+def delete_account_web(
+    request: Request,
+    user: User = Depends(get_current_customer_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Web endpoint to delete customer account.
+    Redirects to login page after successful deletion.
+    """
+    # Only allow customers to delete their own accounts
+    if user.role != "customer":
+        raise HTTPException(status_code=403, detail="Only customer accounts can be deleted")
+    
+    try:
+        # Get customer profile
+        customer_profile = session.exec(select(Customer).where(Customer.user_id == user.id)).first()
+        
+        # Anonymize all orders (keep for legal/accounting but remove personal data)
+        if customer_profile:
+            orders = session.exec(select(Order).where(Order.customer_id == customer_profile.id)).all()
+            for order in orders:
+                order.customer_name = "DELETED USER"
+                order.customer_phone = "DELETED"
+                order.customer_address = "DELETED"
+                order.customer_id = None
+                order.notes_for_driver = None
+                session.add(order)
+            
+            # Delete customer profile
+            session.delete(customer_profile)
+        
+        # Delete user account
+        session.delete(user)
+        
+        # Commit all changes
+        session.commit()
+        
+        # Redirect to login with success message
+        response = RedirectResponse(url="/login", status_code=303)
+        response.delete_cookie("access_token")
+        return response
+        
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete account: {str(e)}")
+
+@router.get("/delete-account-info", response_class=HTMLResponse, include_in_schema=False)
+async def delete_account_info_page(request: Request):
+    """Public page explaining account deletion policy (for Google Play Store)"""
+    return templates.TemplateResponse("delete_account.html", {"request": request})

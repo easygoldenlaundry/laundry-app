@@ -1,0 +1,207 @@
+<!-- app/templates/delete_account.html -->
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Konto löschen - Bits Layer Laundry</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.6; color: #333; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #007bff; margin-bottom: 30px; font-size: 2em; }
+        h2 { color: #333; margin-top: 30px; margin-bottom: 15px; font-size: 1.5em; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        h3 { color: #555; margin-top: 20px; margin-bottom: 10px; font-size: 1.2em; }
+        p, li { margin-bottom: 12px; color: #555; }
+        ol, ul { margin-left: 25px; margin-bottom: 20px; }
+        .info-box { background: #e7f3ff; border-left: 4px solid #007bff; padding: 15px; margin: 20px 0; border-radius: 4px; }
+        .warning-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px; }
+        .contact { background: #f8f9fa; padding: 20px; border-radius: 5px; margin-top: 30px; }
+        a { color: #007bff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .btn { display: inline-block; background: #007bff; color: white; padding: 12px 30px; border-radius: 5px; margin-top: 20px; font-weight: bold; }
+        .btn:hover { background: #0056b3; text-decoration: none; }
+        .lang-switch { text-align: right; margin-bottom: 20px; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="lang-switch">
+            <a href="#english">English</a> | <a href="#deutsch">Deutsch</a>
+        </div>
+
+        <!-- GERMAN VERSION -->
+        <section id="deutsch">
+            <h1>Konto löschen - Bits Layer Laundry</h1>
+            
+            <div class="info-box">
+                <strong>Wichtig:</strong> Diese Seite erklärt, wie Sie Ihr Konto und Ihre persönlichen Daten bei Bits Layer Laundry löschen können.
+            </div>
+
+            <h2>So löschen Sie Ihr Konto</h2>
+            <h3>Option 1: In der App (Empfohlen)</h3>
+            <ol>
+                <li>Öffnen Sie die Bits Layer Laundry App</li>
+                <li>Melden Sie sich in Ihrem Konto an</li>
+                <li>Gehen Sie zu <strong>Kontoeinstellungen</strong></li>
+                <li>Scrollen Sie nach unten und tippen Sie auf <strong>"Konto löschen"</strong></li>
+                <li>Bestätigen Sie Ihre Entscheidung</li>
+                <li>Ihr Konto wird sofort deaktiviert</li>
+            </ol>
+
+            <h3>Option 2: Web-App</h3>
+            <ol>
+                <li>Besuchen Sie unsere Website und melden Sie sich an</li>
+                <li>Gehen Sie zu Ihrer Kontoseite</li>
+                <li>Klicken Sie auf <strong>"Konto löschen"</strong></li>
+                <li>Bestätigen Sie die Löschung</li>
+            </ol>
+
+            <h3>Option 3: Kontakt aufnehmen</h3>
+            <p>Wenn Sie Hilfe benötigen, können Sie uns kontaktieren:</p>
+            <ul>
+                <li>E-Mail: <a href="mailto:support@bitslayer.com">support@bitslayer.com</a></li>
+                <li>In der App über den Support-Chat</li>
+            </ul>
+
+            <h2>Welche Daten werden gelöscht</h2>
+            <p>Wenn Sie Ihr Konto löschen, werden folgende Daten <strong>sofort</strong> gelöscht:</p>
+            <ul>
+                <li><strong>Persönliche Informationen:</strong> Name, E-Mail, Telefonnummer, Adresse</li>
+                <li><strong>Standortdaten:</strong> Gespeicherte GPS-Koordinaten</li>
+                <li><strong>Präferenzen:</strong> Alle gespeicherten Einstellungen und Vorlieben</li>
+                <li><strong>Profilinformationen:</strong> Ihr komplettes Kundenprofil</li>
+                <li><strong>Zugriffsdaten:</strong> Passwort und Anmeldeinformationen</li>
+            </ul>
+
+            <h2>Welche Daten werden aufbewahrt</h2>
+            <div class="warning-box">
+                <strong>Hinweis:</strong> Einige Daten müssen aus rechtlichen und buchhalterischen Gründen aufbewahrt werden:
+            </div>
+            <ul>
+                <li><strong>Bestellhistorie:</strong> Anonymisierte Aufzeichnungen abgeschlossener Bestellungen (ohne persönliche Daten)</li>
+                <li><strong>Rechnungsdaten:</strong> Für steuerliche Zwecke (gesetzlich vorgeschrieben für 10 Jahre)</li>
+                <li><strong>Transaktionsdaten:</strong> Zahlungsverläufe für Buchhaltung und Steuererklärungen</li>
+            </ul>
+            <p><strong>Aufbewahrungsdauer:</strong> Maximal 10 Jahre gemäß deutscher Steuergesetzgebung</p>
+            <p><strong>Wichtig:</strong> Diese aufbewahrten Daten werden vollständig anonymisiert und können nicht mehr mit Ihnen in Verbindung gebracht werden.</p>
+
+            <h2>Was passiert nach der Löschung</h2>
+            <ol>
+                <li><strong>Sofortige Deaktivierung:</strong> Ihr Konto wird sofort deaktiviert und Sie können sich nicht mehr anmelden</li>
+                <li><strong>Datenlöschung:</strong> Alle persönlichen Daten werden innerhalb von 24 Stunden endgültig gelöscht</li>
+                <li><strong>Keine Wiederherstellung:</strong> Gelöschte Konten können nicht wiederhergestellt werden</li>
+                <li><strong>Offene Bestellungen:</strong> Laufende Bestellungen werden noch abgeschlossen, können aber nicht mehr verfolgt werden</li>
+            </ol>
+
+            <div class="warning-box">
+                <strong>⚠️ Achtung:</strong> Die Löschung ist endgültig und kann nicht rückgängig gemacht werden!
+            </div>
+
+            <h2>Datenschutz und Sicherheit</h2>
+            <p>Wir nehmen Ihre Privatsphäre ernst:</p>
+            <ul>
+                <li>Ihre Daten werden sicher verschlüsselt gespeichert (PostgreSQL/Supabase)</li>
+                <li>Passwörter werden mit bcrypt gehasht</li>
+                <li>Alle Daten werden gemäß DSGVO verarbeitet</li>
+                <li>Sie haben jederzeit das Recht auf Datenzugriff, Korrektur und Löschung</li>
+            </ul>
+
+            <div class="contact">
+                <h2>Kontakt</h2>
+                <p><strong>Bits Layer Laundry</strong></p>
+                <p>E-Mail: <a href="mailto:support@bitslayer.com">support@bitslayer.com</a></p>
+                <p>Bei Fragen zur Datenlöschung oder zum Datenschutz können Sie uns jederzeit kontaktieren.</p>
+            </div>
+        </section>
+
+        <hr style="margin: 50px 0; border: none; border-top: 2px solid #e0e0e0;">
+
+        <!-- ENGLISH VERSION -->
+        <section id="english">
+            <h1>Delete Account - Bits Layer Laundry</h1>
+            
+            <div class="info-box">
+                <strong>Important:</strong> This page explains how to delete your account and personal data from Bits Layer Laundry.
+            </div>
+
+            <h2>How to Delete Your Account</h2>
+            <h3>Option 1: In the App (Recommended)</h3>
+            <ol>
+                <li>Open the Bits Layer Laundry app</li>
+                <li>Sign in to your account</li>
+                <li>Go to <strong>Account Settings</strong></li>
+                <li>Scroll down and tap <strong>"Delete Account"</strong></li>
+                <li>Confirm your decision</li>
+                <li>Your account will be immediately deactivated</li>
+            </ol>
+
+            <h3>Option 2: Web App</h3>
+            <ol>
+                <li>Visit our website and sign in</li>
+                <li>Go to your account page</li>
+                <li>Click <strong>"Delete Account"</strong></li>
+                <li>Confirm the deletion</li>
+            </ol>
+
+            <h3>Option 3: Contact Us</h3>
+            <p>If you need help, you can contact us:</p>
+            <ul>
+                <li>Email: <a href="mailto:support@bitslayer.com">support@bitslayer.com</a></li>
+                <li>Through the support chat in the app</li>
+            </ul>
+
+            <h2>What Data Gets Deleted</h2>
+            <p>When you delete your account, the following data is <strong>immediately</strong> deleted:</p>
+            <ul>
+                <li><strong>Personal Information:</strong> Name, email, phone number, address</li>
+                <li><strong>Location Data:</strong> Saved GPS coordinates</li>
+                <li><strong>Preferences:</strong> All saved settings and preferences</li>
+                <li><strong>Profile Information:</strong> Your complete customer profile</li>
+                <li><strong>Access Credentials:</strong> Password and login information</li>
+            </ul>
+
+            <h2>What Data Is Retained</h2>
+            <div class="warning-box">
+                <strong>Note:</strong> Some data must be retained for legal and accounting purposes:
+            </div>
+            <ul>
+                <li><strong>Order History:</strong> Anonymized records of completed orders (without personal data)</li>
+                <li><strong>Invoice Data:</strong> For tax purposes (legally required for 10 years)</li>
+                <li><strong>Transaction Data:</strong> Payment history for accounting and tax reporting</li>
+            </ul>
+            <p><strong>Retention Period:</strong> Maximum 10 years according to German tax legislation</p>
+            <p><strong>Important:</strong> This retained data is fully anonymized and cannot be linked back to you.</p>
+
+            <h2>What Happens After Deletion</h2>
+            <ol>
+                <li><strong>Immediate Deactivation:</strong> Your account is immediately deactivated and you can no longer log in</li>
+                <li><strong>Data Deletion:</strong> All personal data is permanently deleted within 24 hours</li>
+                <li><strong>No Recovery:</strong> Deleted accounts cannot be restored</li>
+                <li><strong>Pending Orders:</strong> Active orders will still be completed, but cannot be tracked anymore</li>
+            </ol>
+
+            <div class="warning-box">
+                <strong>⚠️ Warning:</strong> Deletion is permanent and cannot be undone!
+            </div>
+
+            <h2>Privacy and Security</h2>
+            <p>We take your privacy seriously:</p>
+            <ul>
+                <li>Your data is securely encrypted in storage (PostgreSQL/Supabase)</li>
+                <li>Passwords are hashed using bcrypt</li>
+                <li>All data is processed according to GDPR</li>
+                <li>You have the right to access, correct, and delete your data at any time</li>
+            </ul>
+
+            <div class="contact">
+                <h2>Contact</h2>
+                <p><strong>Bits Layer Laundry</strong></p>
+                <p>Email: <a href="mailto:support@bitslayer.com">support@bitslayer.com</a></p>
+                <p>If you have questions about data deletion or privacy, you can contact us anytime.</p>
+            </div>
+        </section>
+    </div>
+</body>
+</html>
+
