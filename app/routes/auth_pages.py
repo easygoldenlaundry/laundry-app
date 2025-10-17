@@ -26,7 +26,16 @@ def wants_json(request: Request) -> bool:
 @router.get("/login", response_class=HTMLResponse, include_in_schema=False)
 async def login_page(request: Request):
     """Serves the main login page."""
-    return templates.TemplateResponse("login.html", {"request": request})
+    # Check for success message in URL parameters
+    success_message = request.query_params.get("message")
+    if success_message:
+        # URL decode the message (replace + with spaces)
+        success_message = success_message.replace("+", " ")
+
+    return templates.TemplateResponse("login.html", {
+        "request": request,
+        "success": success_message
+    })
 
 @router.post("/api/auth/token")
 async def login_for_access_token_web(

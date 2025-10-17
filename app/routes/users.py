@@ -528,29 +528,29 @@ def delete_account_web(
     try:
         # Get customer profile
         customer_profile = session.exec(select(Customer).where(Customer.user_id == user.id)).first()
-        
-        # Anonymize all orders (keep for legal/accounting but remove personal data)
+
+        # Anonymize all orders first (keep for legal/accounting but remove personal data)
         if customer_profile:
             orders = session.exec(select(Order).where(Order.customer_id == customer_profile.id)).all()
             for order in orders:
                 order.customer_name = "DELETED USER"
                 order.customer_phone = "DELETED"
                 order.customer_address = "DELETED"
-                order.customer_id = None
+                order.customer_id = None  # Remove link to customer
                 order.notes_for_driver = None
                 session.add(order)
-            
+
             # Delete customer profile
             session.delete(customer_profile)
-        
-        # Delete user account
+
+        # Delete user account last (after removing all references)
         session.delete(user)
-        
-        # Commit all changes
+
+        # Commit all changes in a single transaction
         session.commit()
-        
-        # Redirect to login with success message
-        response = RedirectResponse(url="/login", status_code=303)
+
+        # Redirect to login page with success message
+        response = RedirectResponse(url="/login?message=Account+successfully+deleted", status_code=303)
         response.delete_cookie("access_token")
         return response
         
