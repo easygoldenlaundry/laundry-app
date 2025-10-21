@@ -91,6 +91,13 @@ async def on_shutdown():
 fastapi_app.mount("/static", StaticFiles(directory="app/static"), name="static")
 fastapi_app.mount("/data", StaticFiles(directory="data"), name="data")
 
+# 3.5. Add Google Search Console verification route
+@fastapi_app.get("/google57eecac5c82835ab.html")
+async def google_verification():
+    """Serve Google Search Console verification file"""
+    from fastapi.responses import PlainTextResponse
+    return PlainTextResponse("google-site-verification: google57eecac5c82835ab.html")
+
 fastapi_app.include_router(book.router) # Web routes - MUST be first for root redirect
 fastapi_app.include_router(book.api_router) # Mobile API routes for booking
 fastapi_app.include_router(health.router) # Health checks
