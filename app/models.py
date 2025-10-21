@@ -76,7 +76,12 @@ class Order(SQLModel, table=True):
     delivery_cost: Optional[float] = Field(default=None)
     delivery_distance_km: Optional[float] = Field(default=None)
     processing_option: Optional[str] = Field(default="standard")  # "standard" or "wait_and_save"
-    
+
+    # --- PAYMENT FIELDS ---
+    payment_status: str = Field(default="pending")  # "pending", "paid", "failed"
+    payment_method: Optional[str] = Field(default=None)  # "card", "bank_transfer", "cash", etc.
+    paystack_reference: Optional[str] = Field(default=None)  # Paystack payment reference
+
     # --- NEW FIELDS FOR DRIVER TRACKING ---
     pickup_lat: Optional[float] = None
     pickup_lon: Optional[float] = None

@@ -30,6 +30,10 @@ DB_POOL_RECYCLE=1800
 DATABASE_URL=your_supabase_connection_string
 JWT_SECRET_KEY=your_jwt_secret
 ADMIN_SECRET=your_admin_secret
+
+# Paystack Payment Configuration
+PAYSTACK_SECRET_KEY=your_paystack_secret_key
+PAYSTACK_WEBHOOK_URL=https://your-app.onrender.com/api/webhooks/paystack
 ```
 
 ### Development Environment Variables
@@ -41,6 +45,10 @@ DB_POOL_SIZE=5
 DB_MAX_OVERFLOW=10
 DB_POOL_TIMEOUT=30
 DB_POOL_RECYCLE=3600
+
+# Paystack Payment Configuration (for testing)
+PAYSTACK_SECRET_KEY=your_paystack_test_secret_key
+PAYSTACK_WEBHOOK_URL=https://your-local-tunnel-url.ngrok.io/api/webhooks/paystack
 ```
 
 ## 🏥 Health Monitoring
