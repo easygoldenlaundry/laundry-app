@@ -122,6 +122,11 @@ def get_current_admin_user(current_user: User = Depends(get_current_active_user)
     if current_user.role != "admin": raise HTTPException(status_code=403, detail="Not an admin")
     return current_user
 
+def get_current_api_admin_user(current_user: User = Depends(get_current_api_user)) -> User:
+    """API version of admin user dependency that uses Bearer token auth instead of cookies."""
+    if current_user.role != "admin": raise HTTPException(status_code=403, detail="Not an admin")
+    return current_user
+
 def get_current_staff_user(current_user: User = Depends(get_current_active_user)) -> User:
     if current_user.role not in ["staff", "admin"]: raise HTTPException(status_code=403, detail="Access denied.")
     return current_user

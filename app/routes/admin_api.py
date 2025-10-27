@@ -10,13 +10,13 @@ from app.db import get_session
 from app.models import User, Station, Machine, Claim, Order, Setting, Message, InventoryItem
 from app.services.state_machine import apply_transition
 from app.services.finance_calculator import create_finance_entries_for_order
-from app.auth import get_current_admin_user
+from app.auth import get_current_admin_user, get_current_api_admin_user
 from app.sockets import broadcast_admin_notification, broadcast_settings_update
 
 router = APIRouter(
-    prefix="/api/admin", 
-    tags=["Admin API"], 
-    dependencies=[Depends(get_current_admin_user)]
+    prefix="/api/admin",
+    tags=["Admin API"],
+    dependencies=[Depends(get_current_api_admin_user)]
 )
 
 # --- User Management API ---
@@ -117,9 +117,9 @@ def get_active_chat_orders(session: Session = Depends(get_session)):
 
 @router.get("/orders/active", response_model=List[Order])
 async def get_active_orders(
-    hub_id: int = 1, 
+    hub_id: int = 1,
     session: Session = Depends(get_session),
-    admin_user: User = Depends(get_current_admin_user)
+    admin_user: User = Depends(get_current_api_admin_user)
 ):
     """
     Returns a list of all orders that are not in a final state
@@ -127,25 +127,26 @@ async def get_active_orders(
     Admin-only endpoint for the dashboard.
     """
     from sqlalchemy.orm import selectinload
-    
-    statement = select(Order).where(
-        Order.hub_id == hub_id,
-        Order.status != "Delivered",
-        Order.status != "Closed"
-    ).options(selectinload(Order.baskets)).order_by(Order.created_at.desc())
-    results = session.exec(statement).all()
-    
-    # Exclude relationships to avoid N+1 queries
-    exclude_relations = {
-        'claims', 'events', 'images', 'messages', 'finance_entries',
-        'customer', 'bags', 'baskets'
-    }
-    return [json.loads(order.json(exclude=exclude_relations)) for order in results]
+    import logging
+
+    try:
+        statement = select(Order).where(
+            Order.hub_id == hub_id,
+            Order.status != "Delivered",
+            Order.status != "Closed"
+        ).options(selectinload(Order.baskets)).order_by(Order.created_at.desc())
+        results = session.exec(statement).all()
+
+        logging.info(f"Found {len(results)} active orders")
+        return results
+    except Exception as e:
+        logging.error(f"Error in get_active_orders: {e}")
+        raise
 
 @router.get("/unread-count")
 def get_total_unread_message_count(
     session: Session = Depends(get_session),
-    admin_user: User = Depends(get_current_admin_user)
+    admin_user: User = Depends(get_current_api_admin_user)
 ):
     """Gets the total count of unread messages from customers across all orders."""
     unread_count = session.exec(
@@ -162,7 +163,7 @@ class UberStatusUpdateRequest(BaseModel):
 def update_uber_order_status(
     request: UberStatusUpdateRequest,
     background_tasks: BackgroundTasks,
-    admin_user: User = Depends(get_current_admin_user),
+    admin_user: User = Depends(get_current_api_admin_user),
     session: Session = Depends(get_session)
 ):
     """Allows an admin to manually update the status of an Uber order for both pickup and delivery."""
