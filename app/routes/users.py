@@ -112,7 +112,7 @@ async def register_customer_api(
     )
     session.add(new_customer)
     session.commit(); session.refresh(new_customer)
-    
+
     access_token = create_access_token(data={"sub": new_user.username})
     user_profile = UserProfile(
         id=new_user.id, name=new_customer.full_name, email=new_user.email,
@@ -122,6 +122,55 @@ async def register_customer_api(
         role=new_user.role, created_at=new_user.created_at
     )
     return TokenResponse(access_token=access_token, user=user_profile)
+
+@api_router.post("/drivers/register")
+async def register_driver_api(
+    display_name: str = Form(...),
+    username: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+    session: Session = Depends(get_session)
+):
+    """
+    Register a new driver account from the Android mobile app.
+    Driver accounts require admin approval before they can log in.
+    """
+    # Check if username or email already exists
+    existing_user = session.exec(
+        select(User).where((User.username == username) | (User.email == email))
+    ).first()
+    if existing_user:
+        raise HTTPException(status_code=409, detail="Username or email is already registered")
+
+    # Hash the password
+    hashed_password = get_password_hash(password)
+
+    # Create new user with driver role (inactive until approved by admin)
+    new_user = User(
+        username=username,
+        email=email,
+        hashed_password=hashed_password,
+        display_name=display_name,
+        role="driver",
+        is_active=False  # Driver accounts require admin approval
+    )
+    session.add(new_user)
+    session.commit()
+    session.refresh(new_user)
+
+    # Create driver profile
+    driver_profile = Driver(user_id=new_user.id, status="idle")
+    session.add(driver_profile)
+    session.commit()
+
+    return JSONResponse(
+        status_code=201,
+        content={
+            "success": True,
+            "message": "Driver registration successful. Your account is pending admin approval.",
+            "user_id": new_user.id
+        }
+    )
 
 @api_router.get("/me", response_model=UserProfile)
 def get_current_user_profile(
