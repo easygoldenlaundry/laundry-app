@@ -206,7 +206,7 @@ async def get_my_jobs(current_user: User = Depends(get_current_driver_user), ses
     driver = session.exec(select(Driver).where(Driver.user_id == current_user.id)).first()
     if not driver:
         return []  # Return empty list if no driver profile exists
-    
+
     active_driver_statuses = [
         "AssignedToDriver",
         "PickedUp",
@@ -218,3 +218,21 @@ async def get_my_jobs(current_user: User = Depends(get_current_driver_user), ses
         .where(Order.assigned_driver_id == driver.id, Order.status.in_(active_driver_statuses))
     ).all()
     return my_jobs
+
+
+# Mobile API endpoints (aliased versions for Android app compatibility)
+@router.get("/api/drivers/mobile/available_orders", response_model=list[Order], dependencies=[Depends(get_current_driver_user)])
+async def get_mobile_available_orders(session: Session = Depends(get_session)):
+    """Mobile endpoint for available orders."""
+    available_orders = session.exec(
+        select(Order).where(Order.status == "Created", Order.dispatch_method == "inhouse")
+    ).all()
+    return available_orders
+
+@router.get("/api/drivers/mobile/available_deliveries", response_model=list[Order], dependencies=[Depends(get_current_driver_user)])
+async def get_mobile_available_deliveries(session: Session = Depends(get_session)):
+    """Mobile endpoint for available deliveries."""
+    available_deliveries = session.exec(
+        select(Order).where(Order.status == "OutForDelivery", Order.assigned_driver_id == None)
+    ).all()
+    return available_deliveries
