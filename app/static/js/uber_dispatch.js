@@ -23,7 +23,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fetchAndRenderOrders = async () => {
         try {
-            const response = await fetch('/api/admin/uber-orders');
+            const response = await fetch('/api/admin/uber-orders', {
+                credentials: 'include'
+            });
             if (!response.ok) throw new Error('Failed to fetch orders.');
             const orders = await response.json();
             renderOrders(orders);
@@ -132,7 +134,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (action === 'finish_chat') {
             target.disabled = true;
             try {
-                await fetch(`/api/admin/orders/${orderId}/resolve-chat`, { method: 'POST' });
+                await fetch(`/api/admin/orders/${orderId}/resolve-chat`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
                 showStatus(`Chat for order #${orderId} has been resolved.`, 'success');
                 target.closest('tr').remove();
             } catch (error) {
@@ -144,6 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
             target.disabled = true;
             try {
                 const response = await fetch('/api/admin/uber-orders/update-status', {
+                    credentials: 'include'
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ order_id: parseInt(orderId), action: action })

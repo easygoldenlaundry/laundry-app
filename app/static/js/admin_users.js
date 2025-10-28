@@ -18,7 +18,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fetchAndRenderUsers = async () => {
         try {
-            const response = await fetch('/api/admin/users');
+            const response = await fetch('/api/admin/users', {
+                credentials: 'include'
+            });
             if (!response.ok) throw new Error('Failed to fetch users.');
             const users = await response.json();
             renderUsers(users);
@@ -82,7 +84,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target.classList.contains('activation-toggle')) {
             target.disabled = true;
             try {
-                await fetch(`/api/admin/users/${userId}/toggle_activation`, { method: 'POST' });
+                await fetch(`/api/admin/users/${userId}/toggle_activation`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
                 showStatus('User activation updated!', 'success');
                 fetchAndRenderUsers();
             } catch (error) {
@@ -103,6 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 const response = await fetch(`/api/admin/users/${userId}/permissions`, {
+                    credentials: 'include'
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ allowed_stations })

@@ -5,7 +5,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fetchMachineCounts = async () => {
         try {
-            const response = await fetch('/api/admin/machines');
+            const response = await fetch('/api/admin/machines', {
+                credentials: 'include'
+            });
             if (!response.ok) throw new Error('Failed to fetch machine data.');
 
             const stations = await response.json();
@@ -57,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const response = await fetch('/api/admin/machines/update', {
+                credentials: 'include'
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

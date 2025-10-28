@@ -40,7 +40,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const loadSettings = async () => {
         try {
-            const response = await fetch('/api/admin/settings');
+            const response = await fetch('/api/admin/settings', {
+                credentials: 'include'
+            });
             if (!response.ok) throw new Error('Failed to load settings.');
             const settings = await response.json();
 
@@ -60,7 +62,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const loadMachinePerformance = async () => {
         try {
-            const response = await fetch('/api/admin/machine-performance');
+            const response = await fetch('/api/admin/machine-performance', {
+                credentials: 'include'
+            });
             if (!response.ok) throw new Error('Failed to load machine performance data.');
             const performance = await response.json();
             
@@ -78,7 +82,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const loadInventoryItems = async () => {
         try {
-            const response = await fetch('/api/admin/inventory/summary');
+            const response = await fetch('/api/admin/inventory/summary', {
+                credentials: 'include'
+            });
             if (!response.ok) throw new Error('Failed to load inventory items.');
             const items = await response.json();
             console.log('Loaded inventory items:', items);
@@ -164,6 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch('/api/admin/settings', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(settingsPayload)
             });

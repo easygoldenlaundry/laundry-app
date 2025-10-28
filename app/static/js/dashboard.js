@@ -180,7 +180,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fetchAllActiveOrders = async () => {
         try {
-            const response = await fetch(`/api/admin/orders/active?hub_id=${HUB_ID}`);
+            const response = await fetch(`/api/admin/orders/active?hub_id=${HUB_ID}`, {
+                credentials: 'include'
+            });
             if (!response.ok) throw new Error('Failed to fetch active orders');
             const orders = await response.json();
             ordersContainer.innerHTML = '';

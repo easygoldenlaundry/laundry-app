@@ -32,9 +32,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const [summaryRes, transactionsRes, inventoryRes] = await Promise.all([
-                fetch(`/api/admin/finance/summary?period=${currentPeriod}`, { cache: 'no-cache' }),
-                fetch(`/api/admin/finance/transactions?period=${currentPeriod}`, { cache: 'no-cache' }),
-                fetch(`/api/admin/inventory/summary`, { cache: 'no-cache' })
+                fetch(`/api/admin/finance/summary?period=${currentPeriod}`, { cache: 'no-cache', credentials: 'include' }),
+                fetch(`/api/admin/finance/transactions?period=${currentPeriod}`, { cache: 'no-cache', credentials: 'include' }),
+                fetch(`/api/admin/inventory/summary`, { cache: 'no-cache', credentials: 'include' })
             ]);
 
             if (!summaryRes.ok || !transactionsRes.ok || !inventoryRes.ok) {
@@ -185,6 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const response = await fetch('/api/admin/settings/monthly_tracker_electricity_kwh', {
+                credentials: 'include'
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ value: newValue })
@@ -244,6 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const response = await fetch('/api/admin/finance/withdrawals', {
+                credentials: 'include'
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
