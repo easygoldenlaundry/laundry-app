@@ -305,13 +305,21 @@ async def mobile_accept_delivery_job(request_data: OrderActionRequest, current_u
     session.commit()
     session.refresh(order)
 
+    # Broadcast update asynchronously to avoid blocking the response
     from app.sockets import broadcast_order_update
     import asyncio
     try:
-        asyncio.run(broadcast_order_update(order))
-    except RuntimeError:
+        # Try to get the current event loop
         loop = asyncio.get_event_loop()
-        loop.create_task(broadcast_order_update(order))
+        if loop.is_running():
+            # If loop is already running, schedule as task
+            loop.create_task(broadcast_order_update(order))
+        else:
+            # If no loop is running, we can run it directly
+            asyncio.run(broadcast_order_update(order))
+    except RuntimeError:
+        # Fallback: just skip broadcasting if there are async issues
+        pass
 
     return order
 
