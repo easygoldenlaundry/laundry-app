@@ -10,13 +10,13 @@ from app.db import get_session
 from app.models import User, Station, Machine, Claim, Order, Setting, Message, InventoryItem
 from app.services.state_machine import apply_transition
 from app.services.finance_calculator import create_finance_entries_for_order
-from app.auth import get_current_admin_user, get_current_api_admin_user
+from app.auth import get_current_admin_user, get_current_api_admin_user, get_current_hybrid_admin_user
 from app.sockets import broadcast_admin_notification, broadcast_settings_update
 
 router = APIRouter(
     prefix="/api/admin",
     tags=["Admin API"],
-    dependencies=[Depends(get_current_api_admin_user)]
+    dependencies=[Depends(get_current_hybrid_admin_user)]
 )
 
 # --- User Management API ---
