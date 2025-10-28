@@ -403,3 +403,64 @@ async def mobile_delivered_order(
     background_tasks.add_task(deduct_stock_for_order, order_id=order.id, session=session)
 
     return updated_order
+
+# Additional mobile endpoints with user_id in path (as expected by Android app)
+
+@router.post("/api/drivers/mobile/{user_id}/accept", response_model=Order, dependencies=[Depends(get_current_hybrid_driver_user)])
+async def mobile_accept_order_with_user_id(user_id: int, request_data: OrderActionRequest, current_user: User = Depends(get_current_hybrid_driver_user), session: Session = Depends(get_session)):
+    """Mobile endpoint to accept an order for pickup (with user_id in path)."""
+    return mobile_accept_order(request_data, current_user, session)
+
+@router.post("/api/drivers/mobile/{user_id}/accept_delivery", response_model=Order, dependencies=[Depends(get_current_hybrid_driver_user)])
+async def mobile_accept_delivery_job_with_user_id(user_id: int, request_data: OrderActionRequest, current_user: User = Depends(get_current_hybrid_driver_user), session: Session = Depends(get_session)):
+    """Mobile endpoint to accept a delivery job (with user_id in path)."""
+    return mobile_accept_delivery_job(request_data, current_user, session)
+
+@router.post("/api/drivers/mobile/{user_id}/picked_up", response_model=Order, dependencies=[Depends(get_current_hybrid_driver_user)])
+async def mobile_picked_up_order_with_user_id(
+    user_id: int,
+    order_id: int = Form(...),
+    pin: str = Form(...),
+    load_count: int = Form(...),
+    proof_photo: Optional[UploadFile] = File(None),
+    current_user: User = Depends(get_current_hybrid_driver_user),
+    session: Session = Depends(get_session)
+):
+    """Mobile endpoint for order pickup confirmation (with user_id in path)."""
+    return mobile_picked_up_order(order_id, pin, load_count, proof_photo, current_user, session)
+
+@router.post("/api/drivers/mobile/{user_id}/delivered_to_hub", response_model=Order, dependencies=[Depends(get_current_hybrid_driver_user)])
+async def mobile_delivered_to_hub_order_with_user_id(
+    user_id: int,
+    order_id: int = Form(...),
+    hub_qr_code: str = Form(...),
+    proof_photo: Optional[UploadFile] = File(None),
+    current_user: User = Depends(get_current_hybrid_driver_user),
+    session: Session = Depends(get_session)
+):
+    """Mobile endpoint for delivering order to hub (with user_id in path)."""
+    return mobile_delivered_to_hub_order(order_id, hub_qr_code, proof_photo, current_user, session)
+
+@router.post("/api/drivers/mobile/{user_id}/pickup_from_hub", response_model=Order, dependencies=[Depends(get_current_hybrid_driver_user)])
+async def mobile_pickup_from_hub_with_user_id(
+    user_id: int,
+    order_id: int = Form(...),
+    hub_qr_code: str = Form(...),
+    current_user: User = Depends(get_current_hybrid_driver_user),
+    session: Session = Depends(get_session)
+):
+    """Mobile endpoint for picking up order from hub for delivery (with user_id in path)."""
+    return mobile_pickup_from_hub(order_id, hub_qr_code, current_user, session)
+
+@router.post("/api/drivers/mobile/{user_id}/delivered", response_model=Order, dependencies=[Depends(get_current_hybrid_driver_user)])
+async def mobile_delivered_order_with_user_id(
+    user_id: int,
+    background_tasks: BackgroundTasks,
+    order_id: int = Form(...),
+    pin: str = Form(...),
+    proof_photo: Optional[UploadFile] = File(None),
+    current_user: User = Depends(get_current_hybrid_driver_user),
+    session: Session = Depends(get_session)
+):
+    """Mobile endpoint for final delivery completion (with user_id in path)."""
+    return mobile_delivered_order(background_tasks, order_id, pin, proof_photo, current_user, session)
