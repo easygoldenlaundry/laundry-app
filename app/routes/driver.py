@@ -277,9 +277,38 @@ async def mobile_accept_order(request_data: OrderActionRequest, current_user: Us
             import secrets
             order.pickup_pin = str(secrets.randbelow(10000)).zfill(4)
 
+        # Set status manually like apply_transition does
+        from datetime import datetime, timezone
+        from app.models import Event
+        now = datetime.now(timezone.utc)
+        original_status = order.status
+        order.status = "AssignedToDriver"
+        order.updated_at = now
+
+        # Create Event record like apply_transition does
+        event = Event(
+            order_id=order.id,
+            from_status=original_status,
+            to_status="AssignedToDriver",
+            user_id=current_user.id,
+            meta=None,
+        )
+        session.add(event)
         session.add(order)
-        updated_order = apply_transition(session, order, "AssignedToDriver", user_id=current_user.id)
-        return updated_order
+        session.commit()
+        session.refresh(order)
+
+        # Broadcast update (same pattern as web delivery accept)
+        from app.sockets import broadcast_order_update
+        import asyncio
+        try:
+            asyncio.run(broadcast_order_update(order))
+        except RuntimeError:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(broadcast_order_update(order))
+
+        return order
     except ValueError as e:
         session.rollback()
         raise HTTPException(status_code=400, detail=str(e))
@@ -411,12 +440,14 @@ async def mobile_delivered_order(
 @router.post("/api/drivers/mobile/{user_id}/accept")
 async def mobile_accept_order_with_user_id(user_id: int, request_data: OrderActionRequest, current_user: User = Depends(get_current_hybrid_driver_user), session: Session = Depends(get_session)):
     """Mobile endpoint to accept an order for pickup (with user_id in path)."""
+    if user_id != current_user.id: raise HTTPException(status_code=403, detail="Forbidden")
     order = mobile_accept_order(request_data, current_user, session)
     return {"message": "Job accepted successfully", "order": order}
 
 @router.post("/api/drivers/mobile/{user_id}/accept_delivery")
 async def mobile_accept_delivery_job_with_user_id(user_id: int, request_data: OrderActionRequest, current_user: User = Depends(get_current_hybrid_driver_user), session: Session = Depends(get_session)):
     """Mobile endpoint to accept a delivery job (with user_id in path)."""
+    if user_id != current_user.id: raise HTTPException(status_code=403, detail="Forbidden")
     order = mobile_accept_delivery_job(request_data, current_user, session)
     return {"message": "Job accepted successfully", "order": order}
 
@@ -431,6 +462,7 @@ async def mobile_picked_up_order_with_user_id(
     session: Session = Depends(get_session)
 ):
     """Mobile endpoint for order pickup confirmation (with user_id in path)."""
+    if user_id != current_user.id: raise HTTPException(status_code=403, detail="Forbidden")
     order = mobile_picked_up_order(order_id, pin, load_count, proof_photo, current_user, session)
     return {"message": "Pickup completed successfully", "order": order}
 
@@ -444,6 +476,7 @@ async def mobile_delivered_to_hub_order_with_user_id(
     session: Session = Depends(get_session)
 ):
     """Mobile endpoint for delivering order to hub (with user_id in path)."""
+    if user_id != current_user.id: raise HTTPException(status_code=403, detail="Forbidden")
     order = mobile_delivered_to_hub_order(order_id, hub_qr_code, proof_photo, current_user, session)
     return {"message": "Delivered to hub successfully", "order": order}
 
@@ -456,6 +489,7 @@ async def mobile_pickup_from_hub_with_user_id(
     session: Session = Depends(get_session)
 ):
     """Mobile endpoint for picking up order from hub for delivery (with user_id in path)."""
+    if user_id != current_user.id: raise HTTPException(status_code=403, detail="Forbidden")
     order = mobile_pickup_from_hub(order_id, hub_qr_code, current_user, session)
     return {"message": "Picked up from hub successfully", "order": order}
 
@@ -470,5 +504,6 @@ async def mobile_delivered_order_with_user_id(
     session: Session = Depends(get_session)
 ):
     """Mobile endpoint for final delivery completion (with user_id in path)."""
+    if user_id != current_user.id: raise HTTPException(status_code=403, detail="Forbidden")
     order = mobile_delivered_order(background_tasks, order_id, pin, proof_photo, current_user, session)
     return {"message": "Delivery completed successfully", "order": order}
