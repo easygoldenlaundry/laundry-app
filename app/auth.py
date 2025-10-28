@@ -150,9 +150,19 @@ def get_current_hybrid_admin_user(
             pass  # Fall through to cookie auth
 
     # Fall back to cookie-based auth (for web app)
-    user = getattr(request.state, "user", None)
-    if user and user.is_active and user.role == "admin":
-        return user
+    # Check cookies directly since middleware skips API routes
+    token_with_bearer = request.cookies.get("access_token")
+    if token_with_bearer and token_with_bearer.startswith("Bearer "):
+        token = token_with_bearer.split(" ")[1]
+        try:
+            payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
+            username: str = payload.get("sub")
+            if username:
+                user = session.exec(select(User).where(User.username == username)).first()
+                if user and user.is_active and user.role == "admin":
+                    return user
+        except JWTError:
+            pass
 
     # If neither worked, raise unauthorized
     raise HTTPException(
