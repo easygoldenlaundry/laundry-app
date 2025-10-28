@@ -416,14 +416,14 @@ async def mobile_delivered_order(
 async def mobile_accept_order_with_user_id(user_id: int, request_data: OrderActionRequest, current_user: User = Depends(get_current_hybrid_driver_user), session: Session = Depends(get_session)):
     """Mobile endpoint to accept an order for pickup (with user_id in path)."""
     if user_id != current_user.id: raise HTTPException(status_code=403, detail="Forbidden")
-    order = mobile_accept_order(request_data, current_user, session)
+    order = await mobile_accept_order(request_data, current_user, session)
     return {"message": "Job accepted successfully", "order": order}
 
 @router.post("/api/drivers/mobile/{user_id}/accept_delivery")
 async def mobile_accept_delivery_job_with_user_id(user_id: int, request_data: OrderActionRequest, current_user: User = Depends(get_current_hybrid_driver_user), session: Session = Depends(get_session)):
     """Mobile endpoint to accept a delivery job (with user_id in path)."""
     if user_id != current_user.id: raise HTTPException(status_code=403, detail="Forbidden")
-    order = mobile_accept_delivery_job(request_data, current_user, session)
+    order = await mobile_accept_delivery_job(request_data, current_user, session)
     return {"message": "Job accepted successfully", "order": order}
 
 @router.post("/api/drivers/mobile/{user_id}/picked_up")
@@ -438,7 +438,7 @@ async def mobile_picked_up_order_with_user_id(
 ):
     """Mobile endpoint for order pickup confirmation (with user_id in path)."""
     if user_id != current_user.id: raise HTTPException(status_code=403, detail="Forbidden")
-    order = mobile_picked_up_order(order_id, pin, load_count, proof_photo, current_user, session)
+    order = await mobile_picked_up_order(order_id, pin, load_count, proof_photo, current_user, session)
     return {"message": "Pickup completed successfully", "order": order}
 
 @router.post("/api/drivers/mobile/{user_id}/delivered_to_hub")
@@ -452,7 +452,7 @@ async def mobile_delivered_to_hub_order_with_user_id(
 ):
     """Mobile endpoint for delivering order to hub (with user_id in path)."""
     if user_id != current_user.id: raise HTTPException(status_code=403, detail="Forbidden")
-    order = mobile_delivered_to_hub_order(order_id, hub_qr_code, proof_photo, current_user, session)
+    order = await mobile_delivered_to_hub_order(order_id, hub_qr_code, proof_photo, current_user, session)
     return {"message": "Delivered to hub successfully", "order": order}
 
 @router.post("/api/drivers/mobile/{user_id}/pickup_from_hub")
@@ -465,7 +465,7 @@ async def mobile_pickup_from_hub_with_user_id(
 ):
     """Mobile endpoint for picking up order from hub for delivery (with user_id in path)."""
     if user_id != current_user.id: raise HTTPException(status_code=403, detail="Forbidden")
-    order = mobile_pickup_from_hub(order_id, hub_qr_code, current_user, session)
+    order = await mobile_pickup_from_hub(order_id, hub_qr_code, current_user, session)
     return {"message": "Picked up from hub successfully", "order": order}
 
 @router.post("/api/drivers/mobile/{user_id}/delivered")
@@ -480,5 +480,5 @@ async def mobile_delivered_order_with_user_id(
 ):
     """Mobile endpoint for final delivery completion (with user_id in path)."""
     if user_id != current_user.id: raise HTTPException(status_code=403, detail="Forbidden")
-    order = mobile_delivered_order(background_tasks, order_id, pin, proof_photo, current_user, session)
+    order = await mobile_delivered_order(background_tasks, order_id, pin, proof_photo, current_user, session)
     return {"message": "Delivery completed successfully", "order": order}
