@@ -133,12 +133,11 @@ async def add_user_to_state(request: Request, call_next):
     # Skip database operations for health checks, static files, and most API endpoints
     skip_paths = ["/", "/health", "/health/database", "/ready", "/api/auth/token", "/api/auth/token/mobile"]
 
-    # Allow database operations for web app routes and authenticated API endpoints
+    # Allow database operations for web app routes and admin API endpoints
+    # Most API endpoints handle their own authentication
     should_skip = (request.url.path in skip_paths or
                    request.url.path.startswith("/static/") or
-                   request.url.path.startswith("/api/auth/") or      # Skip auth endpoints
-                   request.url.path.startswith("/api/users/register") or  # Skip registration
-                   request.url.path.startswith("/api/drivers/register"))   # Skip driver registration
+                   request.url.path.startswith("/api/") and not request.url.path.startswith("/api/admin/"))
 
     if should_skip:
         response = await call_next(request)

@@ -10,8 +10,13 @@ from app.db import get_session
 from app.models import Order, Claim
 from app.services.state_machine import apply_transition
 from app.config import DATA_ROOT
+from app.auth import get_current_api_user
 
-router = APIRouter(prefix="/api", tags=["Claims"])
+router = APIRouter(
+    prefix="/api",
+    tags=["Claims"],
+    dependencies=[Depends(get_current_api_user)]
+)
 
 @router.post("/orders/{order_id}/claims")
 async def create_claim(
