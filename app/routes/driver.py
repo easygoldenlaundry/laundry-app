@@ -37,14 +37,16 @@ class OrderActionRequest(BaseModel):
 @router.post("/api/drivers/{user_id}/accept", response_model=Order, dependencies=[Depends(get_current_hybrid_driver_user)])
 async def accept_order(user_id: int, request_data: OrderActionRequest, current_user: User = Depends(get_current_hybrid_driver_user), session: Session = Depends(get_session)):
     if user_id != current_user.id: raise HTTPException(status_code=403, detail="Forbidden")
-    
+
     # Get the Driver record for this user
     driver = session.exec(select(Driver).where(Driver.user_id == current_user.id)).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver profile not found. Please contact admin.")
-    
+
     order = session.get(Order, request_data.order_id)
     if not order: raise HTTPException(status_code=404, detail="Order not found")
+    if order.status != "Created": raise HTTPException(status_code=400, detail="Order is not available for pickup")
+    if order.dispatch_method != "inhouse": raise HTTPException(status_code=400, detail="Order is not available for inhouse pickup")
     if order.assigned_driver_id is not None: raise HTTPException(status_code=409, detail="Order already assigned")
     
     try:
@@ -267,6 +269,8 @@ async def mobile_accept_order(request_data: OrderActionRequest, current_user: Us
 
     order = session.get(Order, request_data.order_id)
     if not order: raise HTTPException(status_code=404, detail="Order not found")
+    if order.status != "Created": raise HTTPException(status_code=400, detail="Order is not available for pickup")
+    if order.dispatch_method != "inhouse": raise HTTPException(status_code=400, detail="Order is not available for inhouse pickup")
     if order.assigned_driver_id is not None: raise HTTPException(status_code=409, detail="Order already assigned")
 
     try:
@@ -277,38 +281,9 @@ async def mobile_accept_order(request_data: OrderActionRequest, current_user: Us
             import secrets
             order.pickup_pin = str(secrets.randbelow(10000)).zfill(4)
 
-        # Set status manually like apply_transition does
-        from datetime import datetime, timezone
-        from app.models import Event
-        now = datetime.now(timezone.utc)
-        original_status = order.status
-        order.status = "AssignedToDriver"
-        order.updated_at = now
-
-        # Create Event record like apply_transition does
-        event = Event(
-            order_id=order.id,
-            from_status=original_status,
-            to_status="AssignedToDriver",
-            user_id=current_user.id,
-            meta=None,
-        )
-        session.add(event)
         session.add(order)
-        session.commit()
-        session.refresh(order)
-
-        # Broadcast update (same pattern as web delivery accept)
-        from app.sockets import broadcast_order_update
-        import asyncio
-        try:
-            asyncio.run(broadcast_order_update(order))
-        except RuntimeError:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                loop.create_task(broadcast_order_update(order))
-
-        return order
+        updated_order = apply_transition(session, order, "AssignedToDriver", user_id=current_user.id)
+        return updated_order
     except ValueError as e:
         session.rollback()
         raise HTTPException(status_code=400, detail=str(e))
