@@ -185,7 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const response = await fetch('/api/admin/settings/monthly_tracker_electricity_kwh', {
-                credentials: 'include'
+                credentials: 'include',
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ value: newValue })
@@ -245,7 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const response = await fetch('/api/admin/finance/withdrawals', {
-                credentials: 'include'
+                credentials: 'include',
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)

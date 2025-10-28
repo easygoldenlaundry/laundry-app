@@ -149,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
             target.disabled = true;
             try {
                 const response = await fetch('/api/admin/uber-orders/update-status', {
-                    credentials: 'include'
+                    credentials: 'include',
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ order_id: parseInt(orderId), action: action })

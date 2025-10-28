@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 const response = await fetch(`/api/admin/users/${userId}/permissions`, {
-                    credentials: 'include'
+                    credentials: 'include',
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ allowed_stations })
