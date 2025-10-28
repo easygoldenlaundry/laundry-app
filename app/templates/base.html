@@ -129,7 +129,9 @@
         const updateAdminNotificationDot = async () => {
             if (!notificationDot) return;
             try {
-                const response = await fetch('/api/admin/unread-count');
+                const response = await fetch('/api/admin/unread-count', {
+                    credentials: 'include'
+                });
                 const data = await response.json();
                 if (data.unread_count > 0) {
                     notificationDot.style.display = 'block';
