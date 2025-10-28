@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.auth import get_current_driver_user # Using web auth for now
+from app.auth import get_current_hybrid_driver_user
 from app.models import User, Order, Driver
 from app.sockets import broadcast_driver_location_update
 from app.services.helpers import haversine_distance
@@ -24,7 +24,7 @@ HUB_COORDINATES = (-26.1952, 28.0341)
 @router.post("/location", status_code=204)
 async def update_driver_location(
     location_data: LocationUpdateRequest,
-    driver_user: User = Depends(get_current_driver_user),
+    driver_user: User = Depends(get_current_hybrid_driver_user),
     session: Session = Depends(get_session)
 ):
     """

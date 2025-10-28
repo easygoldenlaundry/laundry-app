@@ -127,6 +127,46 @@ def get_current_api_admin_user(current_user: User = Depends(get_current_api_user
     if current_user.role != "admin": raise HTTPException(status_code=403, detail="Not an admin")
     return current_user
 
+def get_current_api_driver_user(current_user: User = Depends(get_current_api_user)) -> User:
+    """API version of driver user dependency that uses Bearer token auth instead of cookies."""
+    if current_user.role != "driver": raise HTTPException(status_code=403, detail="Access denied.")
+    return current_user
+
+# Hybrid authentication for web app + mobile app compatibility
+def get_current_hybrid_driver_user(
+    request: Request,
+    session: Session = Depends(get_session)
+) -> User:
+    """
+    Hybrid authentication that works for both web app (cookies) and mobile app (Bearer tokens).
+    Tries Bearer token first, then falls back to cookie-based auth.
+    """
+    # Try Bearer token auth first (for mobile apps)
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        try:
+            payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
+            username: str = payload.get("sub")
+            if username:
+                user = session.exec(select(User).where(User.username == username)).first()
+                if user and user.is_active and user.role == "driver":
+                    return user
+        except JWTError:
+            pass  # Fall through to cookie auth
+
+    # Fall back to cookie-based auth (for web app)
+    user = getattr(request.state, "user", None)
+    if user and user.is_active and user.role == "driver":
+        return user
+
+    # If neither worked, raise unauthorized
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
 def get_current_staff_user(current_user: User = Depends(get_current_active_user)) -> User:
     if current_user.role not in ["staff", "admin"]: raise HTTPException(status_code=403, detail="Access denied.")
     return current_user

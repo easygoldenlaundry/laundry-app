@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from app.db import get_session
 from app.models import Bag, Image, Order, User, Setting, Driver
-from app.auth import get_current_driver_user
+from app.auth import get_current_driver_user, get_current_hybrid_driver_user, get_current_hybrid_driver_user
 from app.services.state_machine import apply_transition
 from app.services.finance_calculator import create_finance_entries_for_order
 from app.services.inventory_manager import deduct_stock_for_order
@@ -34,8 +34,8 @@ class OrderActionRequest(BaseModel):
     order_id: int
 
 # All API endpoints are protected by the dependency
-@router.post("/api/drivers/{user_id}/accept", response_model=Order, dependencies=[Depends(get_current_driver_user)])
-async def accept_order(user_id: int, request_data: OrderActionRequest, current_user: User = Depends(get_current_driver_user), session: Session = Depends(get_session)):
+@router.post("/api/drivers/{user_id}/accept", response_model=Order, dependencies=[Depends(get_current_hybrid_driver_user)])
+async def accept_order(user_id: int, request_data: OrderActionRequest, current_user: User = Depends(get_current_hybrid_driver_user), session: Session = Depends(get_session)):
     if user_id != current_user.id: raise HTTPException(status_code=403, detail="Forbidden")
     
     # Get the Driver record for this user
@@ -65,8 +65,8 @@ async def accept_order(user_id: int, request_data: OrderActionRequest, current_u
         session.rollback()
         raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
 
-@router.post("/api/drivers/{user_id}/accept_delivery", response_model=Order, dependencies=[Depends(get_current_driver_user)])
-async def accept_delivery_job(user_id: int, request_data: OrderActionRequest, current_user: User = Depends(get_current_driver_user), session: Session = Depends(get_session)):
+@router.post("/api/drivers/{user_id}/accept_delivery", response_model=Order, dependencies=[Depends(get_current_hybrid_driver_user)])
+async def accept_delivery_job(user_id: int, request_data: OrderActionRequest, current_user: User = Depends(get_current_hybrid_driver_user), session: Session = Depends(get_session)):
     if user_id != current_user.id: raise HTTPException(status_code=403, detail="Forbidden")
     
     # Get the Driver record for this user
@@ -94,14 +94,14 @@ async def accept_delivery_job(user_id: int, request_data: OrderActionRequest, cu
 
     return order
 
-@router.post("/api/drivers/{user_id}/picked_up", response_model=Order, dependencies=[Depends(get_current_driver_user)])
+@router.post("/api/drivers/{user_id}/picked_up", response_model=Order, dependencies=[Depends(get_current_hybrid_driver_user)])
 async def picked_up_order(
-    user_id: int, 
-    order_id: int = Form(...), 
-    pin: str = Form(...), 
+    user_id: int,
+    order_id: int = Form(...),
+    pin: str = Form(...),
     load_count: int = Form(...),
-    proof_photo: Optional[UploadFile] = File(None), 
-    current_user: User = Depends(get_current_driver_user), 
+    proof_photo: Optional[UploadFile] = File(None),
+    current_user: User = Depends(get_current_hybrid_driver_user),
     session: Session = Depends(get_session)
 ):
     if user_id != current_user.id: raise HTTPException(status_code=403, detail="Forbidden")
@@ -122,8 +122,8 @@ async def picked_up_order(
     updated_order = apply_transition(session, order, "PickedUp", user_id=user_id, meta=meta)
     return updated_order
 
-@router.post("/api/drivers/{user_id}/delivered_to_hub", response_model=Order, dependencies=[Depends(get_current_driver_user)])
-async def delivered_to_hub_order(user_id: int, order_id: int = Form(...), hub_qr_code: str = Form(...), proof_photo: Optional[UploadFile] = File(None), current_user: User = Depends(get_current_driver_user), session: Session = Depends(get_session)):
+@router.post("/api/drivers/{user_id}/delivered_to_hub", response_model=Order, dependencies=[Depends(get_current_hybrid_driver_user)])
+async def delivered_to_hub_order(user_id: int, order_id: int = Form(...), hub_qr_code: str = Form(...), proof_photo: Optional[UploadFile] = File(None), current_user: User = Depends(get_current_hybrid_driver_user), session: Session = Depends(get_session)):
     if user_id != current_user.id: raise HTTPException(status_code=403, detail="Forbidden")
     order = session.get(Order, order_id)
     if not order: raise HTTPException(status_code=404, detail="Order not found")
@@ -139,8 +139,8 @@ async def delivered_to_hub_order(user_id: int, order_id: int = Form(...), hub_qr
     updated_order = apply_transition(session, order, "DeliveredToHub", user_id=user_id, meta=meta)
     return updated_order
 
-@router.post("/api/drivers/{user_id}/pickup_from_hub", response_model=Order, dependencies=[Depends(get_current_driver_user)])
-async def pickup_from_hub(user_id: int, order_id: int = Form(...), hub_qr_code: str = Form(...), current_user: User = Depends(get_current_driver_user), session: Session = Depends(get_session)):
+@router.post("/api/drivers/{user_id}/pickup_from_hub", response_model=Order, dependencies=[Depends(get_current_hybrid_driver_user)])
+async def pickup_from_hub(user_id: int, order_id: int = Form(...), hub_qr_code: str = Form(...), current_user: User = Depends(get_current_hybrid_driver_user), session: Session = Depends(get_session)):
     if user_id != current_user.id: raise HTTPException(status_code=403, detail="Forbidden")
     order = session.get(Order, order_id)
     if not order: raise HTTPException(status_code=404, detail="Order not found")
@@ -154,14 +154,14 @@ async def pickup_from_hub(user_id: int, order_id: int = Form(...), hub_qr_code: 
     updated_order = apply_transition(session, order, "OnRouteToCustomer", user_id=user_id, meta=meta)
     return updated_order
 
-@router.post("/api/drivers/{user_id}/delivered", response_model=Order, dependencies=[Depends(get_current_driver_user)])
+@router.post("/api/drivers/{user_id}/delivered", response_model=Order, dependencies=[Depends(get_current_hybrid_driver_user)])
 async def delivered_order(
     user_id: int,
     background_tasks: BackgroundTasks,
     order_id: int = Form(...),
     pin: str = Form(...),
     proof_photo: Optional[UploadFile] = File(None),
-    current_user: User = Depends(get_current_driver_user),
+    current_user: User = Depends(get_current_hybrid_driver_user),
     session: Session = Depends(get_session)
 ):
     if user_id != current_user.id: raise HTTPException(status_code=403, detail="Forbidden")
@@ -185,22 +185,22 @@ async def delivered_order(
     
     return updated_order
 
-@router.get("/api/drivers/available_orders", response_model=list[Order], dependencies=[Depends(get_current_driver_user)])
+@router.get("/api/drivers/available_orders", response_model=list[Order], dependencies=[Depends(get_current_hybrid_driver_user)])
 async def get_available_orders(session: Session = Depends(get_session)):
     available_orders = session.exec(
         select(Order).where(Order.status == "Created", Order.dispatch_method == "inhouse")
     ).all()
     return available_orders
 
-@router.get("/api/drivers/available_deliveries", response_model=list[Order], dependencies=[Depends(get_current_driver_user)])
+@router.get("/api/drivers/available_deliveries", response_model=list[Order], dependencies=[Depends(get_current_hybrid_driver_user)])
 async def get_available_deliveries(session: Session = Depends(get_session)):
     available_deliveries = session.exec(
         select(Order).where(Order.status == "OutForDelivery", Order.assigned_driver_id == None)
     ).all()
     return available_deliveries
 
-@router.get("/api/drivers/my_jobs", response_model=List[Order], dependencies=[Depends(get_current_driver_user)])
-async def get_my_jobs(current_user: User = Depends(get_current_driver_user), session: Session = Depends(get_session)):
+@router.get("/api/drivers/my_jobs", response_model=List[Order], dependencies=[Depends(get_current_hybrid_driver_user)])
+async def get_my_jobs(current_user: User = Depends(get_current_hybrid_driver_user), session: Session = Depends(get_session)):
     """Returns all active jobs assigned to the current driver."""
     # Get the Driver record for this user
     driver = session.exec(select(Driver).where(Driver.user_id == current_user.id)).first()
@@ -221,7 +221,7 @@ async def get_my_jobs(current_user: User = Depends(get_current_driver_user), ses
 
 
 # Mobile API endpoints (aliased versions for Android app compatibility)
-@router.get("/api/drivers/mobile/available_orders", response_model=list[Order], dependencies=[Depends(get_current_driver_user)])
+@router.get("/api/drivers/mobile/available_orders", response_model=list[Order], dependencies=[Depends(get_current_hybrid_driver_user)])
 async def get_mobile_available_orders(session: Session = Depends(get_session)):
     """Mobile endpoint for available orders."""
     available_orders = session.exec(
@@ -229,7 +229,7 @@ async def get_mobile_available_orders(session: Session = Depends(get_session)):
     ).all()
     return available_orders
 
-@router.get("/api/drivers/mobile/available_deliveries", response_model=list[Order], dependencies=[Depends(get_current_driver_user)])
+@router.get("/api/drivers/mobile/available_deliveries", response_model=list[Order], dependencies=[Depends(get_current_hybrid_driver_user)])
 async def get_mobile_available_deliveries(session: Session = Depends(get_session)):
     """Mobile endpoint for available deliveries."""
     available_deliveries = session.exec(
@@ -237,8 +237,8 @@ async def get_mobile_available_deliveries(session: Session = Depends(get_session
     ).all()
     return available_deliveries
 
-@router.get("/api/drivers/mobile/my_jobs", response_model=List[Order], dependencies=[Depends(get_current_driver_user)])
-async def get_mobile_my_jobs(current_user: User = Depends(get_current_driver_user), session: Session = Depends(get_session)):
+@router.get("/api/drivers/mobile/my_jobs", response_model=List[Order], dependencies=[Depends(get_current_hybrid_driver_user)])
+async def get_mobile_my_jobs(current_user: User = Depends(get_current_hybrid_driver_user), session: Session = Depends(get_session)):
     """Mobile endpoint for driver's active jobs."""
     # Get the Driver record for this user
     driver = session.exec(select(Driver).where(Driver.user_id == current_user.id)).first()
@@ -257,8 +257,8 @@ async def get_mobile_my_jobs(current_user: User = Depends(get_current_driver_use
     ).all()
     return my_jobs
 
-@router.post("/api/drivers/mobile/accept", response_model=Order, dependencies=[Depends(get_current_driver_user)])
-async def mobile_accept_order(request_data: OrderActionRequest, current_user: User = Depends(get_current_driver_user), session: Session = Depends(get_session)):
+@router.post("/api/drivers/mobile/accept", response_model=Order, dependencies=[Depends(get_current_hybrid_driver_user)])
+async def mobile_accept_order(request_data: OrderActionRequest, current_user: User = Depends(get_current_hybrid_driver_user), session: Session = Depends(get_session)):
     """Mobile endpoint to accept an order for pickup."""
     # Get the Driver record for this user
     driver = session.exec(select(Driver).where(Driver.user_id == current_user.id)).first()
@@ -287,8 +287,8 @@ async def mobile_accept_order(request_data: OrderActionRequest, current_user: Us
         session.rollback()
         raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
 
-@router.post("/api/drivers/mobile/accept_delivery", response_model=Order, dependencies=[Depends(get_current_driver_user)])
-async def mobile_accept_delivery_job(request_data: OrderActionRequest, current_user: User = Depends(get_current_driver_user), session: Session = Depends(get_session)):
+@router.post("/api/drivers/mobile/accept_delivery", response_model=Order, dependencies=[Depends(get_current_hybrid_driver_user)])
+async def mobile_accept_delivery_job(request_data: OrderActionRequest, current_user: User = Depends(get_current_hybrid_driver_user), session: Session = Depends(get_session)):
     """Mobile endpoint to accept a delivery job."""
     # Get the Driver record for this user
     driver = session.exec(select(Driver).where(Driver.user_id == current_user.id)).first()
@@ -315,13 +315,13 @@ async def mobile_accept_delivery_job(request_data: OrderActionRequest, current_u
 
     return order
 
-@router.post("/api/drivers/mobile/picked_up", response_model=Order, dependencies=[Depends(get_current_driver_user)])
+@router.post("/api/drivers/mobile/picked_up", response_model=Order, dependencies=[Depends(get_current_hybrid_driver_user)])
 async def mobile_picked_up_order(
     order_id: int = Form(...),
     pin: str = Form(...),
     load_count: int = Form(...),
     proof_photo: Optional[UploadFile] = File(None),
-    current_user: User = Depends(get_current_driver_user),
+    current_user: User = Depends(get_current_hybrid_driver_user),
     session: Session = Depends(get_session)
 ):
     """Mobile endpoint for order pickup confirmation."""
@@ -342,8 +342,8 @@ async def mobile_picked_up_order(
     updated_order = apply_transition(session, order, "PickedUp", user_id=current_user.id, meta=meta)
     return updated_order
 
-@router.post("/api/drivers/mobile/delivered_to_hub", response_model=Order, dependencies=[Depends(get_current_driver_user)])
-async def mobile_delivered_to_hub_order(order_id: int = Form(...), hub_qr_code: str = Form(...), proof_photo: Optional[UploadFile] = File(None), current_user: User = Depends(get_current_driver_user), session: Session = Depends(get_session)):
+@router.post("/api/drivers/mobile/delivered_to_hub", response_model=Order, dependencies=[Depends(get_current_hybrid_driver_user)])
+async def mobile_delivered_to_hub_order(order_id: int = Form(...), hub_qr_code: str = Form(...), proof_photo: Optional[UploadFile] = File(None), current_user: User = Depends(get_current_hybrid_driver_user), session: Session = Depends(get_session)):
     """Mobile endpoint for delivering order to hub."""
     order = session.get(Order, order_id)
     if not order: raise HTTPException(status_code=404, detail="Order not found")
@@ -359,8 +359,8 @@ async def mobile_delivered_to_hub_order(order_id: int = Form(...), hub_qr_code: 
     updated_order = apply_transition(session, order, "DeliveredToHub", user_id=current_user.id, meta=meta)
     return updated_order
 
-@router.post("/api/drivers/mobile/pickup_from_hub", response_model=Order, dependencies=[Depends(get_current_driver_user)])
-async def mobile_pickup_from_hub(order_id: int = Form(...), hub_qr_code: str = Form(...), current_user: User = Depends(get_current_driver_user), session: Session = Depends(get_session)):
+@router.post("/api/drivers/mobile/pickup_from_hub", response_model=Order, dependencies=[Depends(get_current_hybrid_driver_user)])
+async def mobile_pickup_from_hub(order_id: int = Form(...), hub_qr_code: str = Form(...), current_user: User = Depends(get_current_hybrid_driver_user), session: Session = Depends(get_session)):
     """Mobile endpoint for picking up order from hub for delivery."""
     order = session.get(Order, order_id)
     if not order: raise HTTPException(status_code=404, detail="Order not found")
@@ -374,13 +374,13 @@ async def mobile_pickup_from_hub(order_id: int = Form(...), hub_qr_code: str = F
     updated_order = apply_transition(session, order, "OnRouteToCustomer", user_id=current_user.id, meta=meta)
     return updated_order
 
-@router.post("/api/drivers/mobile/delivered", response_model=Order, dependencies=[Depends(get_current_driver_user)])
+@router.post("/api/drivers/mobile/delivered", response_model=Order, dependencies=[Depends(get_current_hybrid_driver_user)])
 async def mobile_delivered_order(
     background_tasks: BackgroundTasks,
     order_id: int = Form(...),
     pin: str = Form(...),
     proof_photo: Optional[UploadFile] = File(None),
-    current_user: User = Depends(get_current_driver_user),
+    current_user: User = Depends(get_current_hybrid_driver_user),
     session: Session = Depends(get_session)
 ):
     """Mobile endpoint for final delivery completion."""
