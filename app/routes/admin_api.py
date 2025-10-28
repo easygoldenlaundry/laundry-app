@@ -119,7 +119,7 @@ def get_active_chat_orders(session: Session = Depends(get_session)):
 async def get_active_orders(
     hub_id: int = 1,
     session: Session = Depends(get_session),
-    admin_user: User = Depends(get_current_api_admin_user)
+    admin_user: User = Depends(get_current_hybrid_admin_user)
 ):
     """
     Returns a list of all orders that are not in a final state
@@ -146,7 +146,7 @@ async def get_active_orders(
 @router.get("/unread-count")
 def get_total_unread_message_count(
     session: Session = Depends(get_session),
-    admin_user: User = Depends(get_current_api_admin_user)
+    admin_user: User = Depends(get_current_hybrid_admin_user)
 ):
     """Gets the total count of unread messages from customers across all orders."""
     unread_count = session.exec(
@@ -163,7 +163,7 @@ class UberStatusUpdateRequest(BaseModel):
 def update_uber_order_status(
     request: UberStatusUpdateRequest,
     background_tasks: BackgroundTasks,
-    admin_user: User = Depends(get_current_api_admin_user),
+    admin_user: User = Depends(get_current_hybrid_admin_user),
     session: Session = Depends(get_session)
 ):
     """Allows an admin to manually update the status of an Uber order for both pickup and delivery."""
