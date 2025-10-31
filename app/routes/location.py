@@ -2,6 +2,7 @@
 import logging
 import math
 from datetime import datetime, timezone
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, select
@@ -25,8 +26,6 @@ HUB_COORDINATES = (-26.1952, 28.0341)
 class MobileLocationUpdateRequest(BaseModel):
     lat: float
     lon: float
-    mapbox_eta_minutes: Optional[int] = None  # Mapbox ETA in minutes (primary)
-    mapbox_distance_km: Optional[float] = None  # Mapbox route distance in km
     order_id: Optional[int] = None  # Optional for when driver has active job 
 
 @router.post("/location", status_code=204)
