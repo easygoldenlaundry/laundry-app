@@ -128,7 +128,9 @@ POST /api/driver/mobile/location
 Authorization: Bearer <token>
 {
     "lat": -26.2041,
-    "lon": 28.0473
+    "lon": 28.0473,
+    "mapbox_eta_minutes": 15,    // Optional: Mapbox ETA in minutes
+    "mapbox_distance_km": 8.5    // Optional: Mapbox route distance in km
 }
 
 # 3. Get ETA for customer order
