@@ -143,8 +143,8 @@ class ImageCompletionRequest(BaseModel):
 
 class DeliveryRequest(BaseModel):
     delivery_address: str
-    delivery_latitude: float
-    delivery_longitude: float
+    delivery_latitude: Optional[float] = None
+    delivery_longitude: Optional[float] = None
     phone: str
     delivery_cost: Optional[float] = None
     distance_km: Optional[float] = None
