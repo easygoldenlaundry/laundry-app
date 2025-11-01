@@ -640,7 +640,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             } catch (error) {
                 deliveryFeedback.style.color = 'red';
-                deliveryFeedback.textContent = `Error: ${error.message}`;
+                let errorMessage = 'Failed to schedule delivery. Please try again.';
+
+                if (error.message && error.message.includes('fetch')) {
+                    errorMessage = 'Network error. Please check your connection and try again.';
+                } else if (error.message) {
+                    errorMessage = `Error: ${error.message}`;
+                }
+
+                deliveryFeedback.textContent = errorMessage;
                 submitDeliveryBtn.disabled = false;
                 submitDeliveryBtn.textContent = 'Schedule Delivery';
             }
