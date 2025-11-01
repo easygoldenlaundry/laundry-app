@@ -418,6 +418,34 @@
     </div>
 </div>
 
+<!-- Delivery Modal -->
+<div id="delivery-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn">&times;</span>
+        <h2>Schedule Delivery for Order #{{ order.id }}</h2>
+        <form id="delivery-form">
+            <div class="form-group">
+                <label for="delivery_address">Delivery Address:</label>
+                <textarea name="delivery_address" id="delivery_address" required style="width:100%; min-height: 60px;" placeholder="Enter your full delivery address"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="delivery_phone">Phone Number:</label>
+                <input type="tel" name="delivery_phone" id="delivery_phone" required style="width:100%; padding: 0.5em;" placeholder="Enter your phone number for delivery">
+            </div>
+            <div class="form-group" style="display: none;">
+                <label for="delivery_lat">Latitude:</label>
+                <input type="number" step="any" name="delivery_lat" id="delivery_lat">
+            </div>
+            <div class="form-group" style="display: none;">
+                <label for="delivery_lon">Longitude:</label>
+                <input type="number" step="any" name="delivery_lon" id="delivery_lon">
+            </div>
+            <button type="submit" id="submit-delivery-btn" style="width: 100%; padding: 0.8em; font-size: 1.1em;">Schedule Delivery</button>
+        </form>
+        <div id="delivery-feedback" style="margin-top: 1em; text-align: center;"></div>
+    </div>
+</div>
+
 <!-- Claim Modal -->
 <div id="claim-modal" class="modal">
     <div class="modal-content">
@@ -561,41 +589,92 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     setTimeout(centerActiveTimelineStep, 100);
 
-    // --- Delivery Request Logic ---
+    // --- Delivery Modal Logic ---
+    const deliveryModal = document.getElementById('delivery-modal');
     const deliveryBtn = document.getElementById('request-delivery-btn');
+    const deliveryForm = document.getElementById('delivery-form');
+    const deliveryFeedback = document.getElementById('delivery-feedback');
+    const submitDeliveryBtn = document.getElementById('submit-delivery-btn');
+
     if (deliveryBtn) {
-        deliveryBtn.addEventListener('click', async () => {
-            deliveryBtn.disabled = true;
-            deliveryBtn.textContent = 'Scheduling...';
+        deliveryBtn.addEventListener('click', () => {
+            deliveryModal.style.display = 'block';
+        });
+    }
+
+    if (deliveryForm) {
+        deliveryForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            deliveryFeedback.textContent = 'Scheduling delivery...';
+            deliveryFeedback.style.color = 'black';
+            submitDeliveryBtn.disabled = true;
+            submitDeliveryBtn.textContent = 'Scheduling...';
+
+            const formData = new FormData(deliveryForm);
+            const deliveryData = {
+                delivery_address: formData.get('delivery_address'),
+                delivery_latitude: parseFloat(formData.get('delivery_lat')) || null,
+                delivery_longitude: parseFloat(formData.get('delivery_lon')) || null,
+                phone: formData.get('delivery_phone')
+            };
+
             try {
-                const response = await fetch(`/api/orders/${orderId}/request-delivery`, { method: 'POST' });
-                if (!response.ok) throw new Error('Could not schedule delivery.');
+                const response = await fetch(`/api/orders/${orderId}/request-delivery`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(deliveryData)
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.detail || 'Could not schedule delivery.');
+                }
+
+                deliveryFeedback.style.color = 'green';
+                deliveryFeedback.textContent = 'Delivery scheduled successfully!';
+                setTimeout(() => {
+                    deliveryModal.style.display = 'none';
+                    location.reload(); // Reload to show updated status
+                }, 2000);
+
             } catch (error) {
-                alert(`Error: ${error.message}`);
-                deliveryBtn.disabled = false;
-                deliveryBtn.textContent = 'Schedule My Delivery Now';
+                deliveryFeedback.style.color = 'red';
+                deliveryFeedback.textContent = `Error: ${error.message}`;
+                submitDeliveryBtn.disabled = false;
+                submitDeliveryBtn.textContent = 'Schedule Delivery';
             }
         });
     }
 
     // --- Modal Logic ---
-    const modal = document.getElementById('claim-modal');
-    const openBtn = document.getElementById('report-issue-btn');
-    const closeBtn = modal.querySelector('.close-btn');
+    // Claim modal
+    const claimModal = document.getElementById('claim-modal');
+    const claimOpenBtn = document.getElementById('report-issue-btn');
+    const claimCloseBtn = claimModal.querySelector('.close-btn');
     const claimForm = document.getElementById('claim-form');
-    const feedbackDiv = document.getElementById('claim-feedback');
-    
-    openBtn.onclick = () => { modal.style.display = 'block'; };
-    closeBtn.onclick = () => { modal.style.display = 'none'; };
+    const claimFeedbackDiv = document.getElementById('claim-feedback');
+
+    claimOpenBtn.onclick = () => { claimModal.style.display = 'block'; };
+    claimCloseBtn.onclick = () => { claimModal.style.display = 'none'; };
+
+    // Delivery modal close button
+    const deliveryCloseBtn = deliveryModal.querySelector('.close-btn');
+    deliveryCloseBtn.onclick = () => { deliveryModal.style.display = 'none'; };
+
+    // Close modals when clicking outside
     window.onclick = (event) => {
-        if (event.target == modal) {
-            modal.style.display = 'none';
+        if (event.target == claimModal) {
+            claimModal.style.display = 'none';
+        }
+        if (event.target == deliveryModal) {
+            deliveryModal.style.display = 'none';
         }
     };
 
     claimForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        feedbackDiv.textContent = 'Submitting...';
+        claimFeedbackDiv.textContent = 'Submitting...';
         const formData = new FormData(claimForm);
         
         try {
@@ -610,13 +689,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (result.amount) successMessage += ` A credit of R${result.amount} has been applied.`;
             if (result.status === 'awaiting_rewash') successMessage += ' Your order has been sent for re-processing.';
 
-            feedbackDiv.style.color = 'green';
-            feedbackDiv.textContent = successMessage;
-            
+            claimFeedbackDiv.style.color = 'green';
+            claimFeedbackDiv.textContent = successMessage;
+
             setTimeout(() => window.location.reload(), 3000);
         } catch (error) {
-            feedbackDiv.style.color = 'red';
-            feedbackDiv.textContent = `Error: ${error.message}`;
+            claimFeedbackDiv.style.color = 'red';
+            claimFeedbackDiv.textContent = `Error: ${error.message}`;
         }
     });
 
