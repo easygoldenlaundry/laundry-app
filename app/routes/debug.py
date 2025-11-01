@@ -11,9 +11,13 @@ router = APIRouter(prefix="/debug", tags=["Debug"])
 async def test_notification():
     """Test notification system."""
     try:
+        logging.info("Debug endpoint: Testing notification system")
+
         # Check configuration
         email_configured = notification_service._can_send_email()
         telegram_configured = notification_service._can_send_telegram()
+
+        logging.info(f"Debug endpoint: Email configured: {email_configured}, Telegram configured: {telegram_configured}")
 
         # Test data
         test_order = {
@@ -28,19 +32,25 @@ async def test_notification():
         }
 
         # Send test notifications
+        logging.info("Debug endpoint: Sending test notifications")
         email_task = asyncio.create_task(notification_service.send_booking_notification(test_order))
         telegram_task = asyncio.create_task(notification_service.send_ready_for_delivery_notification(test_order))
 
-        await asyncio.gather(email_task, telegram_task, return_exceptions=True)
+        results = await asyncio.gather(email_task, telegram_task, return_exceptions=True)
+
+        success_count = sum(1 for r in results if not isinstance(r, Exception))
+        logging.info(f"Debug endpoint: Test notifications completed, {success_count}/2 successful")
 
         return {
             "status": "Test notifications sent",
             "email_configured": email_configured,
             "telegram_configured": telegram_configured,
+            "results": [str(r) if isinstance(r, Exception) else "success" for r in results],
             "message": "Check your email and Telegram for test messages"
         }
 
     except Exception as e:
+        logging.error(f"Debug endpoint error: {e}")
         return {
             "status": "Error",
             "error": str(e),

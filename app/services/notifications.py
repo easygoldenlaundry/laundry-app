@@ -29,6 +29,8 @@ class NotificationService:
 
     async def send_booking_notification(self, order_data: dict):
         """Send notification when a new order is booked."""
+        logger.info(f"Sending booking notification for order {order_data.get('id')}")
+
         subject = f"New Order Booked - {order_data.get('external_id', 'Unknown')}"
         message = f"""
 New order has been booked!
@@ -50,6 +52,8 @@ Status: Created (waiting for driver pickup)
 
     async def send_ready_for_delivery_notification(self, order_data: dict):
         """Send notification when an order is ready for delivery."""
+        logger.info(f"Sending ready for delivery notification for order {order_data.get('id')}")
+
         subject = f"Order Ready for Delivery - {order_data.get('external_id', 'Unknown')}"
         message = f"""
 Order is now ready for delivery!
@@ -71,22 +75,35 @@ Status: Ready for Delivery (customer can now request delivery)
 
     async def _send_notifications(self, subject: str, message: str):
         """Send both email and Telegram notifications."""
+        logger.info(f"Sending notifications - Email configured: {self._can_send_email()}, Telegram configured: {self._can_send_telegram()}")
+
         tasks = []
 
         # Send email notification
         if self._can_send_email():
+            logger.info("Adding email notification task")
             tasks.append(self._send_email(subject, message))
+        else:
+            logger.warning("Email not configured - skipping email notification")
 
         # Send Telegram notification
         if self._can_send_telegram():
+            logger.info("Adding Telegram notification task")
             tasks.append(self._send_telegram(message))
+        else:
+            logger.warning("Telegram not configured - skipping Telegram notification")
 
         # Execute all notifications concurrently
         if tasks:
             try:
-                await asyncio.gather(*tasks, return_exceptions=True)
+                logger.info(f"Executing {len(tasks)} notification tasks")
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                success_count = sum(1 for r in results if not isinstance(r, Exception))
+                logger.info(f"Notification tasks completed: {success_count}/{len(tasks)} successful")
             except Exception as e:
                 logger.error(f"Failed to send notifications: {e}")
+        else:
+            logger.warning("No notification methods configured - skipping all notifications")
 
     def _can_send_email(self) -> bool:
         """Check if email configuration is complete."""

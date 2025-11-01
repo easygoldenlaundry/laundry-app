@@ -101,6 +101,7 @@ async def create_booking_api(
 
     # Send booking notification
     order_dict = new_order.dict()
+    logging.info(f"Adding booking notification background task for mobile order {new_order.id}")
     background_tasks.add_task(notification_service.send_booking_notification, order_dict)
 
     background_tasks.add_task(broadcast_order_update, new_order)
@@ -194,6 +195,7 @@ async def create_order_from_booking_web(
 
     # Send booking notification
     order_dict = new_order.dict()
+    logging.info(f"Adding booking notification background task for web order {new_order.id}")
     background_tasks.add_task(notification_service.send_booking_notification, order_dict)
 
     background_tasks.add_task(broadcast_order_update, new_order)

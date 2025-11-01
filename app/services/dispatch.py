@@ -32,4 +32,5 @@ def dispatch_delivery_for_order(session: Session, order: Order, user_id: int):
 
     # Send ready for delivery notification
     order_dict = updated_order.dict()
+    logging.info(f"Sending ready for delivery notification for order {updated_order.id}")
     asyncio.create_task(notification_service.send_ready_for_delivery_notification(order_dict))
