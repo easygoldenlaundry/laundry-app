@@ -293,9 +293,12 @@ def request_delivery(order_id: int, delivery_request: Optional[DeliveryRequest] 
         raise HTTPException(status_code=400, detail="Order is not ready for delivery request.")
 
     # Get customer information
+    if not order.customer_id:
+        raise HTTPException(status_code=400, detail=f"Order {order_id} has no associated customer")
+
     customer = session.get(Customer, order.customer_id)
     if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
+        raise HTTPException(status_code=404, detail=f"Customer with ID {order.customer_id} not found for order {order_id}")
 
     # Use provided delivery data or fall back to customer's existing data
     if delivery_request:
