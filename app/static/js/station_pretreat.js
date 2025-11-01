@@ -76,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fetchAndRenderStainedImages = async (orderId) => {
         try {
-            const response = await fetch(`/api/orders/${orderId}/stained-images`);
+            const response = await fetch(`/api/orders/${orderId}/stained-images`, { credentials: 'include' });
             if (!response.ok) throw new Error('Failed to fetch images.');
             const images = await response.json();
             
@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Core Logic ---
     const fetchQueue = async () => {
         try {
-            const response = await fetch(`/api/queues/${HUB_ID}/${STATION_TYPE.toLowerCase()}`);
+            const response = await fetch(`/api/queues/${HUB_ID}/${STATION_TYPE.toLowerCase()}`, { credentials: 'include' });
             if (!response.ok) throw new Error("Failed to fetch queue.");
             
             const baskets = await response.json();
@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Update server in background
         try {
-            await fetch(`/api/baskets/${activeBasketId}/start_soaking`, {
+            await fetch(`/api/baskets/${activeBasketId}/start_soaking`, { credentials: 'include',
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id: USER_ID })
@@ -205,7 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
         completeBtn.textContent = 'Sending...';
 
         try {
-            const response = await fetch(`/api/baskets/${activeBasketId}/finish_cycle?station_type=${STATION_TYPE}`, {
+            const response = await fetch(`/api/baskets/${activeBasketId}/finish_cycle?station_type=${STATION_TYPE}`, { credentials: 'include',
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id: USER_ID })

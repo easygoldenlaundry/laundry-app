@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fetchAndSyncQueue = async () => {
         try {
-            const response = await fetch(`/api/queues/${HUB_ID}/imaging`);
+            const response = await fetch(`/api/queues/${HUB_ID}/imaging`, { credentials: 'include' });
             if (!response.ok) throw new Error("Failed to fetch queue.");
             
             const orders = await response.json();
@@ -126,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             for (const order of orders) {
                 if (!orderStates.has(order.id)) {
-                    const bagResponse = await fetch(`/api/orders/${order.id}/bag`);
+                    const bagResponse = await fetch(`/api/orders/${order.id}/bag`, { credentials: 'include' });
                     const bagData = await bagResponse.json();
                     orderStates.set(order.id, {
                         orderData: order,
@@ -170,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('proof_photo', blob, `item_${itemIndex}.jpg`);
             
             try {
-                const response = await fetch(`/api/orders/${activeOrderId}/upload-image`, { method: 'POST', body: formData });
+                const response = await fetch(`/api/orders/${activeOrderId}/upload-image`, { method: 'POST', body: formData, credentials: 'include' });
                 if (!response.ok) {
                     const errorResult = await response.json();
                     throw new Error(errorResult.detail || 'Failed to upload image to server.');
@@ -201,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const basketCount = parseInt(basketCountInput.value, 10) || 1;
 
         try {
-            const response = await fetch(`/api/orders/${activeOrderId}/complete-imaging`, {
+            const response = await fetch(`/api/orders/${activeOrderId}/complete-imaging`, { credentials: 'include',
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 

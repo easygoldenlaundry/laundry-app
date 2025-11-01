@@ -109,7 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fetchAndRenderMachineStatus = async () => {
         try {
-            const response = await fetch(`/api/stations/${STATION_TYPE}/machines`);
+            const response = await fetch(`/api/stations/${STATION_TYPE}/machines`, { credentials: 'include' });
             if (!response.ok) throw new Error('Failed to fetch machine status.');
             const machines = await response.json();
             
@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fetchQueue = async () => {
         try {
             await fetchAndRenderMachineStatus();
-            const response = await fetch(`/api/queues/${HUB_ID}/${STATION_TYPE}`);
+            const response = await fetch(`/api/queues/${HUB_ID}/${STATION_TYPE}`, { credentials: 'include' });
             if (!response.ok) throw new Error("Failed to fetch queue.");
 
             const basketsInQueue = await response.json();
@@ -166,7 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // If there are running baskets, show them at the top for monitoring
             if (runningBasketIds.size > 0) {
                 for (const runningId of runningBasketIds) {
-                    const basketRes = await fetch(`/api/baskets/${runningId}`);
+                    const basketRes = await fetch(`/api/baskets/${runningId}`, { credentials: 'include' });
                     if (basketRes.ok) {
                         const runningBasketData = await basketRes.json();
                         allBasketsToDisplay.unshift(runningBasketData);
@@ -211,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
         startBtn.disabled = true;
 
         try {
-            const response = await fetch(`/api/baskets/${activeBasketId}/start_cycle?station_type=${STATION_TYPE}`, {
+            const response = await fetch(`/api/baskets/${activeBasketId}/start_cycle?station_type=${STATION_TYPE}`, { credentials: 'include',
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id: USER_ID })
@@ -233,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!activeBasketId) return;
         finishBtn.disabled = true;
         try {
-            await fetch(`/api/baskets/${activeBasketId}/finish_cycle?station_type=${STATION_TYPE}`, {
+            await fetch(`/api/baskets/${activeBasketId}/finish_cycle?station_type=${STATION_TYPE}`, { credentials: 'include',
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id: USER_ID })

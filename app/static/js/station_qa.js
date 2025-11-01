@@ -76,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const fetchAndRenderStainedImages = async (orderId) => {
         try {
-            const response = await fetch(`/api/orders/${orderId}/stained-images`);
+            const response = await fetch(`/api/orders/${orderId}/stained-images`, { credentials: 'include' });
             if (!response.ok) throw new Error('Failed to fetch images.');
             const images = await response.json();
             
@@ -113,8 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const fetchQueue = async () => {
         try {
             const [readyRes, summaryRes] = await Promise.all([
-                fetch(`/api/queues/qa/ready?hub_id=${HUB_ID}`),
-                fetch(`/api/queues/qa/summary?hub_id=${HUB_ID}`)
+                fetch(`/api/queues/qa/ready?hub_id=${HUB_ID}`, { credentials: 'include' }),
+                fetch(`/api/queues/qa/summary?hub_id=${HUB_ID}`, { credentials: 'include' })
             ]);
             if (!readyRes.ok || !summaryRes.ok) throw new Error("Failed to fetch QA queues.");
             
@@ -154,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
         passBtn.disabled = true;
         failBtn.disabled = true;
         try {
-            await fetch(`/api/orders/${activeOrderId}/qa`, {
+            await fetch(`/api/orders/${activeOrderId}/qa`, { credentials: 'include',
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id: USER_ID, passed: passed, notes: notes })
@@ -172,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const imageId = selectElement.closest('.stained-item-card').dataset.imageId;
         const newStatus = selectElement.value;
         try {
-            await fetch(`/api/orders/images/${imageId}/qa-update`, {
+            await fetch(`/api/orders/images/${imageId}/qa-update`, { credentials: 'include',
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ qa_status: newStatus })

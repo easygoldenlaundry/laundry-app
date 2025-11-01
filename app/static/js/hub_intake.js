@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fetchIntakeOrders = async () => {
         try {
             // This endpoint now returns the dispatch_method
-            const response = await fetch(`/api/queues/${HUB_ID}/deliveredtohub`);
+            const response = await fetch(`/api/queues/${HUB_ID}/deliveredtohub`, { credentials: 'include' });
             if (!response.ok) {
                 throw new Error('Failed to fetch orders for intake.');
             }
@@ -105,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const response = await fetch('/api/bags/scan', {
+            const response = await fetch('/api/bags/scan', { credentials: 'include',
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload) // Send the new payload
