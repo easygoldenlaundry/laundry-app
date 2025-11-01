@@ -8,12 +8,12 @@ from datetime import datetime
 
 from app.db import get_session
 from app.models import Order, Basket, Bag
-from app.auth import get_current_staff_user
+from app.auth import get_current_hybrid_staff_user
 
 router = APIRouter(
     prefix="/api/queues",
     tags=["Queues"],
-    dependencies=[Depends(get_current_staff_user)]
+    dependencies=[Depends(get_current_hybrid_staff_user)]
 )
 
 # --- Pydantic models for clear API responses ---

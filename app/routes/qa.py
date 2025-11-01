@@ -8,12 +8,12 @@ from app.db import get_session
 from app.models import Order, Basket
 from app.services.state_machine import apply_transition
 from app.services.dispatch import dispatch_delivery_for_order
-from app.auth import get_current_staff_user
+from app.auth import get_current_hybrid_staff_user
 
 router = APIRouter(
     prefix="/api/orders",
     tags=["QA"],
-    dependencies=[Depends(get_current_staff_user)]
+    dependencies=[Depends(get_current_hybrid_staff_user)]
 )
 
 class QARequest(BaseModel):

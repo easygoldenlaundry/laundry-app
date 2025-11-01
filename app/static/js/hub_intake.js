@@ -1,11 +1,8 @@
 // app/static/js/hub_intake.js
 document.addEventListener('DOMContentLoaded', () => {
     const ordersList = document.getElementById('orders-list');
-    const videoContainer = document.getElementById('video-container');
-    const videoElement = document.getElementById('scanner-video');
     const HUB_ID = 1;
-    const USER_ID = 1; 
-    let codeReader;
+    const USER_ID = 1;
 
     const fetchIntakeOrders = async () => {
         try {
@@ -129,23 +126,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const initScanner = async () => {
-        codeReader = new ZXing.BrowserMultiFormatReader();
-        try {
-            const videoInputDevices = await codeReader.listVideoInputDevices();
-            if (videoInputDevices.length > 0) {
-                videoContainer.style.display = 'block';
-                codeReader.decodeFromVideoDevice(videoInputDevices[0].deviceId, 'scanner-video', (result, err) => {
-                    if (result) {
-                        const firstInput = ordersList.querySelector('input[name="bag_code"]');
-                        if (firstInput) { firstInput.value = result.text; firstInput.focus(); }
-                    }
-                    if (err && !(err instanceof ZXing.NotFoundException)) { console.error(err); }
-                });
-            } else { console.warn('No video input devices found.'); }
-        } catch (error) { console.error('Error initializing scanner:', error); }
-    };
-
     ordersList.addEventListener('submit', handleFormSubmit);
-    initScanner();
 });
