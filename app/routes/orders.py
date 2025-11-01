@@ -294,11 +294,37 @@ def request_delivery(order_id: int, delivery_request: Optional[DeliveryRequest] 
 
     # Get customer information
     if not order.customer_id:
-        raise HTTPException(status_code=400, detail=f"Order {order_id} has no associated customer")
+        # Try to find customer by phone number or create one from order data
+        if order.customer_phone:
+            customer = session.exec(
+                select(Customer).where(Customer.phone_number == order.customer_phone)
+            ).first()
 
-    customer = session.get(Customer, order.customer_id)
-    if not customer:
-        raise HTTPException(status_code=404, detail=f"Customer with ID {order.customer_id} not found for order {order_id}")
+            if customer:
+                # Found existing customer, update order
+                order.customer_id = customer.id
+                session.add(order)
+            else:
+                # Create new customer from order data
+                customer = Customer(
+                    user_id=1,  # Default admin user, this should be fixed properly
+                    full_name=order.customer_name or "Unknown Customer",
+                    phone_number=order.customer_phone,
+                    address=order.customer_address or "",
+                    latitude=None,
+                    longitude=None
+                )
+                session.add(customer)
+                session.commit()  # Need to commit to get the ID
+                session.refresh(customer)
+                order.customer_id = customer.id
+                session.add(order)
+        else:
+            raise HTTPException(status_code=400, detail=f"Order {order_id} has no customer information and cannot be processed")
+    else:
+        customer = session.get(Customer, order.customer_id)
+        if not customer:
+            raise HTTPException(status_code=404, detail=f"Customer with ID {order.customer_id} not found for order {order_id}")
 
     # Use provided delivery data or fall back to customer's existing data
     if delivery_request:
