@@ -281,7 +281,7 @@ def complete_imaging_stage(order_id: int, request: ImageCompletionRequest, sessi
     return updated_order
 
 @router.post("/{order_id}/request-delivery", response_model=Order)
-def request_delivery(order_id: int, delivery_request: Union[DeliveryRequest, None] = None, session: Session = Depends(get_session)):
+def request_delivery(order_id: int, delivery_request: Optional[DeliveryRequest] = Body(default=None), session: Session = Depends(get_session)):
     """
     Customer-triggered action to set delivery details and move an order to 'OutForDelivery'.
     If no delivery_request is provided, uses customer's existing delivery information.
