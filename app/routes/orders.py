@@ -323,14 +323,21 @@ def request_delivery(order_id: int, delivery_request: Optional[DeliveryRequest] 
         customer.phone_number = phone
         session.add(customer)
     else:
-        # Use customer's existing delivery information
-        if not customer.latitude or not customer.longitude or not customer.address or not customer.phone_number:
-            raise HTTPException(status_code=400, detail="Customer delivery information is incomplete. Please provide delivery details.")
-
-        delivery_address = customer.address
-        delivery_latitude = customer.latitude
-        delivery_longitude = customer.longitude
-        phone = customer.phone_number
+        # Use order's delivery information first, then fall back to customer's profile
+        if hasattr(order, 'delivery_lat') and order.delivery_lat and hasattr(order, 'delivery_lon') and order.delivery_lon and order.customer_address and order.customer_phone:
+            # Use delivery info already stored on the order
+            delivery_address = order.customer_address
+            delivery_latitude = order.delivery_lat
+            delivery_longitude = order.delivery_lon
+            phone = order.customer_phone
+        elif customer.latitude and customer.longitude and customer.address and customer.phone_number:
+            # Fall back to customer's profile
+            delivery_address = customer.address
+            delivery_latitude = customer.latitude
+            delivery_longitude = customer.longitude
+            phone = customer.phone_number
+        else:
+            raise HTTPException(status_code=400, detail="Delivery information is incomplete. Please ensure the order or customer profile contains delivery address, coordinates, and phone number.")
 
     # Update delivery location on order
     order.delivery_lat = delivery_latitude
