@@ -281,9 +281,10 @@ def complete_imaging_stage(order_id: int, request: ImageCompletionRequest, sessi
     return updated_order
 
 @router.post("/{order_id}/request-delivery", response_model=Order)
-def request_delivery(order_id: int, delivery_request: DeliveryRequest, session: Session = Depends(get_session)):
+def request_delivery(order_id: int, delivery_request: Optional[DeliveryRequest] = None, session: Session = Depends(get_session)):
     """
     Customer-triggered action to set delivery details and move an order to 'OutForDelivery'.
+    If no delivery_request is provided, uses customer's existing delivery information.
     """
     order = session.get(Order, order_id)
     if not order:
@@ -291,30 +292,49 @@ def request_delivery(order_id: int, delivery_request: DeliveryRequest, session: 
     if order.status != "ReadyForDelivery":
         raise HTTPException(status_code=400, detail="Order is not ready for delivery request.")
 
-    # Update order with delivery cost and distance (if fields exist in schema)
-    try:
-        if delivery_request.delivery_cost is not None and hasattr(order, 'delivery_cost'):
-            order.delivery_cost = delivery_request.delivery_cost
-        if delivery_request.distance_km is not None and hasattr(order, 'delivery_distance_km'):
-            order.delivery_distance_km = delivery_request.distance_km
-    except Exception:
-        pass  # Gracefully handle if new fields don't exist yet
-    
-    # Update delivery location
-    order.delivery_lat = delivery_request.delivery_latitude
-    order.delivery_lon = delivery_request.delivery_longitude
-    order.customer_address = delivery_request.delivery_address
-    order.customer_phone = delivery_request.phone
-    session.add(order)
-
-    # Update customer profile with new delivery details
+    # Get customer information
     customer = session.get(Customer, order.customer_id)
-    if customer:
-        customer.address = delivery_request.delivery_address
-        customer.latitude = delivery_request.delivery_latitude
-        customer.longitude = delivery_request.delivery_longitude
-        customer.phone_number = delivery_request.phone
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    # Use provided delivery data or fall back to customer's existing data
+    if delivery_request:
+        delivery_address = delivery_request.delivery_address
+        delivery_latitude = delivery_request.delivery_latitude
+        delivery_longitude = delivery_request.delivery_longitude
+        phone = delivery_request.phone
+
+        # Update order with delivery cost and distance (if fields exist in schema)
+        try:
+            if delivery_request.delivery_cost is not None and hasattr(order, 'delivery_cost'):
+                order.delivery_cost = delivery_request.delivery_cost
+            if delivery_request.distance_km is not None and hasattr(order, 'delivery_distance_km'):
+                order.delivery_distance_km = delivery_request.distance_km
+        except Exception:
+            pass  # Gracefully handle if new fields don't exist yet
+
+        # Update customer profile with new delivery details
+        customer.address = delivery_address
+        customer.latitude = delivery_latitude
+        customer.longitude = delivery_longitude
+        customer.phone_number = phone
         session.add(customer)
+    else:
+        # Use customer's existing delivery information
+        if not customer.latitude or not customer.longitude or not customer.address or not customer.phone_number:
+            raise HTTPException(status_code=400, detail="Customer delivery information is incomplete. Please provide delivery details.")
+
+        delivery_address = customer.address
+        delivery_latitude = customer.latitude
+        delivery_longitude = customer.longitude
+        phone = customer.phone_number
+
+    # Update delivery location on order
+    order.delivery_lat = delivery_latitude
+    order.delivery_lon = delivery_longitude
+    order.customer_address = delivery_address
+    order.customer_phone = phone
+    session.add(order)
 
     updated_order = apply_transition(session, order, "OutForDelivery", meta={"customer_triggered": True})
     return updated_order

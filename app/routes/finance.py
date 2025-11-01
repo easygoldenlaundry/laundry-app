@@ -8,14 +8,14 @@ from pydantic import BaseModel
 from datetime import datetime
 
 from app.db import get_session
-from app.auth import get_current_admin_user
+from app.auth import get_current_api_admin_user
 from app.models import FinanceEntry, Withdrawal, InventoryItem
 from app.services import finance_calculator, inventory_manager
 
 router = APIRouter(
     prefix="/api/admin",
     tags=["Finance API"],
-    dependencies=[Depends(get_current_admin_user)]
+    dependencies=[Depends(get_current_api_admin_user)]
 )
 html_router = APIRouter(
     prefix="/admin",
