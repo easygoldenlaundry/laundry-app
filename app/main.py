@@ -16,7 +16,7 @@ from app.tasks import delete_old_messages_periodically, reset_monthly_trackers
 from app.routes import (
     health, auth_pages, orders, queues, admin, driver, bags,
     stations, admin_api, qa, book, track, claims, users, stations_pages,
-    admin_dashboard, finance, location, payments  # <<< NEW: Import payments
+    admin_dashboard, finance, location, payments, debug  # <<< NEW: Import debug
 )
 
 
@@ -108,9 +108,9 @@ fastapi_app.include_router(track.router)
 fastapi_app.include_router(claims.router)
 fastapi_app.include_router(driver.router)
 fastapi_app.include_router(location.router) # <<< NEW: Include location router
-fastapi_app.include_router(stations_pages.router) 
+fastapi_app.include_router(stations_pages.router)
 fastapi_app.include_router(admin.router)
-fastapi_app.include_router(admin_dashboard.router) 
+fastapi_app.include_router(admin_dashboard.router)
 fastapi_app.include_router(finance.html_router)
 fastapi_app.include_router(finance.router)
 fastapi_app.include_router(orders.router)
@@ -120,6 +120,7 @@ fastapi_app.include_router(stations.router)
 fastapi_app.include_router(admin_api.router)
 fastapi_app.include_router(qa.router)
 fastapi_app.include_router(payments.router)  # <<< NEW: Include payments router
+fastapi_app.include_router(debug.router)  # <<< NEW: Include debug router
 
 
 # 4. Add database connection monitoring middleware
