@@ -3,6 +3,8 @@ from datetime import datetime, timedelta, timezone
 from sqlmodel import Session, select
 from app.models import Order, Driver, User
 from app.services.state_machine import apply_transition
+from app.services.notifications import notification_service
+import asyncio
 
 def dispatch_delivery_for_order(session: Session, order: Order, user_id: int):
     """
@@ -26,4 +28,8 @@ def dispatch_delivery_for_order(session: Session, order: Order, user_id: int):
     print(f"Order {order.id} passed QA. Clearing driver and moving to ReadyForDelivery queue.")
 
     # Transition the order to the ReadyForDelivery state.
-    apply_transition(session, order, "ReadyForDelivery", user_id=user_id, meta=meta)
+    updated_order = apply_transition(session, order, "ReadyForDelivery", user_id=user_id, meta=meta)
+
+    # Send ready for delivery notification
+    order_dict = updated_order.dict()
+    asyncio.create_task(notification_service.send_ready_for_delivery_notification(order_dict))

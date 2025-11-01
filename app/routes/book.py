@@ -18,6 +18,7 @@ from app.sockets import broadcast_order_update
 from app.auth import get_current_user, get_current_api_user
 from app.security import signer
 from app.services import capacity_planner
+from app.services.notifications import notification_service
 
 # Router for HTML-serving web pages
 router = APIRouter()
@@ -97,7 +98,11 @@ async def create_booking_api(
     session.add_all([bag, event])
     session.commit()
     session.refresh(new_order)
-    
+
+    # Send booking notification
+    order_dict = new_order.dict()
+    background_tasks.add_task(notification_service.send_booking_notification, order_dict)
+
     background_tasks.add_task(broadcast_order_update, new_order)
 
     # Safely serialize order - handle new fields that might not exist in DB yet
@@ -186,6 +191,11 @@ async def create_order_from_booking_web(
     event = Event(order_id=new_order.id, to_status="Created", meta=f"Created via web booking.")
     session.add_all([bag, event])
     session.commit(); session.refresh(new_order)
+
+    # Send booking notification
+    order_dict = new_order.dict()
+    background_tasks.add_task(notification_service.send_booking_notification, order_dict)
+
     background_tasks.add_task(broadcast_order_update, new_order)
 
     return RedirectResponse(url=f"/track/{new_order.tracking_token}?new=true", status_code=303)
