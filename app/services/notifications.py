@@ -13,6 +13,10 @@ logger = logging.getLogger(__name__)
 
 class NotificationService:
     def __init__(self):
+        self._load_config()
+
+    def _load_config(self):
+        """Load configuration from environment variables."""
         # Email configuration
         self.smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
         self.smtp_port = int(os.getenv("SMTP_PORT", "587"))
@@ -23,9 +27,18 @@ class NotificationService:
         # Telegram configuration
         self.telegram_bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
         self.telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID")
+        # Ensure chat_id is string (Telegram API accepts both string and int)
+        if self.telegram_chat_id and not isinstance(self.telegram_chat_id, str):
+            self.telegram_chat_id = str(self.telegram_chat_id)
 
         # Initialize Telegram bot
         self.telegram_bot = Bot(token=self.telegram_bot_token) if self.telegram_bot_token else None
+
+        logger.info(f"NotificationService configured - Email: {self._can_send_email()}, Telegram: {self._can_send_telegram()}")
+
+    def reload_config(self):
+        """Reload configuration from environment variables (useful after dotenv loading)."""
+        self._load_config()
 
     async def send_booking_notification(self, order_data: dict):
         """Send notification when a new order is booked."""
@@ -152,11 +165,24 @@ Status: Ready for Delivery (customer can now request delivery)
     async def _send_telegram(self, message: str):
         """Send Telegram notification."""
         try:
-            await self.telegram_bot.send_message(
-                chat_id=self.telegram_chat_id,
-                text=message,
-                parse_mode='Markdown'
-            )
+            # Try sending with Markdown first, fallback to plain text if it fails
+            try:
+                await self.telegram_bot.send_message(
+                    chat_id=self.telegram_chat_id,
+                    text=message,
+                    parse_mode='Markdown'
+                )
+            except TelegramError as e:
+                if 'BadRequest' in str(e) and ('parse' in str(e).lower() or 'markdown' in str(e).lower()):
+                    # Fallback to plain text if Markdown parsing fails
+                    logger.warning(f"Markdown parsing failed, sending as plain text: {e}")
+                    await self.telegram_bot.send_message(
+                        chat_id=self.telegram_chat_id,
+                        text=message,
+                        parse_mode=None
+                    )
+                else:
+                    raise
             logger.info(f"Telegram notification sent successfully to chat {self.telegram_chat_id}")
 
         except TelegramError as e:

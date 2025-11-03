@@ -62,6 +62,9 @@ async def on_startup():
     async def start_background_tasks():
         try:
             from app.db import monitor_connection_pool
+            from app.services.notifications import notification_service
+            # Reload notification config after environment is loaded
+            notification_service.reload_config()
             asyncio.create_task(check_slas_periodically())
             asyncio.create_task(delete_old_messages_periodically())
             asyncio.create_task(reset_monthly_trackers())

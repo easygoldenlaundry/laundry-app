@@ -12,9 +12,15 @@ async def test_notifications():
 
     print("Testing notification system...")
 
-    # Check configuration
+    # Check configuration and debug
     print(f"Email configured: {notification_service._can_send_email()}")
     print(f"Telegram configured: {notification_service._can_send_telegram()}")
+    print(f"SMTP username: {notification_service.smtp_username}")
+    print(f"SMTP password: {'***' if notification_service.smtp_password else None}")
+    print(f"Notification email: {notification_service.notification_email}")
+    print(f"Telegram bot token: {notification_service.telegram_bot_token[:15] + '***' if notification_service.telegram_bot_token else None}")
+    print(f"Telegram chat ID: {notification_service.telegram_chat_id}")
+    print(f"Telegram bot initialized: {notification_service.telegram_bot is not None}")
 
     # Sample order data
     sample_order = {
@@ -49,5 +55,20 @@ if __name__ == "__main__":
     # Load environment variables
     from dotenv import load_dotenv
     load_dotenv()
+
+    # Note: Using environment variables from .env file
+    # If you need to override for testing, uncomment the lines below:
+    # import os
+    # os.environ["SMTP_SERVER"] = "smtp.gmail.com"
+    # os.environ["SMTP_PORT"] = "587"
+    # os.environ["SMTP_USERNAME"] = "Siya.jan.k@gmail.com"
+    # os.environ["SMTP_PASSWORD"] = "qtxtlsgolhulxghb"
+    # os.environ["NOTIFICATION_EMAIL"] = "test@example.com"
+    # os.environ["TELEGRAM_BOT_TOKEN"] = "8290597117:AAHtCN1QiVEsdmYVliAgd-KXgOlNLhwV"
+    # os.environ["TELEGRAM_CHAT_ID"] = "1139264248"
+
+    # Reload notification service config after loading env vars
+    from app.services.notifications import notification_service
+    notification_service.reload_config()
 
     asyncio.run(test_notifications())
