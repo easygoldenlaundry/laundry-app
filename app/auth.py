@@ -199,7 +199,22 @@ def get_current_hybrid_driver_user(
         except JWTError:
             pass  # Fall through to cookie auth
 
-    # Fall back to cookie-based auth (for web app)
+    # Fall back to cookie-based auth (for web app API routes).
+    # API paths skip the request.state middleware, so we must inspect cookies directly here.
+    token_with_bearer = request.cookies.get("access_token")
+    if token_with_bearer and token_with_bearer.startswith("Bearer "):
+        token = token_with_bearer.split(" ")[1]
+        try:
+            payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
+            username: str = payload.get("sub")
+            if username:
+                user = session.exec(select(User).where(User.username == username)).first()
+                if user and user.is_active and user.role == "driver":
+                    return user
+        except JWTError:
+            pass
+
+    # Fall back to request.state for non-API web routes where middleware has populated it.
     user = getattr(request.state, "user", None)
     if user and user.is_active and user.role == "driver":
         return user
